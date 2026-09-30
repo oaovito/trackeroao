@@ -628,8 +628,43 @@ function ultima() {
   return lerJson(ARQUIVO);
 }
 
+/*
+ * O caminho completo do executável de um jogo instalado, para o menu da
+ * bandeja tirar dele o ícone oficial do jogo (o mesmo que o Windows mostra).
+ * Vale para qualquer loja, e para jogo fora de loja: basta a pasta. Procura o
+ * processo que a varredura anotou; sem ele, o maior .exe da pasta. Lembrado
+ * por pasta, para não varrer o disco a cada vez que o menu abre.
+ */
+const exeLembrado = new Map();
+function executavelDoJogo(jogo) {
+  if (!jogo) return null;
+  const achados = ((ultima() || {}).jogos) || [];
+  const b = achados.find((a) => a.chave === jogo.chave) ||
+    achados.find((a) => a.appId && jogo.appId && String(a.appId) === String(jogo.appId));
+  const pasta = b && b.pasta;
+  if (!pasta) return null;
+  const nomes = ((b.processos || []).concat(jogo.processos || [])).map((n) => String(n).toLowerCase());
+  const chave = pasta + '|' + nomes.join(',');
+  if (exeLembrado.has(chave)) return exeLembrado.get(chave);
+  let achado = null;
+  const andar = (dir, prof) => {
+    if (achado || prof > 3) return;
+    let itens = [];
+    try { itens = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return; }
+    for (const it of itens) if (!it.isDirectory() && nomes.includes(it.name.toLowerCase())) { achado = path.join(dir, it.name); return; }
+    for (const it of itens) if (it.isDirectory()) andar(path.join(dir, it.name), prof + 1);
+  };
+  if (nomes.length) andar(pasta, 0);
+  if (!achado) {
+    const maior = executaveis(pasta)[0];
+    if (maior) { nomes.push(maior.toLowerCase()); andar(pasta, 0); }
+  }
+  exeLembrado.set(chave, achado);
+  return achado;
+}
+
 module.exports = {
-  varrer, ultima, vigiarInstalacoes, normalizar, chaveDe, lerVdf, steamInstalados, steamConta, steamRecentes, executaveis,
+  varrer, ultima, executavelDoJogo, vigiarInstalacoes, normalizar, chaveDe, lerVdf, steamInstalados, steamConta, steamRecentes, executaveis,
   catalogoGeral, populares, ARQUIVO, NAO_JOGO,
 };
 

@@ -1155,8 +1155,9 @@ static class Bandeja {
     System.Collections.Generic.List<ToolStripItem> itensDeJogo = new System.Collections.Generic.List<ToolStripItem>();
     string[] jogos = new string[0];
     object trava = new object();
-    // O logotipo oficial de cada jogo, de fundo transparente, pedido ao
-    // servico uma vez por jogo; sem logotipo, fica o selo com a inicial.
+    // O icone oficial de cada jogo (o do executavel dele), de fundo
+    // transparente; sem executavel achado, o logotipo pedido ao servico; sem
+    // nenhum dos dois, o selo com a inicial.
     System.Collections.Generic.Dictionary<string, Bitmap> logos = new System.Collections.Generic.Dictionary<string, Bitmap>();
     Action lerJogos = delegate {
       ThreadPool.QueueUserWorkItem(delegate {
@@ -1165,11 +1166,16 @@ static class Bandeja {
           string[] lidos = txt.Split(new char[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
           lock (trava) jogos = lidos;
           foreach (string linha in lidos) {
-            string chave = linha.Split('\t')[0];
+            string[] partes = linha.Split('\t');
+            string chave = partes[0];
             lock (trava) { if (logos.ContainsKey(chave)) continue; }
+            // Primeiro o icone do executavel do jogo; sem ele, o logotipo.
             Bitmap logo = null;
-            try { logo = Tema.Logo(PegarBytes(base_ + "logo-bandeja?chave=" + Uri.EscapeDataString(chave))); } catch { logo = null; }
-            lock (trava) logos[chave] = logo;
+            try { logo = partes.Length > 3 ? Tema.Icone(partes[3].Trim()) : null; } catch { logo = null; }
+            if (logo == null) {
+              try { logo = Tema.Logo(PegarBytes(base_ + "logo-bandeja?chave=" + Uri.EscapeDataString(chave))); } catch { logo = null; }
+            }
+            if (logo != null) lock (trava) logos[chave] = logo;
           }
         } catch { }
       });
@@ -1428,6 +1434,36 @@ class Tema : ToolStripProfessionalRenderer {
 
   // O logotipo de um jogo: o PNG transparente, sem a margem vazia em volta,
   // encaixado sem deformar numa faixa de 44 x 22. Null se nao for imagem.
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+  static extern uint PrivateExtractIcons(string arquivo, int indice, int cx, int cy, IntPtr[] icones, uint[] ids, uint quantos, uint flags);
+  [DllImport("user32.dll")] static extern bool DestroyIcon(IntPtr icone);
+
+  /*
+   * O icone oficial de um jogo: o do proprio executavel, o mesmo que o
+   * Windows mostra na area de trabalho, com o fundo transparente. Tirado em
+   * 64 px e reduzido, para ficar nitido em qualquer escala da tela.
+   */
+  public static Bitmap Icone(string exe) {
+    if (string.IsNullOrEmpty(exe) || !File.Exists(exe)) return null;
+    IntPtr[] h = new IntPtr[1];
+    uint[] ids = new uint[1];
+    if (PrivateExtractIcons(exe, 0, 64, 64, h, ids, 1, 0) == 0 || h[0] == IntPtr.Zero) return null;
+    try {
+      using (Icon ic = Icon.FromHandle(h[0]))
+      using (Bitmap orig = ic.ToBitmap()) {
+        Bitmap bmp = new Bitmap(22, 22, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using (Graphics g = Graphics.FromImage(bmp)) {
+          g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+          g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+          g.SmoothingMode = SmoothingMode.AntiAlias;
+          g.DrawImage(orig, new Rectangle(0, 0, 22, 22));
+        }
+        return bmp;
+      }
+    } catch { return null; }
+    finally { DestroyIcon(h[0]); }
+  }
+
   public static Bitmap Logo(byte[] png) {
     if (png == null || png.Length < 8) return null;
     using (MemoryStream m = new MemoryStream(png))

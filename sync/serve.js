@@ -197,7 +197,7 @@ function createServer(options) {
     /*
      * Os jogos do topo do menu da bandeja: os instalados ou vigiados, do
      * jogado por ultimo ao mais antigo, cinco no maximo. Uma linha por jogo,
-     * "chave<TAB>nome<TAB>1 se tem pagina de progresso", para o icone ler sem
+     * "chave<TAB>nome<TAB>1 se tem pagina de progresso<TAB>executavel", para o icone ler sem
      * precisar de biblioteca de JSON. So da propria maquina.
      */
     if (urlPath === '/bandeja.txt') {
@@ -210,7 +210,12 @@ function createServer(options) {
         .filter((g) => g.instalado || g.vigiado)
         .sort((a, b) => ordem(a) - ordem(b) || String(a.nome).localeCompare(String(b.nome)))
         .slice(0, 5)
-        .map((g) => [g.chave, g.nome, g.leitura === 'completa' ? '1' : '0'].map((v) => String(v).replace(/[\t\r\n]/g, ' ')).join('\t'));
+        .map((g) => {
+          // A quarta coluna é o executável do jogo, de onde a bandeja tira o ícone oficial.
+          let exe = '';
+          try { exe = require('./biblioteca').executavelDoJogo(g) || ''; } catch (e) { exe = ''; }
+          return [g.chave, g.nome, g.leitura === 'completa' ? '1' : '0', exe].map((v) => String(v).replace(/[\t\r\n]/g, ' ')).join('\t');
+        });
       res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
       res.end(linhas.join('\n'));
       return;
