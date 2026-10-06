@@ -24,6 +24,11 @@ on:
 permissions:
   contents: write
 
+# Duas publicacoes seguidas rodam uma depois da outra, sem cancelar.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   # Refaz sync/catalogo-jogos.json.gz e o inclui no commit da release.
   # Sem versao pendente, nao faz nada.

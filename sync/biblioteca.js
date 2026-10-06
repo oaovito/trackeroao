@@ -166,6 +166,8 @@ function pedir(url) {
       let corpo = '';
       res.setEncoding('utf8');
       res.on('data', (c) => { corpo += c; });
+      res.on('error', reject);
+      res.on('close', () => { if (!res.complete) reject(new Error('conexão interrompida')); });
       res.on('end', () => { try { resolve(JSON.parse(corpo)); } catch (e) { reject(e); } });
     });
     req.on('timeout', () => req.destroy(new Error('tempo esgotado')));
@@ -517,6 +519,23 @@ async function varrer(opts) {
   return resultado;
 }
 
+// Letras dos discos fixos (sem removíveis nem de rede); null fora do Windows.
+let fixosLidos = { em: 0, letras: null };
+function discosFixos() {
+  if (process.platform !== 'win32') return null;
+  if (Date.now() - fixosLidos.em < 10 * 60 * 1000) return fixosLidos.letras;
+  let letras = null;
+  try {
+    const out = require('child_process').execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+      "[IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | ForEach-Object { $_.Name.Substring(0,1) }"],
+    { encoding: 'utf8', windowsHide: true, timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'] });
+    letras = new Set(out.split(/\s+/).filter(Boolean).map((l) => l.toUpperCase()));
+    if (!letras.size) letras = null;
+  } catch (e) { letras = null; }
+  fixosLidos = { em: Date.now(), letras };
+  return letras;
+}
+
 /**
  * Vigia (sem recursão) as pastas onde jogos novos aparecem: steamapps de cada
  * biblioteca, manifestos da Epic, pastas de jogos e raiz de cada disco.
@@ -534,6 +553,14 @@ function vigiarInstalacoes(aoMudar, opts) {
     pastas.push({ dir: path.join(process.env.ProgramData || 'C:\\ProgramData', 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests'), filtro: /\.item$/i });
   }
   for (const r of (o.raizes || raizesDoDisco())) if (r.tipo !== 'programa') pastas.push({ dir: r.pasta, filtro: null });
+  // Vigiar um pendrive ou cartão impede o Windows de ejetá-lo: só discos fixos.
+  const fixos = o.raizes ? null : discosFixos();
+  if (fixos) {
+    for (let i = pastas.length - 1; i >= 0; i--) {
+      const letra = (/^([a-z]):/i.exec(pastas[i].dir) || [])[1];
+      if (letra && !fixos.has(letra.toUpperCase())) pastas.splice(i, 1);
+    }
+  }
 
   const vigias = [];
   let espera = null;
@@ -561,8 +588,13 @@ function vigiarInstalacoes(aoMudar, opts) {
 }
 
 /** A última varredura gravada, ou null. */
+// Última varredura, relida só quando o arquivo muda.
+let ultimaLida = { marca: '', dados: null };
 function ultima() {
-  return lerJson(ARQUIVO);
+  let marca = '';
+  try { const st = fs.statSync(ARQUIVO); marca = st.size + '|' + st.mtimeMs; } catch (e) { return null; }
+  if (marca !== ultimaLida.marca) ultimaLida = { marca, dados: lerJson(ARQUIVO) };
+  return ultimaLida.dados;
 }
 
 /*
@@ -587,7 +619,9 @@ function executavelDoJogo(jogo) {
   if (!pasta || !fs.existsSync(pasta)) return null;
   const nomes = ((b.processos || []).concat(jogo.processos || [])).map((n) => String(n).toLowerCase());
   const chave = pasta + '|' + nomes.join(',');
-  if (exeLembrado.has(chave)) return exeLembrado.get(chave);
+  const lembrado = exeLembrado.get(chave);
+  // Achado vale até a pasta mudar; não achado, por um minuto.
+  if (lembrado && (lembrado.exe ? fs.existsSync(lembrado.exe) : Date.now() - lembrado.em < 60000)) return lembrado.exe;
   let achado = null;
   const andar = (dir, prof) => {
     if (achado || prof > 3) return;
@@ -601,7 +635,8 @@ function executavelDoJogo(jogo) {
     const maior = executaveis(pasta)[0];
     if (maior) { nomes.push(maior.toLowerCase()); andar(pasta, 0); }
   }
-  exeLembrado.set(chave, achado);
+  if (exeLembrado.size > 64) exeLembrado.clear();
+  exeLembrado.set(chave, { exe: achado, em: Date.now() });
   return achado;
 }
 

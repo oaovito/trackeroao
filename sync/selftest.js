@@ -976,10 +976,14 @@ check('a escolha so pode ser gravada de quem esta nesta maquina', () => {
   const src = fs.readFileSync(path.join(__dirname, 'serve.js'), 'utf8');
   const bloco = /if \(urlPath === '\/selecao'\)[\s\S]*?\n    \}/.exec(src);
   assert(bloco, 'nao achei a rota de selecao');
-  assert(/remoteAddress/.test(bloco[0]) && /403/.test(bloco[0]),
+  const guarda = /function daPropriaMaquina\(req\) \{[\s\S]*?\n\}/.exec(src);
+  assert(guarda && /remoteAddress/.test(guarda[0]) && /headers\.host/.test(guarda[0]) && /origin/.test(guarda[0]),
+    'a checagem de origem local nao olha o endereco, o Host e a Origin');
+  const local = (b) => /remoteAddress|daPropriaMaquina\(req\)/.test(b);
+  assert(local(bloco[0]) && /403/.test(bloco[0]),
     'a rota de selecao aceita de qualquer origem');
   const abrir = /if \(urlPath === '\/abrir'\)[\s\S]*?\n    \}/.exec(src);
-  assert(abrir && /remoteAddress/.test(abrir[0]),
+  assert(abrir && local(abrir[0]),
     'a rota que acende a bandeja aceita de qualquer origem');
   return 'as duas rotas que mudam algo sao so de localhost';
 });
@@ -1103,7 +1107,7 @@ check('a atualização roda entre voltas do ciclo, e nunca com o jogo aberto', (
     'a proxima volta nao espera a atualizacao terminar');
   assert(!/setInterval\(pollOnce/.test(main), 'um setInterval rodaria voltas por cima da atualizacao');
   const passo = /async function passoDeAtualizacao\(\) \{[\s\S]*?\n\}/.exec(main);
-  assert(passo && /if \(gameWasRunning/.test(passo[0]), 'a atualizacao nao espera o jogo fechar');
+  assert(passo && /if \(\(?gameWasRunning/.test(passo[0]), 'a atualizacao nao espera o jogo fechar');
   // Silenciosa: nada de janela, navegador ou aviso.
   const mod = fs.readFileSync(path.join(__dirname, 'atualizar.js'), 'utf8');
   assert(!/start\s+http|msg\s|MessageBox|Popup|shell\.Run/i.test(mod + passo[0]), 'a atualizacao mostra algo na tela');
@@ -1385,10 +1389,10 @@ check('o botão Jogar abre pela Steam ou pelo executável', () => {
   const spawn = (cmd, args) => { chamadas.push([cmd].concat(args).join(' ')); return { unref() {} }; };
   const daSteam = abrirJogo({ chave: 'sekiro', appId: '814380', fontes: ['steam'] },
     { plataforma: 'win32', spawn, steam: 'C:\\Steam', exe: 'C:\\Jogos\\Sekiro\\sekiro.exe' });
-  assert(daSteam && daSteam.como === 'steam' && /steam:\/\/rungameid\/814380$/.test(chamadas[0]), 'Steam: ' + chamadas[0]);
+  assert(daSteam && daSteam.como === 'steam' && /^cmd\.exe .*start "" "steam:\/\/rungameid\/814380""$/.test(chamadas[0]), 'Steam: ' + chamadas[0]);
   const semSteam = abrirJogo({ chave: 'sekiro', appId: '814380', fontes: ['steam'] },
     { plataforma: 'win32', spawn, steam: null, exe: 'C:\\Jogos\\Sekiro\\sekiro.exe' });
-  assert(semSteam && semSteam.como === 'executavel' && chamadas[1] === 'C:\\Jogos\\Sekiro\\sekiro.exe', 'sem Steam: ' + chamadas[1]);
+  assert(semSteam && semSteam.como === 'executavel' && chamadas[1].endsWith('start "" "C:\\Jogos\\Sekiro\\sekiro.exe""'), 'sem Steam: ' + chamadas[1]);
   assert(abrirJogo({ chave: 'x', fontes: ['disco'] }, { plataforma: 'win32', spawn, steam: 'C:\\Steam', exe: null }) === null, 'abriu sem ter o quê');
   assert(abrirJogo({ chave: 'x' }, { plataforma: 'linux', spawn, exe: '/bin/true' }) === null, 'abriu fora do Windows');
   return 'Steam quando o jogo é dela, executável sem ela';

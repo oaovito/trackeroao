@@ -359,16 +359,24 @@ static class Programa {
         if (p.MainModule.FileName.StartsWith(app, StringComparison.OrdinalIgnoreCase)) { p.Kill(); p.WaitForExit(5000); }
       } catch { }
     }
-    string novo = app + "-novo";
+    string novo = app + "-novo", velho = app + "-velho";
     try {
       if (Directory.Exists(novo)) Directory.Delete(novo, true);
+      try { if (Directory.Exists(velho)) Directory.Delete(velho, true); } catch { }
       if (!ExtrairJanela(novo)) return 4;
-      // Repete enquanto o Windows libera o .exe recem-fechado.
-      for (int i = 0; ; i++) {
-        try { if (Directory.Exists(app)) Directory.Delete(app, true); break; }
-        catch { if (i >= 10) throw; System.Threading.Thread.Sleep(500); }
+      // Renomear a pasta inteira troca tudo ou nada; repete enquanto o
+      // Windows libera o .exe recem-fechado.
+      bool tinha = Directory.Exists(app);
+      string guarda = Directory.Exists(velho) ? velho + "-" + DateTime.Now.Ticks : velho;
+      if (tinha) {
+        for (int i = 0; ; i++) {
+          try { Directory.Move(app, guarda); break; }
+          catch { if (i >= 10) throw; System.Threading.Thread.Sleep(500); }
+        }
       }
-      Directory.Move(novo, app);
+      try { Directory.Move(novo, app); }
+      catch { if (tinha && !Directory.Exists(app)) Directory.Move(guarda, app); throw; }
+      foreach (string resto in Directory.GetDirectories(destino, "app-velho*")) { try { Directory.Delete(resto, true); } catch { } }
       AcertarAtalhos(destino, app);
       // UseShellExecute: a janela nao herda a saida de quem chamou o instalador.
       if (estavaAberta) {

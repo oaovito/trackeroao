@@ -90,3 +90,4 @@ if ($perfis -contains 'Public') {
   Nota 'a rede desta maquina esta classificada como Public; por isso a regra cobre'
   Nota 'esse perfil tambem, e por isso ela se limita a quem esta no mesmo segmento'
 }
+exit 0

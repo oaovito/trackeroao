@@ -88,11 +88,14 @@ public final class Principal extends Activity {
     protected void onResume() {
         super.onResume();
         web.onResume();
+        web.resumeTimers();
     }
 
     @Override
     protected void onPause() {
+        // Fora da tela, a página não consulta o computador.
         web.onPause();
+        web.pauseTimers();
         super.onPause();
     }
 

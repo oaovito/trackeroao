@@ -6,6 +6,8 @@ Remove tambem a tarefa com o nome legado 'SekiroProgressSync'.
 #>
 
 $taskNames = @('TrackeroaoSync', 'SekiroProgressSync')
+# So o sincronizador desta copia, e nao outro main.js qualquer.
+$mainScript = Join-Path (Split-Path $PSScriptRoot -Parent) 'sync\main.js'
 
 foreach ($taskName in $taskNames) {
     $tarefa = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
@@ -17,7 +19,7 @@ foreach ($taskName in $taskNames) {
 
 $achou = $false
 Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" |
-    Where-Object { $_.CommandLine -and $_.CommandLine.Contains('main.js') } |
+    Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($mainScript, [StringComparison]::OrdinalIgnoreCase) -ge 0 } |
     ForEach-Object {
         Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
         Write-Host "Processo do sincronizador (PID $($_.ProcessId)) encerrado." -ForegroundColor Green

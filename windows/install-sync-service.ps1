@@ -74,7 +74,7 @@ $settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGo
 
 # Encerra a instancia anterior para liberar a porta 8777.
 Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" |
-    Where-Object { $_.CommandLine -and $_.CommandLine.Contains('main.js') } |
+    Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($mainScript, [StringComparison]::OrdinalIgnoreCase) -ge 0 } |
     ForEach-Object {
         Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
         Write-Host "Instancia anterior (PID $($_.ProcessId)) encerrada." -ForegroundColor DarkGray

@@ -77,6 +77,8 @@ function pedirTexto(url, saltos) {
       let corpo = '';
       res.setEncoding('utf8');
       res.on('data', (c) => { if (corpo.length < 2e6) corpo += c; });
+      res.on('error', reject);
+      res.on('close', () => { if (!res.complete) reject(new Error('conexão interrompida')); });
       res.on('end', () => resolve(corpo));
     });
     req.on('timeout', () => req.destroy(new Error('tempo esgotado')));
@@ -121,12 +123,13 @@ async function resolver(jogos, opts) {
     if (o.semRede) { j.arte = null; continue; }
 
     let arte = null;
+    let falhou = false;
     const site = j.arteFonte && j.arteFonte.site;
     if (site) {
       try {
         const img = imagemDaPagina(await pedir(site), site);
         if (img) arte = { heroi: [img], capa: [], logo: [], faixa: [img] };
-      } catch (e) { /* segue para a busca */ }
+      } catch (e) { falhou = true; }
     }
     if (!arte) {
       try {
@@ -134,10 +137,11 @@ async function resolver(jogos, opts) {
           encodeURIComponent(j.nome)));
         const achado = ((r && r.items) || []).find((it) => norm(it.name) === norm(j.nome));
         if (achado) arte = daSteam(achado.id);
-      } catch (e) { /* sem arte, sem problema */ }
+      } catch (e) { falhou = true; }
     }
     j.arte = arte;
-    cache[chave] = { em: agora, arte };
+    // Sem resposta da rede, a busca volta a ser tentada em uma hora.
+    cache[chave] = { em: arte || !falhou ? agora : agora - VALIDADE + 3600e3, arte };
     mudou = true;
   }
   if (mudou && !o.cache) gravarCache(cache);

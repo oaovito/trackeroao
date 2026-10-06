@@ -2299,10 +2299,6 @@
   html.quieto *, html.quieto *::before, html.quieto *::after { animation-play-state: paused !important; }
   /* A entrada das letras não pausa, senão a letra fica invisível no primeiro quadro. */
   html.quieto .titulo-vivo .l { animation: none !important; }
-  .hub-relogio {
-    font-family: var(--font-display); font-weight: 500; font-size: 1.5rem;
-    font-variant-numeric: tabular-nums; letter-spacing: 0.02em; color: var(--j-apagado);
-  }
   .hub-sub { margin: -10px 0 22px; font-size: 0.82rem; color: var(--j-apagado); }
 
   /* Globo do idioma: traço fino e cor apagada. A lista abre por cima da tela. */
@@ -2679,9 +2675,6 @@
 
   @media (max-width: 640px) {
     .hub-titulo { font-size: 1.75rem; }
-    .hub-relogio { font-size: 1.15rem; }
-    /* No celular o relógio do título é omitido. */
-    .hub-topo .hub-relogio { display: none; }
     .palco { min-height: 0; aspect-ratio: auto; flex-direction: column; align-items: stretch; }
     .palco-arte { position: relative; inset: auto; z-index: 0; aspect-ratio: 16 / 9; }
     .palco-arte::after { background: linear-gradient(0deg, rgba(11, 12, 16, 1) 0%, rgba(11, 12, 16, 0) 60%); }
@@ -2982,7 +2975,6 @@
           <button class="idioma-bt" id="idiomaBt" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="idiomaLista" title="Language" aria-label="Language" data-i18n-title="idioma.rotulo" data-i18n-aria="idioma.rotulo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg></button>
           <div class="idioma-lista" id="idiomaLista" role="menu" hidden></div>
         </div>
-        <div class="hub-relogio" id="hubRelogio" aria-hidden="true"></div>
       </div>
     </div>
     <div class="palco" id="hubPalco" hidden>
@@ -8213,20 +8205,6 @@ function fazerCapa(g, tipo) {
   return capa;
 }
 
-/* Relógio do canto. */
-function ligarRelogio() {
-  const el = document.getElementById("hubRelogio");
-  if (!el || el.dataset.ligado) return;
-  el.dataset.ligado = "1";
-  // setTimeout encadeado; o único setInterval da página é o da leitura.
-  const tic = () => {
-    const d = new Date();
-    el.textContent = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-    setTimeout(tic, (60 - d.getSeconds()) * 1000);
-  };
-  tic();
-}
-
 /* Fundo com a arte do jogo em foco, desfocada. */
 function ambienteCom(src) {
   const amb = document.getElementById("ambienteImg");
@@ -8347,7 +8325,6 @@ function renderHub() {
   const v = aplicarVista();
   const lista = listaDeJogos();
   if (!lista) return;
-  ligarRelogio();
   // Só redesenha quando algo mudou, para não recarregar artes nem perder a rolagem do trilho.
   // O idioma faz parte da assinatura.
   const assinatura = v + "|" + JSON.stringify(lista) + "|" + daMaquinaLocal() + "|" + idiomaAtual;
@@ -9373,7 +9350,7 @@ if (guardado(IDIOMA_CHAVE) === null && typeof fetch === "function") {
 // Na rede local o progress.json muda em segundos; no GitHub Pages só muda
 // quando o serviço publica e passa por CDN, então a consulta é mais espaçada.
 const NA_REDE_LOCAL =
-  location.protocol === "file:" ||
+  location.protocol === "file:" || location.protocol === "trackeroao:" ||
   /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname) ||
   /\.local$/.test(location.hostname);
 setInterval(pollProgress, NA_REDE_LOCAL ? 5000 : 60000);

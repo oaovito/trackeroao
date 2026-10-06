@@ -45,18 +45,28 @@ function abrirJogo(g, opts) {
   const plataforma = o.plataforma || process.platform;
   if (plataforma !== 'win32' || !g || !g.chave) return null;
   const { spawn } = o.spawn ? { spawn: o.spawn } : require('child_process');
+  /*
+   * Pelo "start" do cmd: o jogo não fica pendurado no serviço (nem entra na
+   * conta de consumo do Trackeroao) e o Windows pede elevação quando o jogo
+   * precisa.
+   */
+  const iniciar = (alvo, cwd) => {
+    const p = spawn('cmd.exe', ['/d', '/s', '/c', '"start "" "' + alvo + '""'],
+      { cwd, windowsHide: true, detached: true, stdio: 'ignore', windowsVerbatimArguments: true });
+    if (p.on) p.on('error', (e) => console.log('  [jogar] não abriu: ' + e.message));
+    p.unref();
+  };
   let steam = o.steam;
   if (steam === undefined) { try { steam = require('./instalacao').steamPath(); } catch (e) { steam = null; } }
   const daSteam = (g.fontes || []).some((f) => /^steam/.test(f));
   if (steam && daSteam && /^\d+$/.test(String(g.appId || ''))) {
-    spawn('cmd.exe', ['/d', '/c', 'start', '""', 'steam://rungameid/' + g.appId],
-      { windowsHide: true, detached: true, stdio: 'ignore' }).unref();
+    iniciar('steam://rungameid/' + g.appId, undefined);
     return { ok: true, como: 'steam' };
   }
   let exe = o.exe;
   if (exe === undefined) { try { exe = require('./biblioteca').executavelDoJogo(g); } catch (e) { exe = null; } }
-  if (!exe) return null;
-  spawn(exe, [], { cwd: path.dirname(exe), detached: true, stdio: 'ignore' }).unref();
+  if (!exe || /["%]/.test(exe)) return null;
+  iniciar(exe, path.dirname(exe));
   return { ok: true, como: 'executavel' };
 }
 
@@ -87,8 +97,31 @@ function isPrivate(ip) {
   return false;
 }
 
+/*
+ * Requisição feita nesta máquina, por ela mesma: endereço local, nome local no
+ * Host e, quando vem de uma página, origem local. Um site aberto no navegador
+ * também fala de 127.0.0.1, mas manda a própria origem e é recusado.
+ */
+function daPropriaMaquina(req) {
+  if (!/^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '')) return false;
+  const local = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])(:\d+)?$/i;
+  const host = String(req.headers.host || '');
+  if (host && !local.test(host)) return false;
+  const origem = req.headers.origin;
+  if (origem && origem !== 'null') {
+    try { if (!local.test(new URL(origem).host)) return false; } catch (e) { return false; }
+  } else if (origem === 'null') return false;
+  return true;
+}
+
+// Arquivos estáticos que a página usa. O resto da instalação (log, estado,
+// biblioteca, cópias do save) não é servido.
+const PUBLICO = /^\/(trackeroao\.html|progress\.json|sw\.js|manifest\.webmanifest|(icones|app|docs)\/[^\0]+)$/;
+
 function safeJoin(root, urlPath) {
-  const decoded = decodeURIComponent(urlPath.split('?')[0]);
+  let decoded;
+  try { decoded = decodeURIComponent(urlPath.split('?')[0]); } catch (e) { return null; }
+  if (decoded.includes('\0')) return null;
   const rel = decoded.replace(/^\/+/, '');
   const target = path.resolve(root, rel);
   const rootResolved = path.resolve(root);
@@ -124,7 +157,7 @@ function createServer(options) {
     // Chamado pelo atalho da área de trabalho: acende o ícone da bandeja.
     // Rotas de controle só aceitam requisições da própria máquina.
     if (urlPath === '/abrir') {
-      const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
+      const daMaquina = daPropriaMaquina(req);
       if (!daMaquina) { res.writeHead(403).end('forbidden'); return; }
       if (aoAbrir) { try { aoAbrir(); } catch (e) { /* abrir nao pode derrubar o servidor */ } }
       res.writeHead(204).end();
@@ -133,7 +166,7 @@ function createServer(options) {
 
     // Abre o jogo nesta máquina. Só atende a própria máquina.
     if (urlPath === '/abrir-jogo') {
-      const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
+      const daMaquina = daPropriaMaquina(req);
       if (!daMaquina || req.method !== 'POST') { res.writeHead(403).end('forbidden'); return; }
       const chave = new URL(req.url, 'http://x').searchParams.get('chave') || '';
       let r = null;
@@ -145,7 +178,7 @@ function createServer(options) {
 
     // Agenda uma nova varredura de jogos para a próxima volta do ciclo.
     if (urlPath === '/varrer') {
-      const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
+      const daMaquina = daPropriaMaquina(req);
       if (!daMaquina || req.method !== 'POST') { res.writeHead(403).end('forbidden'); return; }
       if (aoVarrer) { try { aoVarrer(); } catch (e) { /* não derruba o servidor */ } }
       res.writeHead(202).end();
@@ -163,7 +196,7 @@ function createServer(options) {
 
     // Ícone próprio do jogo (do executável ou da Steam), para o menu da bandeja.
     if (urlPath === '/logo-bandeja') {
-      const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
+      const daMaquina = daPropriaMaquina(req);
       if (!daMaquina) { res.writeHead(403).end('forbidden'); return; }
       const chave = new URL(req.url, 'http://x').searchParams.get('chave') || '';
       let r = null;
@@ -192,7 +225,7 @@ function createServer(options) {
      * "chave<TAB>nome<TAB>1 se tem pagina de progresso<TAB>executavel".
      */
     if (urlPath === '/bandeja.txt') {
-      const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
+      const daMaquina = daPropriaMaquina(req);
       if (!daMaquina) { res.writeHead(403).end('forbidden'); return; }
       let lista = [];
       try { lista = ((require('./jogos').paraProgresso() || {}).lista) || []; } catch (e) { lista = []; }
@@ -223,7 +256,7 @@ function createServer(options) {
 
     // Código QR com o endereço atual desta máquina na rede local.
     if (urlPath === '/qr.svg') {
-      const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
+      const daMaquina = daPropriaMaquina(req);
       if (!daMaquina) { res.writeHead(403).end('forbidden'); return; }
       const addrs = localAddresses();
       const host = addrs.length ? addrs[0].address : 'trackeroao.local';
@@ -254,7 +287,7 @@ function createServer(options) {
         res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ idioma: idioma.ler() }));
         return;
       }
-      const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
+      const daMaquina = daPropriaMaquina(req);
       if (!daMaquina || req.method !== 'POST') { res.writeHead(403).end('forbidden'); return; }
       let corpo = '';
       req.on('data', (c) => { corpo += c; if (corpo.length > 256) req.destroy(); });
@@ -271,7 +304,7 @@ function createServer(options) {
 
     // "Forçar atualização" do menu da bandeja: verifica a release na próxima volta.
     if (urlPath === '/atualizar') {
-      const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
+      const daMaquina = daPropriaMaquina(req);
       if (!daMaquina || req.method !== 'POST') { res.writeHead(403).end('forbidden'); return; }
       // {atual: true} se já está na última versão; {atual: false} se há
       // versão nova, aplicada na próxima volta.
@@ -286,7 +319,7 @@ function createServer(options) {
 
     // "Fechar" do menu da bandeja: encerra o serviço até a próxima abertura manual.
     if (urlPath === '/encerrar') {
-      const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
+      const daMaquina = daPropriaMaquina(req);
       if (!daMaquina || req.method !== 'POST') { res.writeHead(403).end('forbidden'); return; }
       res.writeHead(202).end();
       if (aoEncerrar) setTimeout(() => { try { aoEncerrar(); } catch (e) { /* sai de qualquer jeito */ } }, 200);
@@ -295,7 +328,7 @@ function createServer(options) {
 
     // Nome exibido no cabeçalho, definido na página (alternativa à Steam).
     if (urlPath === '/jogador') {
-      const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
+      const daMaquina = daPropriaMaquina(req);
       if (!daMaquina || req.method !== 'POST') { res.writeHead(403).end('forbidden'); return; }
       let corpo = '';
       req.on('data', (c) => { corpo += c; if (corpo.length > 1024) req.destroy(); });
@@ -314,7 +347,7 @@ function createServer(options) {
     // Seleção de jogos vigiados: única preferência gravada pela página, e só
     // aceita da própria máquina.
     if (urlPath === '/selecao') {
-      const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
+      const daMaquina = daPropriaMaquina(req);
       if (!daMaquina) {
         res.writeHead(403, { 'content-type': 'application/json' })
            .end('{"erro":"a escolha só pode ser feita no próprio computador"}');
@@ -357,6 +390,12 @@ function createServer(options) {
      */
     if (urlPath === '/android.apk') urlPath = '/app/trackeroao.apk';
 
+    let decodificado = null;
+    try { decodificado = decodeURIComponent(urlPath); } catch (e) { decodificado = null; }
+    if (decodificado === null || !PUBLICO.test(decodificado) || /[\\/]\./.test(decodificado)) {
+      res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('404');
+      return;
+    }
     let file = safeJoin(root, urlPath);
     if (!file) {
       res.writeHead(403).end('forbidden');
@@ -390,7 +429,9 @@ function createServer(options) {
       headers['cache-control'] = ext === '.json' ? 'no-store' : 'no-cache';
       if (ext === '.json') headers['x-trackeroao-pagina'] = versaoDaPagina();
       res.writeHead(200, headers);
-      fs.createReadStream(file).pipe(res);
+      const leitura = fs.createReadStream(file);
+      leitura.on('error', () => res.destroy());
+      leitura.pipe(res);
     });
   });
 }

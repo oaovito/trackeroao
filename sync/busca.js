@@ -73,7 +73,10 @@ function buscar(texto, limite) {
 
   const achados = [];
   const vistos = new Set();
+  // Jogo já conhecido (instalado ou vigiado) aparece uma vez só, com os dados dele.
+  const conhecidos = new Map();
   for (const g of lista) {
+    if (g.appId) conhecidos.set(String(g.appId), g);
     const n = nota(normalizar(g.nome), q, palavras);
     if (!n) continue;
     if (g.appId) vistos.add(String(g.appId));
@@ -85,6 +88,12 @@ function buscar(texto, limite) {
     let n = nota(norm, q, palavras);
     if (n && pop.has(id)) n += 15;
     if (!n) continue;
+    const ja = conhecidos.get(id);
+    if (ja) {
+      vistos.add(id);
+      achados.push({ n: n + 10, tam: String(ja.nome).length, jogo: Object.assign({}, ja, { conhecido: true }) });
+      continue;
+    }
     achados.push({ n, tam: nome.length, jogo: {
       chave: 'steam-' + id, nome, appId: id, instalado: false, naSteam: false,
       vigiado: false, leitura: 'nenhuma', conhecido: false,

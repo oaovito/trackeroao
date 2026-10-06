@@ -9,6 +9,7 @@
 /bosskills.json
 /efeitos.json
 sync/.state.json
+sync/.ausente.flag
 
 # --- gerados ---
 auditoria-publica.txt

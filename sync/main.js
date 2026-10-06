@@ -82,6 +82,9 @@ const ROOT = path.join(__dirname, '..');
 const OUT_FILE = path.join(ROOT, 'progress.json');
 
 // --------------------------------------------------------- process detection
+// Qualquer jogo instalado aberto, vigiado ou não (ver jogoAberto).
+let algumJogoAberto = false;
+
 /** Os nomes de imagem a procurar agora, relidos a cada volta do poll. */
 function alvos() {
   const lista = jogos.processos();
@@ -105,7 +108,11 @@ function jogoAberto() {
           if (err) return resolve(null);
           const saida = String(stdout).toLowerCase();
           // Compara com as aspas do CSV para casar só o nome exato.
-          resolve(nomes.find((n) => saida.includes('"' + n + '"')) || null);
+          const vigiado = nomes.find((n) => saida.includes('"' + n + '"')) || null;
+          let outros = [];
+          try { outros = jogos.processosInstalados(); } catch (e) { outros = []; }
+          algumJogoAberto = !!vigiado || outros.some((n) => saida.includes('"' + n + '"'));
+          resolve(vigiado);
         });
     });
   }
@@ -140,6 +147,8 @@ function isGameRunning() {
  * sem janela quando um jogo vigiado começa, para não tirar o foco do jogo.
  */
 let bandeja = null;
+let esperaDaBandeja = null;
+let esperasDaBandeja = 0;
 
 function abrirBandeja(motivo) {
   if (bandeja && !bandeja.killed) return;
@@ -149,11 +158,15 @@ function abrirBandeja(motivo) {
   const script = path.join(__dirname, 'bandeja.ps1');
   const comExe = fs.existsSync(exe);
   const instalado = !fs.existsSync(path.join(__dirname, '..', '.git'));
-  if (!comExe && instalado) {
+  if (!comExe && instalado && esperasDaBandeja < 24) {
     // A janela pode estar no meio de uma troca; o ícone volta com o executável.
-    setTimeout(() => abrirBandeja(motivo), 5000);
+    if (!esperaDaBandeja) {
+      esperasDaBandeja++;
+      esperaDaBandeja = setTimeout(() => { esperaDaBandeja = null; abrirBandeja(motivo); }, 5000);
+    }
     return;
   }
+  esperasDaBandeja = 0;
   if (!comExe && !fs.existsSync(script)) return;
   try {
     bandeja = comExe
@@ -235,9 +248,10 @@ function vigiarInstalacao(aoSumir) {
 
     // Só `false` conta; `null` significa estado desconhecido.
     if (e.instalado !== false || !e.checagemValida) {
-      if (ausenteVezes) console.log('  [jogo] voltou a aparecer; hibernação cancelada');
+      if (ausenteVezes) console.log('  [jogo] voltou a aparecer');
       ausenteDesde = null;
       ausenteVezes = 0;
+      if (guardadoNaAusencia) { guardadoNaAusencia = false; try { fs.rmSync(MARCA_AUSENCIA, { force: true }); } catch (err) { /* sem marca */ } }
       return;
     }
 
@@ -260,40 +274,33 @@ function vigiarInstalacao(aoSumir) {
   return { checar, timer: t };
 }
 
-/** Guarda tudo, tira a tarefa do login e encerra o processo. */
-function hibernarAgora(e) {
-  console.log('');
-  console.log('  O Sekiro não está mais instalado. Guardando tudo e saindo.');
+/*
+ * O Sekiro sumiu desta máquina: guarda uma cópia do progresso e do save, uma
+ * vez por ausência. O serviço continua de pé, porque acompanha os outros
+ * jogos; a tarefa do login não é removida.
+ */
+// Marca em disco: a cópia desta ausência já foi feita, mesmo depois de reiniciar.
+const MARCA_AUSENCIA = path.join(__dirname, '.ausente.flag');
+let guardadoNaAusencia = fs.existsSync(MARCA_AUSENCIA);
+function guardarAoSumir(e) {
+  if (guardadoNaAusencia) return;
   let saves = [];
   try {
     for (const s of sl2.listSavePaths()) {
       saves.push(s.file);
       if (fs.existsSync(s.file + '.bak')) saves.push(s.file + '.bak');
     }
-  } catch (err) { /* sem save: guarda o resto do mesmo jeito */ }
-
-  let r = null;
+  } catch (err) { /* sem save */ }
+  // Quem nunca jogou o Sekiro aqui não tem o que guardar.
+  if (!saves.length) return;
   try {
-    r = hibernar.arquivar({ saves, evidencias: e.evidencias });
-    console.log(`  [guardado] ${r.destino}`);
-    for (const g of r.manifesto.projeto) {
-      console.log(`     ${g.arquivo} — ${g.porque}`);
-    }
-    for (const g of r.manifesto.save) {
-      console.log(`     save/${g.arquivo} — ${(g.bytes / 1048576).toFixed(1)} MB`);
-    }
+    const r = hibernar.arquivar({ saves, evidencias: e.evidencias });
+    guardadoNaAusencia = true;
+    try { fs.writeFileSync(MARCA_AUSENCIA, new Date().toISOString()); } catch (err) { /* só a memória */ }
+    console.log(`  [jogo] o Sekiro não está instalado; cópia do progresso em ${r.destino}`);
   } catch (err) {
-    console.log(`  [guardado] FALHOU: ${err.message} — não vou remover a tarefa sem ter guardado`);
-    return;                           // sem cópia, nada é desligado
+    console.log(`  [jogo] a cópia do progresso falhou: ${err.message}`);
   }
-
-  const t = hibernar.removerTarefa();
-  console.log(t.ok ? '  [tarefa] removida do login' : `  [tarefa] ${t.erro}`);
-  console.log('');
-  console.log('  Para voltar, depois de reinstalar o jogo:');
-  console.log('      powershell -ExecutionPolicy Bypass -File windows\\reativar.ps1');
-  console.log('');
-  process.exit(0);
 }
 
 function syncNow(reason) {
@@ -334,9 +341,14 @@ function syncNow(reason) {
   const body = JSON.stringify(progress);
   const hash = crypto.createHash('md5').update(body.replace(/"generatedAt":"[^"]*"/, '')).digest('hex');
   if (hash === lastWrittenHash) return;
-  lastWrittenHash = hash;
 
-  parse.writeProgress(OUT_FILE, progress);
+  try {
+    parse.writeProgress(OUT_FILE, progress);
+  } catch (e) {
+    console.log('  [aviso] nao consegui gravar o progresso: ' + e.message);
+    return;
+  }
+  lastWrittenHash = hash;
   const stamp = new Date().toLocaleTimeString();
   if (progress.ok) {
     const e = progress.essentials;
@@ -493,7 +505,7 @@ function conferirLogo() { proximaAtualizacao = Math.min(proximaAtualizacao, Date
  * Não roda com jogo aberto (salvo se acionada pela bandeja); saída só no log.
  */
 async function passoDeAtualizacao() {
-  if (gameWasRunning && !atualizacaoForcada) return;
+  if ((gameWasRunning || algumJogoAberto) && !atualizacaoForcada) return;
   if (Date.now() < proximaAtualizacao) return;
   if (atualizacaoForcada) console.log('  [atualizacao] pedida pela bandeja');
   atualizacaoForcada = false;
@@ -523,14 +535,18 @@ function vigiarJogosNovos() {
   if (pararVigiasDeJogo) pararVigiasDeJogo();
   try {
     pararVigiasDeJogo = require('./biblioteca').vigiarInstalacoes(() => {
-      proximaVarredura = Math.min(proximaVarredura, Date.now());
+      // A Steam regrava os manifestos durante downloads: no máximo uma
+      // varredura a cada dois minutos por causa das vigias.
+      proximaVarredura = Math.min(proximaVarredura, Math.max(Date.now(), ultimaVarredura + 2 * 60 * 1000));
     });
   } catch (e) { pararVigiasDeJogo = null; }
 }
 
+let ultimaVarredura = 0;
 async function passoDeVarredura() {
-  if (gameWasRunning || Date.now() < proximaVarredura) return;
+  if (gameWasRunning || algumJogoAberto || Date.now() < proximaVarredura) return;
   proximaVarredura = Date.now() + VARRER_MS;
+  ultimaVarredura = Date.now();
   try {
     const r = await require('./biblioteca').varrer();
     console.log(`  [jogos] ${r.jogos.length} jogo(s) encontrados${r.comSteam ? '' : ', sem Steam'}`);
@@ -621,17 +637,19 @@ async function run() {
   // One read at startup so the page has data even with the game closed.
   syncNow('leitura inicial');
 
+  // As duas portas atendem as mesmas ações locais.
+  const acoes = {
+    aoAbrir: () => { abrirBandeja('atalho'); conferirLogo(); },
+    aoVarrer: () => pedirVarredura(),
+    aoAtualizar: () => pedirAtualizacao(),
+    aoEncerrar: () => encerrarDeVez(),
+  };
+
   try {
     // Após reinício, tenta de novo enquanto o processo anterior libera a porta.
     for (let tentativa = 1; ; tentativa++) {
       try {
-        await serve.start({
-          root: ROOT, port: PORT, indexFile: 'trackeroao.html', quiet: true,
-          aoAbrir: () => { abrirBandeja('atalho'); conferirLogo(); },
-          aoVarrer: () => pedirVarredura(),
-          aoAtualizar: () => pedirAtualizacao(),
-          aoEncerrar: () => encerrarDeVez(),
-        });
+        await serve.start(Object.assign({ root: ROOT, port: PORT, indexFile: 'trackeroao.html', quiet: true }, acoes));
         break;
       } catch (e) {
         if (!reinicio || e.code !== 'EADDRINUSE' || tentativa >= 20) throw e;
@@ -651,7 +669,7 @@ async function run() {
   }
 
   // Porta 80 opcional, para um endereço sem ":8777".
-  const extra = await serve.listenExtra({ root: ROOT, port: 80, indexFile: 'trackeroao.html' });
+  const extra = await serve.listenExtra(Object.assign({ root: ROOT, port: 80, indexFile: 'trackeroao.html' }, acoes));
   if (extra.ok) console.log('  [http] também na porta 80');
   else console.log(`  [http] porta 80 indisponível (${extra.error}); o endereço sai com :${PORT}`);
 
@@ -677,7 +695,7 @@ async function run() {
   abrirBandeja(bandejaAcesa ? 'depois da atualização' : 'início');
 
   vigiarRede(null, null, (novo) => nomeador.ipMudou(novo));
-  vigiarInstalacao(hibernarAgora);
+  vigiarInstalacao(guardarAoSumir);
   vigiarJogosNovos();
 
   // Logotipos baixados por versões antigas para a bandeja, que hoje usa o ícone do jogo.

@@ -67,6 +67,11 @@ final class Principal: UIViewController, WKNavigationDelegate {
         UIApplication.shared.open(url)
         decisionHandler(.cancel)
     }
+
+    // O sistema encerra o conteúdo da página em segundo plano; recarrega.
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        if webView.url == nil { webView.load(URLRequest(url: Principal.inicio)) } else { webView.reload() }
+    }
 }
 
 private extension WKNavigationAction {

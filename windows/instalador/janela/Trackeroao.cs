@@ -84,6 +84,7 @@ class Janela : Form {
   string irPara;
   // O X esconde; so o "Fechar" da bandeja ou o desligamento do Windows fecha.
   bool saindo;
+  bool esperando;
   FormWindowState antes = FormWindowState.Normal;
   // Tamanho fixo fora de tela cheia.
   Size tamanho;
@@ -127,7 +128,7 @@ class Janela : Form {
     if (lugar != null) {
       foreach (Screen t in Screen.AllScreens) if (t.WorkingArea.Contains(lugar.Centro)) tela = t;
     }
-    Rectangle area = (tela ?? Screen.PrimaryScreen).WorkingArea;
+    Rectangle area = (tela ?? Screen.FromPoint(Cursor.Position)).WorkingArea;
     tamanho = new Size(Math.Min(1320, area.Width - 80), Math.Min(860, area.Height - 60));
     Size = tamanho;
     if (tela != null) {
@@ -212,7 +213,7 @@ class Janela : Form {
     Activate();
     BringToFront();
     if (!string.IsNullOrEmpty(ir)) {
-      if (web.CoreWebView2 != null) web.CoreWebView2.Navigate(Programa.Endereco + ir);
+      if (web.CoreWebView2 != null && !esperando) web.CoreWebView2.Navigate(Programa.Endereco + ir);
       else irPara = ir;
     }
     AtualizarVista();
@@ -313,7 +314,10 @@ class Janela : Form {
     Thread t = new Thread(delegate() {
       while (true) {
         sinal.WaitOne();
-        try { BeginInvoke(acao); } catch { return; }
+        // Antes do handle existir, espera por ele; depois de fechada, sai.
+        for (int i = 0; !IsHandleCreated && !IsDisposed && i < 100; i++) Thread.Sleep(100);
+        if (IsDisposed) return;
+        try { BeginInvoke(acao); } catch { if (IsDisposed) return; }
       }
     });
     t.IsBackground = true;
@@ -363,14 +367,22 @@ class Janela : Form {
     };
 
     web.NavigateToString(Espera());
+    esperando = true;
     bool vivo = await Task.Run(new Func<bool>(GarantirServico));
-    if (vivo) {
-      Pedir(Programa.Endereco + "abrir");
-      web.CoreWebView2.Navigate(Programa.Endereco + (irPara ?? ""));
-      irPara = null;
-    } else {
+    if (!vivo) {
       web.NavigateToString(Espera().Replace("<i></i>", "<i class=\"parado\"></i>"));
+      // Continua tentando ate o servico responder.
+      while (!vivo && !IsDisposed) {
+        await Task.Delay(5000);
+        if (IsDisposed) return;
+        vivo = await Task.Run(new Func<bool>(GarantirServico));
+      }
+      if (IsDisposed) return;
     }
+    esperando = false;
+    Pedir(Programa.Endereco + "abrir");
+    web.CoreWebView2.Navigate(Programa.Endereco + (irPara ?? ""));
+    irPara = null;
   }
 
   static void Fora(string uri) {
@@ -437,13 +449,15 @@ class Janela : Form {
       "</style><div><b>Tracker<span>oao</span></b><i></i></div>";
   }
 
-  void AbrirNoEdge() {
+  async void AbrirNoEdge() {
+    Hide();
     try {
-      GarantirServico();
+      await Task.Run(new Func<bool>(GarantirServico));
       ProcessStartInfo p = new ProcessStartInfo("msedge.exe", "--app=" + Programa.Endereco);
       p.UseShellExecute = true;
       Process.Start(p);
     } catch { }
+    saindo = true;
     Close();
   }
 }
@@ -731,13 +745,18 @@ class Consumo {
     return todos;
   }
 
-  public void Zerar() { antes.Clear(); Cpu = Gpu = Ram = "..."; }
+  // Zerar e Soltar vem do menu; Medir, da linha de medicao.
+  readonly object trava = new object();
+
+  public void Zerar() { lock (trava) { antes.Clear(); Cpu = Gpu = Ram = "..."; } }
 
   public void Soltar() {
-    gpuAntes = null;
+    lock (trava) gpuAntes = null;
   }
 
-  public void Medir() {
+  public void Medir() { lock (trava) MedirAgora(); }
+
+  void MedirAgora() {
     System.Collections.Generic.HashSet<int> nossos = Nossos();
     DateTime agora = DateTime.UtcNow;
     double cpuMs = 0; long bytes = 0;
@@ -1143,7 +1162,7 @@ static class Bandeja {
         try {
           string txt = Pegar(base_ + "bandeja.txt");
           string[] lidos = txt.Split(new char[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
-          lock (trava) jogos = lidos;
+          // Os icones primeiro; a lista so muda com eles prontos.
           foreach (string linha in lidos) {
             string[] partes = linha.Split('\t');
             string chave = partes[0];
@@ -1152,11 +1171,17 @@ static class Bandeja {
             Bitmap logo = IconeDoJogo(base_, partes, out origem);
             if (logo != null) lock (trava) logos[chave] = logo;
           }
+          lock (trava) jogos = lidos;
         } catch { }
       });
     };
     Action montarJogos = delegate {
-      foreach (ToolStripItem velho in itensDeJogo) { menu.Items.Remove(velho); velho.Dispose(); }
+      foreach (ToolStripItem velho in itensDeJogo) {
+        menu.Items.Remove(velho);
+        // O selo e desenhado a cada abertura; o icone do jogo fica guardado.
+        if ("selo".Equals(velho.Tag) && velho.Image != null) velho.Image.Dispose();
+        velho.Dispose();
+      }
       itensDeJogo.Clear();
       string[] lista;
       lock (trava) lista = jogos;
@@ -1168,7 +1193,8 @@ static class Bandeja {
         bool temPagina = c[2] == "1";
         Bitmap logo = null;
         lock (trava) logos.TryGetValue(chave, out logo);
-        ToolStripMenuItem j = item(nomeJogo, logo != null ? (Image)logo : Tema.Selo(nomeJogo));
+        ToolStripMenuItem j = item(nomeJogo.Replace("&", "&&"), logo != null ? (Image)logo : Tema.Selo(nomeJogo));
+        if (logo == null) j.Tag = "selo";
         j.Click += delegate { abrir(temPagina ? "#" + chave : "#"); };
         menu.Items.Insert(onde++, j);
         itensDeJogo.Add(j);
@@ -1247,7 +1273,11 @@ static class Bandeja {
 
     // Desmarcado, o servico chamado pela tarefa agendada sai na hora.
     ToolStripMenuItem iniciar = item(t[5], null);
-    Action marcar = delegate { iniciar.Image = Tema.Caixa(File.Exists(comWindows)); };
+    Action marcar = delegate {
+      Image velha = iniciar.Image;
+      iniciar.Image = Tema.Caixa(File.Exists(comWindows));
+      if (velha != null) velha.Dispose();
+    };
     marcar();
     iniciar.Click += delegate {
       try {
@@ -1308,11 +1338,13 @@ static class Bandeja {
 
     // Sai quando o processo /pai termina.
     if (pai > 0) {
+      Process processoPai = null;
+      try { processoPai = Process.GetProcessById(pai); } catch { }
       System.Windows.Forms.Timer vigia = new System.Windows.Forms.Timer();
       vigia.Interval = 2000;
       vigia.Tick += delegate {
         bool vivo = true;
-        try { vivo = !Process.GetProcessById(pai).HasExited; } catch { vivo = false; }
+        try { vivo = processoPai != null && !processoPai.HasExited; } catch { vivo = false; }
         if (!vivo) { icone.Visible = false; Application.Exit(); }
       };
       vigia.Start();

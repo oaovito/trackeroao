@@ -87,6 +87,19 @@ function processos() {
   return nomes;
 }
 
+/**
+ * Processos de todos os jogos instalados, vigiados ou não. Com um deles
+ * aberto, a atualização e a varredura esperam o jogo fechar.
+ */
+function processosInstalados() {
+  const nomes = new Set(processos());
+  for (const g of catalogo()) {
+    if (!g.instalado) continue;
+    for (const p of g.processos || []) nomes.add(String(p).toLowerCase());
+  }
+  return [...nomes];
+}
+
 /** O jogo a que um nome de processo pertence, ou null. */
 function porProcesso(nome) {
   const alvo = String(nome || '').toLowerCase();
@@ -159,6 +172,7 @@ function paraProgresso() {
     lista: cat.map((g) => ({
       chave: g.chave,
       nome: g.nome,
+      appId: g.appId || null,
       leitura: g.leitura || 'nenhuma',
       vigiado: esc ? esc.includes(g.chave) : (g.leitura === 'completa'),
       instalado: g.instalado === undefined ? null : g.instalado,
@@ -182,7 +196,7 @@ function paraProgresso() {
 }
 
 module.exports = {
-  suportados, catalogo, escolhidas, vigiados, processos, porProcesso, selecionar, paraProgresso,
+  suportados, catalogo, escolhidas, vigiados, processos, processosInstalados, porProcesso, selecionar, paraProgresso,
   marcarAberto, CATALOGO, SELECAO, RECENTES,
 };
 

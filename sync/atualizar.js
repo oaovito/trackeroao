@@ -113,23 +113,59 @@ function aplicarPasta(fonte, tag, raiz) {
   const novos = listar(fonte);
   const anterior = lerEstado(raiz);
 
-  for (const rel of novos) {
-    const destino = dentro(raiz, rel);
-    if (!destino) continue;
-    if (PRESERVAR.has(rel) && fs.existsSync(destino)) continue;
-    fs.mkdirSync(path.dirname(destino), { recursive: true });
-    fs.copyFileSync(path.join(fonte, rel), destino);
+  // Primeiro copia tudo ao lado (.novo); só depois troca, com volta atrás
+  // se uma troca falhar, para nunca ficar meia versão no disco.
+  const trocas = [];
+  const limparNovos = () => { for (const t of trocas) { try { fs.rmSync(t.novo, { force: true }); } catch (e) { /* temp */ } } };
+  try {
+    for (const rel of novos) {
+      const destino = dentro(raiz, rel);
+      if (!destino) continue;
+      if (PRESERVAR.has(rel) && fs.existsSync(destino)) continue;
+      fs.mkdirSync(path.dirname(destino), { recursive: true });
+      const t = { destino, novo: destino + '.novo', velho: destino + '.velho', existia: fs.existsSync(destino) };
+      trocas.push(t);
+      fs.copyFileSync(path.join(fonte, rel), t.novo);
+    }
+  } catch (e) {
+    limparNovos();
+    throw e;
+  }
+  const feitas = [];
+  try {
+    for (const t of trocas) {
+      if (t.existia) { fs.rmSync(t.velho, { force: true }); fs.renameSync(t.destino, t.velho); }
+      try { fs.renameSync(t.novo, t.destino); } catch (e) { if (t.existia) fs.renameSync(t.velho, t.destino); throw e; }
+      feitas.push(t);
+    }
+  } catch (e) {
+    for (const t of feitas.reverse()) {
+      try {
+        if (t.existia) fs.copyFileSync(t.velho, t.destino); else fs.rmSync(t.destino, { force: true });
+      } catch (x) { /* fica para a próxima */ }
+    }
+    limparNovos();
+    for (const t of trocas) { try { fs.rmSync(t.velho, { force: true }); } catch (x) { /* em uso */ } }
+    throw e;
+  }
+  const restos = [];
+  for (const t of trocas) {
+    try { fs.rmSync(t.velho, { force: true }); } catch (e) { restos.push(path.relative(raiz, t.velho).split(path.sep).join('/')); }
   }
 
-  // Remove só arquivos da versão anterior que não existem na nova.
-  const antigos = anterior && Array.isArray(anterior.arquivos) ? anterior.arquivos : LEGADO;
-  const ficam = new Set(novos);
+  // Remove só arquivos da versão anterior que não existem na nova. No
+  // Windows o nome não diferencia maiúsculas.
+  const chave = process.platform === 'win32' ? (r) => r.toLowerCase() : (r) => r;
+  const antigos = (anterior && Array.isArray(anterior.arquivos) ? anterior.arquivos : LEGADO)
+    .concat(anterior && Array.isArray(anterior.pendentes) ? anterior.pendentes : []);
+  const ficam = new Set(novos.map(chave));
   const removidos = [];
-  for (const rel of antigos) {
-    if (ficam.has(rel) || PRESERVAR.has(rel)) continue;
+  const pendentes = [];
+  for (const rel of new Set(antigos)) {
+    if (ficam.has(chave(rel)) || PRESERVAR.has(rel)) continue;
     const alvo = dentro(raiz, rel);
     if (!alvo || !fs.existsSync(alvo)) continue;
-    try { fs.unlinkSync(alvo); removidos.push(rel); } catch (e) { /* em uso: sai na próxima */ }
+    try { fs.unlinkSync(alvo); removidos.push(rel); } catch (e) { pendentes.push(rel); }
   }
 
   // Pastas que ficaram vazias, da mais funda para a raiz.
@@ -139,7 +175,9 @@ function aplicarPasta(fonte, tag, raiz) {
   }
   varrerPastasVazias(raiz, pastas);
 
-  gravarEstado(raiz, { tag, arquivos: novos, em: new Date().toISOString() });
+  const estado = { tag, arquivos: novos, em: new Date().toISOString() };
+  if (pendentes.length || restos.length) estado.pendentes = pendentes.concat(restos);
+  gravarEstado(raiz, estado);
   return { copiados: novos.length, removidos };
 }
 
@@ -162,15 +200,15 @@ function pedir(url, destino, saltos) {
         reject(new Error('HTTP ' + res.statusCode + ' em ' + url));
         return;
       }
+      // Conexão que cai no meio da resposta encerra com erro, e não fica pendente.
       if (destino) {
-        const arq = fs.createWriteStream(destino);
-        res.pipe(arq);
-        arq.on('finish', () => arq.close(() => resolve(destino)));
-        arq.on('error', reject);
+        require('stream').pipeline(res, fs.createWriteStream(destino), (err) => (err ? reject(err) : resolve(destino)));
       } else {
         let corpo = '';
         res.setEncoding('utf8');
         res.on('data', (c) => { corpo += c; });
+        res.on('error', reject);
+        res.on('close', () => { if (!res.complete) reject(new Error('conexão interrompida em ' + url)); });
         res.on('end', () => { try { resolve(JSON.parse(corpo)); } catch (e) { reject(e); } });
       }
     });
@@ -182,7 +220,12 @@ function pedir(url, destino, saltos) {
 function rodar(cmd, args, opts) {
   return new Promise((resolve, reject) => {
     execFile(cmd, args, Object.assign({ windowsHide: true, timeout: 120000 }, opts || {}),
-      (err, out, errOut) => (err ? reject(new Error((errOut || err.message).trim())) : resolve(String(out).trim())));
+      (err, out, errOut) => {
+        if (!err) return resolve(String(out).trim());
+        const e = new Error((errOut || err.message).trim());
+        e.codigo = err.code;
+        reject(e);
+      });
   });
 }
 
@@ -329,9 +372,13 @@ function aoTrocarJanela(fn) { if (typeof fn === 'function') envolverTroca = fn; 
 
 async function trocarJanela(raiz, tag) {
   if (process.platform !== 'win32') return null;
-  if (!fs.existsSync(path.join(raiz, 'app', 'Trackeroao.exe'))) return null;
+  // Sem a janela numa instalação, a troca anterior não terminou: refaz.
+  const temJanela = fs.existsSync(path.join(raiz, 'app', 'Trackeroao.exe'));
+  if (!temJanela && fs.existsSync(path.join(raiz, '.git'))) return null;
   let atual = null;
-  try { atual = fs.readFileSync(path.join(raiz, 'app', 'versao.txt'), 'utf8').trim(); } catch (e) { /* anterior a versao.txt */ }
+  if (temJanela) {
+    try { atual = fs.readFileSync(path.join(raiz, 'app', 'versao.txt'), 'utf8').trim(); } catch (e) { /* anterior a versao.txt */ }
+  }
   if (atual && !maisNova(numeroDaTag(tag), atual)) return null;
   // Com a janela visível, a troca espera.
   let estado = null;
@@ -353,6 +400,11 @@ async function trocarJanela(raiz, tag) {
     if (!fs.existsSync(exe)) {
       const parcial = exe + '.parcial';
       await pedir(`https://github.com/${REPO}/releases/download/${encodeURIComponent(tag)}/trackeroao-instalador.exe`, parcial);
+      // Só um executável de verdade fica em cache (um portal de wi-fi devolve HTML com 200).
+      const cab = Buffer.alloc(2);
+      const fd = fs.openSync(parcial, 'r');
+      try { fs.readSync(fd, cab, 0, 2, 0); } finally { fs.closeSync(fd); }
+      if (cab.toString('latin1') !== 'MZ' || fs.statSync(parcial).size < 100 * 1024) throw new Error('o instalador baixado não é um executável');
       fs.renameSync(parcial, exe);
     }
     await envolverTroca(() => rodar(exe, ['/so-janela', '/destino=' + raiz]));
@@ -360,6 +412,8 @@ async function trocarJanela(raiz, tag) {
     return 'atualizada para ' + tag;
   } catch (e) {
     try { fs.rmSync(exe + '.parcial', { force: true }); } catch (x) { /* temp */ }
+    // Código 3: janela à vista, tenta de novo com o mesmo instalador. Outro erro: baixa de novo.
+    if (e.codigo !== 3) { try { fs.rmSync(exe, { force: true }); } catch (x) { /* em uso */ } }
     return 'adiada (' + e.message.split('\n')[0] + ')';
   }
 }
