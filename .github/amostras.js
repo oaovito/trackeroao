@@ -115,6 +115,38 @@ async function main() {
   if (falhas.length) { console.error('título sobreposto ou tela rolando:\n  ' + falhas.join('\n  ')); process.exitCode = 1; }
   else console.log('  título do jogo sem sobreposição e tela inicial sem rolagem');
 
+  // Novidades na página do jogo: o botão de marcar como visto recebe o clique,
+  // o painel some depois dele e a página não rola com ele aberto.
+  const historico = Array.from({ length: 36 }, (_, i) => ({
+    at: new Date(Date.parse('2026-10-05T10:00:00Z') + i * 60000).toISOString(),
+    tipo: 'counter', label: 'Scrap Iron', texto: (30 + i) + ' → ' + (31 + i),
+  }));
+  const semHistorico = progresso.history;
+  progresso.history = historico;
+  const falhasNov = [];
+  for (const [w, h] of [[1920, 1080], [1305, 760], [1057, 829], [1280, 600], [900, 560], [390, 844]]) {
+    const c = await b.newContext({ viewport: { width: w, height: h }, colorScheme: 'dark' });
+    const pg = await c.newPage();
+    await rotas(pg);
+    await pg.goto((w < 641 ? CELULAR : PC) + '#sekiro');
+    await pg.waitForTimeout(3000);
+    const r = await pg.evaluate(() => {
+      const bt = document.querySelector('.visto-btn');
+      if (!bt) return { erro: 'sem botão' };
+      bt.scrollIntoView({ block: 'center' });
+      const q = bt.getBoundingClientRect();
+      const topo = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2);
+      return { recebe: topo === bt || bt.contains(topo), rola: innerWidth > 640 && document.documentElement.scrollHeight > innerHeight + 1 };
+    });
+    let some = false;
+    try { await pg.click('.visto-btn', { timeout: 3000 }); await pg.waitForTimeout(500); some = !(await pg.$('.novidades')); } catch (e) { some = false; }
+    if (r.erro || !r.recebe || r.rola || !some) falhasNov.push(`${w}x${h}: ${JSON.stringify({ ...r, some })}`);
+    await c.close();
+  }
+  progresso.history = semHistorico;
+  if (falhasNov.length) { console.error('novidades com problema:\n  ' + falhasNov.join('\n  ')); process.exitCode = 1; }
+  else console.log('  novidades: o botão de marcar como visto funciona');
+
   // O passo a passo do iOS, que o código QR do iPhone abre.
   const c = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: 'pt-BR' });
   const pg = await c.newPage();

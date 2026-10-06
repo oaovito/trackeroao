@@ -2830,6 +2830,10 @@
     body:not(.vista-hub):not(.vista-bibli) .wrap > .deaths-panel { grid-row: 5; }
     body:not(.vista-hub):not(.vista-bibli) .wrap > .deaths-panel ~ .dois-quadrados { grid-row: 6; }
     body:not(.vista-hub):not(.vista-bibli) .wrap > .made-by { grid-row: 8; margin-top: clamp(4px, 1vh, 16px); }
+    /* As seções dividem a mesma linha da grade; as novidades ficam por cima,
+       para o botão de marcar como visto receber o clique. */
+    body:not(.vista-hub):not(.vista-bibli) .wrap > #novidades { position: relative; z-index: 1; }
+    body:not(.vista-hub):not(.vista-bibli) .novidades { margin-bottom: clamp(4px, 1vh, 12px); padding-block: 8px 6px; }
     body:not(.vista-hub):not(.vista-bibli) h1 { font-size: clamp(1.8rem, 5vh, 2.7rem); }
     body:not(.vista-hub):not(.vista-bibli) .dois-quadrados {
       display: flex; justify-content: center; gap: 12px; width: 100%; max-width: none; min-height: 0;
@@ -6767,6 +6771,8 @@ function autoCount(spec) {
 }
 
 const MAX_NOV = 12;
+// No computador a página não rola: poucas linhas, para os quadros continuarem visíveis.
+const MAX_NOV_SEM_ROLAGEM = 3;
 
 function renderNovidades() {
   const root = document.getElementById("novidades");
@@ -6794,7 +6800,9 @@ function renderNovidades() {
   const ul = document.createElement("ul");
   ul.className = "nov-lista";
   // Mais recentes primeiro.
-  const mostrar = lista.slice().reverse().slice(0, MAX_NOV);
+  const semRolagem = typeof matchMedia === "function" && matchMedia("(min-width: 641px) and (min-height: 480px)").matches;
+  const max = semRolagem ? MAX_NOV_SEM_ROLAGEM : MAX_NOV;
+  const mostrar = lista.slice().reverse().slice(0, max);
   for (const h of mostrar) {
     const li = document.createElement("li");
     li.innerHTML =
@@ -6805,10 +6813,10 @@ function renderNovidades() {
   }
   cx.appendChild(ul);
 
-  if (lista.length > MAX_NOV) {
+  if (lista.length > max) {
     const mais = document.createElement("div");
     mais.className = "nov-mais";
-    mais.textContent = t("nov.mais", { n: lista.length - MAX_NOV });
+    mais.textContent = t("nov.mais", { n: lista.length - max });
     cx.appendChild(mais);
   }
   root.appendChild(cx);

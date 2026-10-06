@@ -316,36 +316,57 @@ jobs:
           if ($desc -ne 'Trackeroao') { throw "o Windows listaria a bandeja como '$desc'" }
           Write-Host "bandeja: Trackeroao.exe /bandeja (pid $($tray.ProcessId)), descricao '$desc'"
 
-          # Icone de cada jogo no menu da bandeja: um jogo no disco, com um
-          # executavel de verdade, tem de aparecer com o icone dele, e nao com
-          # o selo da inicial. Mesmo caminho de codigo do menu (/testar-icones).
-          $pastaJogo = 'C:\Games\Sekiro Shadows Die Twice'
-          New-Item -ItemType Directory -Force $pastaJogo | Out-Null
-          $exeReal = (Get-Command node).Source
-          Copy-Item $exeReal (Join-Path $pastaJogo 'sekiro.exe') -Force
-          try { Invoke-WebRequest -UseBasicParsing -Method Post -TimeoutSec 5 'http://127.0.0.1:8777/varrer' | Out-Null } catch { }
-          $linha = $null
-          for ($i = 0; $i -lt 120 -and -not $linha; $i++) {
-            Start-Sleep -Seconds 2
+          # Icone de cada jogo no menu da bandeja, numa Steam montada aqui: o
+          # Sekiro com um executavel de verdade (o icone sai dele) e o Control
+          # sem executavel, so com o .ico que a Steam guarda (o icone sai dele).
+          # Nenhum dos dois pode aparecer com o selo da inicial. O menu usa o
+          # mesmo caminho de codigo do teste (/testar-icones).
+          $steam = Join-Path $env:RUNNER_TEMP 'Steam'
+          $comum = Join-Path $steam 'steamapps\common'
+          New-Item -ItemType Directory -Force (Join-Path $comum 'Sekiro'), (Join-Path $steam 'steam\games'), (Join-Path $steam 'appcache') | Out-Null
+          Copy-Item (Get-Command node).Source (Join-Path $comum 'Sekiro\sekiro.exe') -Force
+          Set-Content (Join-Path $steam 'steamapps\appmanifest_814380.acf') "`"AppState`"`n{`n`"appid`" `"814380`"`n`"name`" `"Sekiro: Shadows Die Twice`"`n`"installdir`" `"Sekiro`"`n}" -Encoding ASCII
+          Set-Content (Join-Path $steam 'steamapps\appmanifest_870780.acf') "`"AppState`"`n{`n`"appid`" `"870780`"`n`"name`" `"Control Ultimate Edition`"`n`"installdir`" `"Control`"`n}" -Encoding ASCII
+          $hash = 'ab' * 20
+          Copy-Item windows\instalador\icone\trackeroao.ico (Join-Path $steam "steam\games\$hash.ico") -Force
+          node -e "const fs=require('fs');const corpo=Buffer.from('\x00common\x00\x01clienticon\x00'+process.argv[2]+'\x00\x08\x08','latin1');const c=Buffer.alloc(8);c.writeUInt32LE(870780,0);c.writeUInt32LE(corpo.length,4);const h=Buffer.alloc(16);h.writeUInt32LE(0x07564429,0);fs.writeFileSync(process.argv[1],Buffer.concat([h,c,corpo,Buffer.alloc(4)]))" (Join-Path $steam 'appcache\appinfo.vdf') $hash
+          New-Item -Path 'HKCU:\Software\Valve\Steam' -Force | Out-Null
+          Set-ItemProperty -Path 'HKCU:\Software\Valve\Steam' -Name SteamPath -Value ($steam -replace '\\', '/')
+          function LinhaDaBandeja($nome) {
             try {
               $txt = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 'http://127.0.0.1:8777/bandeja.txt').Content
-              $linha = @($txt -split "`n" | Where-Object { $_ -like "sekiro`t*" -and $_ -like '*sekiro.exe*' }) | Select-Object -First 1
-            } catch { }
+              @($txt -split "`n" | Where-Object { ($_ -split "`t")[1] -eq $nome }) | Select-Object -First 1
+            } catch { $null }
           }
-          if (-not $linha) { throw "a bandeja nao recebeu o executavel do jogo instalado em $pastaJogo" }
-          Write-Host "bandeja.txt: $linha"
-          $png = Invoke-WebRequest -UseBasicParsing -TimeoutSec 10 'http://127.0.0.1:8777/logo-bandeja?chave=sekiro'
-          if ($png.StatusCode -ne 200 -or $png.Headers['x-trackeroao-origem'] -ne 'exe') { throw "o servico nao entregou o icone do executavel ($($png.StatusCode), $($png.Headers['x-trackeroao-origem']))" }
+          try { Invoke-WebRequest -UseBasicParsing -Method Post -TimeoutSec 5 'http://127.0.0.1:8777/varrer' | Out-Null } catch { }
+          $sek = $null; $ctl = $null
+          for ($i = 0; $i -lt 90 -and -not ($sek -like '*sekiro.exe*' -and $ctl); $i++) {
+            Start-Sleep -Seconds 2
+            $sek = LinhaDaBandeja 'Sekiro: Shadows Die Twice'
+            $ctl = LinhaDaBandeja 'Control Ultimate Edition'
+          }
+          Write-Host "bandeja.txt: $sek | $ctl"
+          if (-not ($sek -like '*sekiro.exe*')) { throw 'a bandeja nao recebeu o executavel do Sekiro instalado pela Steam' }
+          if (-not $ctl) { throw 'o Control instalado pela Steam nao entrou no menu da bandeja' }
+          foreach ($par in @(@(($sek -split "`t")[0], 'exe'), @(($ctl -split "`t")[0], 'steam'))) {
+            $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 10 ('http://127.0.0.1:8777/logo-bandeja?chave=' + [uri]::EscapeDataString($par[0]))
+            if ($r.StatusCode -ne 200 -or $r.Headers['x-trackeroao-origem'] -ne $par[1]) { throw "o servico nao entregou o icone de $($par[0]) pela origem $($par[1]) ($($r.StatusCode), $($r.Headers['x-trackeroao-origem']))" }
+          }
           $saidaIcones = Join-Path $env:RUNNER_TEMP 'icones.txt'
-          $ti = Start-Process $janela -ArgumentList '/testar-icones', '/porta=8777', "/saida=$saidaIcones" -PassThru -Wait
-          $relatorio = Get-Content $saidaIcones -ErrorAction SilentlyContinue
+          Start-Process $janela -ArgumentList '/testar-icones', '/porta=8777', "/saida=$saidaIcones" -Wait | Out-Null
+          $relatorio = @(Get-Content $saidaIcones -ErrorAction SilentlyContinue)
           $relatorio | ForEach-Object { Write-Host "  icone: $_" }
-          $sek = @($relatorio | Where-Object { $_ -like "sekiro`t*" }) | Select-Object -First 1
-          if (-not $sek) { throw 'o teste de icones nao listou o jogo' }
-          $c = $sek -split "`t"
-          if ($c[1] -eq 'selo' -or [int]$c[2] -lt 40) { throw "o menu da bandeja desenharia a inicial, e nao o icone do jogo: $sek" }
-          Write-Host "o menu da bandeja mostra o icone do proprio jogo ($($c[1]), $($c[2]) pixels visiveis)"
-          Remove-Item $pastaJogo -Recurse -Force -ErrorAction SilentlyContinue
+          foreach ($linha in @($sek, $ctl)) {
+            $chave = ($linha -split "`t")[0]
+            $l = @($relatorio | Where-Object { ($_ -split "`t")[0] -eq $chave }) | Select-Object -First 1
+            if (-not $l) { throw "o teste de icones nao listou $chave" }
+            $c = $l -split "`t"
+            if ($c[1] -eq 'selo' -or [int]$c[2] -lt 40) { throw "o menu da bandeja desenharia a inicial de $chave, e nao o icone do jogo: $l" }
+          }
+          Write-Host 'o menu da bandeja mostra o icone do proprio jogo: do executavel e, sem ele, o da Steam'
+          Remove-Item 'HKCU:\Software\Valve\Steam' -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item $steam -Recurse -Force -ErrorAction SilentlyContinue
+          try { Invoke-WebRequest -UseBasicParsing -Method Post -TimeoutSec 5 'http://127.0.0.1:8777/varrer' | Out-Null } catch { }
 
           # Orcamento de recursos com a janela aberta e ociosa (servico, janela,
           # bandeja e WebView2).

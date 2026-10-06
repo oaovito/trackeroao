@@ -325,7 +325,9 @@ function doJogo(jogo, opts) {
   let marca = '';
   try { if (exe) { const s = fs.statSync(exe); marca = exe + '|' + s.size + '|' + s.mtimeMs; } } catch (e) { marca = ''; }
   const chave = jogo.chave + '|' + marca + '|' + (steam || '');
-  if (lembrado.has(chave)) return lembrado.get(chave);
+  const antes = lembrado.get(chave);
+  // Sem ícone, tenta de novo depois de um minuto (o jogo pode estar instalando).
+  if (antes && (antes.r || Date.now() - antes.em < 60000)) return antes.r;
   let r = null;
   const deExe = exe ? doExe(exe) : null;
   if (deExe) r = { png: deExe, origem: 'exe' };
@@ -334,7 +336,7 @@ function doJogo(jogo, opts) {
     if (s) r = { png: s, origem: 'steam' };
   }
   if (lembrado.size > 32) lembrado.clear();
-  lembrado.set(chave, r);
+  lembrado.set(chave, { r, em: Date.now() });
   return r;
 }
 
