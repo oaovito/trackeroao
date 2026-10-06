@@ -19,12 +19,12 @@
       "screenshots": [],
       "versions": [
         {
-          "version": "1.9.0",
-          "buildVersion": "1.9.0",
-          "date": "2026-10-06T00:05:35.651Z",
-          "localizedDescription": "Instalador do Trackeroao para Windows e aplicativo de Android. No computador,\r\nbaixe o `trackeroao-instalador.exe` e dê dois cliques; quem já está na v1.5.0 ou\r\nposterior recebe esta versão sozinho. No celular Android, baixe o\r\n`trackeroao.apk` e abra o arquivo para instalar.\r\n\r\n## O que mudou nesta versão\r\n\r\n**Ícones oficiais dos jogos no menu da bandeja.** Cada jogo do menu da bandeja\r\npassa a mostrar o ícone oficial dele, de fundo transparente, tirado do próprio\r\nexecutável do jogo instalado, o mesmo que o Windows exibe. Vale para jogos de\r\nqualquer loja e para os de fora de loja. Quando o executável não é encontrado,\r\nfica o logotipo do jogo; o selo com a inicial só aparece quando não há nenhum\r\ndos dois. Um ícone que não carregou numa abertura do menu é buscado de novo na\r\nseguinte.\r\n\r\n## Requisitos\r\n\r\nWindows 10 ou 11, em qualquer idioma. O Node.js é resolvido pelo próprio\r\ninstalador. No celular, Android 7 ou posterior; no iPhone e no iPad, iOS 15 ou\r\nposterior, com o SideStore.",
-          "downloadURL": "https://github.com/oaovito/trackeroao/releases/download/v1.9.0/trackeroao.ipa",
-          "size": 85090,
+          "version": "1.9.1",
+          "buildVersion": "1.9.1",
+          "date": "2026-10-06T05:05:07.484Z",
+          "localizedDescription": "Instalador do Trackeroao para Windows e aplicativo de Android. No computador,\r\nbaixe o `trackeroao-instalador.exe` e dê dois cliques; quem já está na v1.5.0 ou\r\nposterior recebe esta versão sozinho. No celular Android, baixe o\r\n`trackeroao.apk` e abra o arquivo para instalar.\r\n\r\n## O que mudou nesta versão\r\n\r\n**Título do jogo em destaque na tela inicial.** O nome Trackeroao saiu do topo\r\nda tela inicial, e o espaço passa inteiro para a arte do título do jogo em foco.\r\nO título nunca fica por baixo dos botões do topo nem das informações abaixo\r\ndele, em qualquer tamanho de janela, no computador e no celular.\r\n\r\n**Sincronização como ícone de status.** Os jogos com leitura completa do save\r\nmostram um ícone de sincronização ao lado do ícone de instalado, aceso quando o\r\nprogresso está sincronizado.\r\n\r\n**Uso pelo navegador.** O menu de acesso pelo celular ganhou o botão Web view,\r\ncom um código para abrir o Trackeroao no navegador do celular, do tablet ou de\r\noutro computador da mesma rede, sem instalar nada. Dentro dos aplicativos de\r\nAndroid e iOS esse menu não aparece.\r\n\r\n**Nome correto na barra de tarefas.** O ícone da área de notificação aparece\r\ncomo Trackeroao nas configurações do Windows. Entradas antigas registradas com\r\noutro nome são removidas.\r\n\r\n**Documentação revista.** O README e os comentários do código foram reescritos.\r\n\r\n## Requisitos\r\n\r\nWindows 10 ou 11, em qualquer idioma. O Node.js é resolvido pelo próprio\r\ninstalador. No celular, Android 7 ou posterior; no iPhone e no iPad, iOS 15 ou\r\nposterior, com o SideStore.",
+          "downloadURL": "https://github.com/oaovito/trackeroao/releases/download/v1.9.1/trackeroao.ipa",
+          "size": 85105,
           "minOSVersion": "15.0"
         }
       ],
