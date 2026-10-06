@@ -316,6 +316,37 @@ jobs:
           if ($desc -ne 'Trackeroao') { throw "o Windows listaria a bandeja como '$desc'" }
           Write-Host "bandeja: Trackeroao.exe /bandeja (pid $($tray.ProcessId)), descricao '$desc'"
 
+          # Icone de cada jogo no menu da bandeja: um jogo no disco, com um
+          # executavel de verdade, tem de aparecer com o icone dele, e nao com
+          # o selo da inicial. Mesmo caminho de codigo do menu (/testar-icones).
+          $pastaJogo = 'C:\Games\Sekiro Shadows Die Twice'
+          New-Item -ItemType Directory -Force $pastaJogo | Out-Null
+          $exeReal = (Get-Command node).Source
+          Copy-Item $exeReal (Join-Path $pastaJogo 'sekiro.exe') -Force
+          try { Invoke-WebRequest -UseBasicParsing -Method Post -TimeoutSec 5 'http://127.0.0.1:8777/varrer' | Out-Null } catch { }
+          $linha = $null
+          for ($i = 0; $i -lt 120 -and -not $linha; $i++) {
+            Start-Sleep -Seconds 2
+            try {
+              $txt = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 'http://127.0.0.1:8777/bandeja.txt').Content
+              $linha = @($txt -split "`n" | Where-Object { $_ -like "sekiro`t*" -and $_ -like '*sekiro.exe*' }) | Select-Object -First 1
+            } catch { }
+          }
+          if (-not $linha) { throw "a bandeja nao recebeu o executavel do jogo instalado em $pastaJogo" }
+          Write-Host "bandeja.txt: $linha"
+          $png = Invoke-WebRequest -UseBasicParsing -TimeoutSec 10 'http://127.0.0.1:8777/logo-bandeja?chave=sekiro'
+          if ($png.StatusCode -ne 200 -or $png.Headers['x-trackeroao-origem'] -ne 'exe') { throw "o servico nao entregou o icone do executavel ($($png.StatusCode), $($png.Headers['x-trackeroao-origem']))" }
+          $saidaIcones = Join-Path $env:RUNNER_TEMP 'icones.txt'
+          $ti = Start-Process $janela -ArgumentList '/testar-icones', '/porta=8777', "/saida=$saidaIcones" -PassThru -Wait
+          $relatorio = Get-Content $saidaIcones -ErrorAction SilentlyContinue
+          $relatorio | ForEach-Object { Write-Host "  icone: $_" }
+          $sek = @($relatorio | Where-Object { $_ -like "sekiro`t*" }) | Select-Object -First 1
+          if (-not $sek) { throw 'o teste de icones nao listou o jogo' }
+          $c = $sek -split "`t"
+          if ($c[1] -eq 'selo' -or [int]$c[2] -lt 40) { throw "o menu da bandeja desenharia a inicial, e nao o icone do jogo: $sek" }
+          Write-Host "o menu da bandeja mostra o icone do proprio jogo ($($c[1]), $($c[2]) pixels visiveis)"
+          Remove-Item $pastaJogo -Recurse -Force -ErrorAction SilentlyContinue
+
           # Orcamento de recursos com a janela aberta e ociosa (servico, janela,
           # bandeja e WebView2).
           $orcCpu = 2.0; $orcRam = 400

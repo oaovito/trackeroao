@@ -79,8 +79,18 @@ janela mostra a página servida localmente pelo serviço. Minimizar ou fechar a
 janela pelo X apenas a esconde na bandeja; para encerrar o programa, use
 "Fechar" no menu do ícone.
 
-O menu da bandeja mostra os jogos recentes, o consumo atual do Trackeroao (CPU,
-GPU e RAM) e as opções:
+O menu da bandeja mostra os jogos recentes, cada um com o ícone do próprio jogo,
+o consumo atual do Trackeroao (CPU, GPU e RAM) e as opções. O ícone é lido do
+executável do jogo instalado; na falta dele, do ícone que a Steam guarda no
+computador; só quando nenhum dos dois existe aparece um selo com a inicial.
+
+Na tela inicial da janela do computador, o jogo em destaque tem o botão
+**Jogar**, que inicia o jogo pela Steam, quando o jogo é dela e ela está
+instalada, ou diretamente pelo executável. O botão só aparece no computador
+onde o jogo está instalado; não aparece pelo Web view em outro aparelho nem nos
+aplicativos de celular.
+
+As opções do menu são:
 
 - **Abrir o Trackeroao**;
 - **Forçar atualização**, que verifica e aplica imediatamente uma versão nova;
@@ -293,6 +303,7 @@ trackeroao/
     offsets.json        IDs e offsets
     mem.ps1             leitor de memória (somente leitura)
     serve.js            servidor local
+    icone.js            ícone de cada jogo para o menu da bandeja
     atualizar.js        atualização automática
     selftest.js         suíte de testes
   trackeroao.html       a página

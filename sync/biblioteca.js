@@ -573,10 +573,18 @@ const exeLembrado = new Map();
 function executavelDoJogo(jogo) {
   if (!jogo) return null;
   const achados = ((ultima() || {}).jogos) || [];
-  const b = achados.find((a) => a.chave === jogo.chave) ||
-    achados.find((a) => a.appId && jogo.appId && String(a.appId) === String(jogo.appId));
+  let b = achados.find((a) => a.chave === jogo.chave && a.pasta) ||
+    achados.find((a) => a.appId && jogo.appId && String(a.appId) === String(jogo.appId) && a.pasta);
+  // Sem pasta na varredura: o manifesto da Steam, quando ela existe.
+  if (!b && jogo.appId) {
+    try {
+      const instalacao = require('./instalacao');
+      const steam = instalacao.steamPath();
+      if (steam) b = steamInstalados(steam, instalacao.bibliotecas(steam)).find((a) => String(a.appId) === String(jogo.appId)) || null;
+    } catch (e) { b = null; }
+  }
   const pasta = b && b.pasta;
-  if (!pasta) return null;
+  if (!pasta || !fs.existsSync(pasta)) return null;
   const nomes = ((b.processos || []).concat(jogo.processos || [])).map((n) => String(n).toLowerCase());
   const chave = pasta + '|' + nomes.join(',');
   if (exeLembrado.has(chave)) return exeLembrado.get(chave);

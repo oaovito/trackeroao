@@ -680,6 +680,9 @@ async function run() {
   vigiarInstalacao(hibernarAgora);
   vigiarJogosNovos();
 
+  // Logotipos baixados por versões antigas para a bandeja, que hoje usa o ícone do jogo.
+  try { fs.rmSync(path.join(__dirname, 'cache', 'logos'), { recursive: true, force: true }); } catch (e) { /* em uso */ }
+
   // Remove pastas legadas que ficaram vazias.
   const varridas = atualizar.varrerPastasVazias(null, atualizar.PASTAS_LEGADO);
   if (varridas.length) console.log('  [atualizar] pastas vazias removidas: ' + varridas.join(', '));

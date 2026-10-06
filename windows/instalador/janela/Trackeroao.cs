@@ -52,6 +52,7 @@ static class Programa {
     string ir = null;
     foreach (string a in args) {
       if (a.Equals("/bandeja", StringComparison.OrdinalIgnoreCase)) { Bandeja.Rodar(args); return; }
+      if (a.Equals("/testar-icones", StringComparison.OrdinalIgnoreCase)) { Environment.Exit(Bandeja.TestarIcones(args)); return; }
       if (a.Equals("/escondida", StringComparison.OrdinalIgnoreCase)) escondida = true;
       if (a.StartsWith("/ir=", StringComparison.OrdinalIgnoreCase)) ir = a.Substring(4);
     }
@@ -1010,6 +1011,64 @@ static class Bandeja {
   [DllImport("dwmapi.dll")]
   static extern int DwmSetWindowAttribute(IntPtr janela, int atributo, ref int valor, int tamanho);
 
+  /*
+   * Icone proprio do jogo: o do executavel, extraido aqui; senao o que o
+   * servico entrega (executavel ou Steam); null quando nao ha nenhum, e o
+   * menu desenha o selo.
+   */
+  internal static Bitmap IconeDoJogo(string base_, string[] partes, out string origem) {
+    origem = "selo";
+    Bitmap b = null;
+    try { b = partes.Length > 3 ? Tema.Icone(partes[3].Trim()) : null; } catch { b = null; }
+    if (b != null) { origem = "exe"; return b; }
+    try { b = Tema.Quadrado(PegarBytes(base_ + "logo-bandeja?chave=" + Uri.EscapeDataString(partes[0]))); } catch { b = null; }
+    if (b != null) { origem = "servico"; return b; }
+    return null;
+  }
+
+  // Pixels visiveis de uma imagem (alfa acima de 24).
+  static int Visiveis(Bitmap b) {
+    int n = 0;
+    for (int y = 0; y < b.Height; y++)
+      for (int x = 0; x < b.Width; x++)
+        if (b.GetPixel(x, y).A > 24) n++;
+    return n;
+  }
+
+  /*
+   * Trackeroao.exe /testar-icones /porta=8777 /saida=<arquivo>: resolve o
+   * icone de cada jogo do menu pelo mesmo caminho da bandeja e grava
+   * "chave<TAB>origem<TAB>pixels visiveis" por linha. Saida 0 quando todos
+   * tem icone proprio.
+   */
+  public static int TestarIcones(string[] args) {
+    int porta = 8777;
+    string saida = null;
+    foreach (string a in args) {
+      if (a.StartsWith("/porta=")) int.TryParse(a.Substring(7), out porta);
+      if (a.StartsWith("/saida=")) saida = a.Substring(7);
+    }
+    string base_ = "http://127.0.0.1:" + porta + "/";
+    StringBuilder sb = new StringBuilder();
+    int codigo = 0;
+    try {
+      foreach (string linha in Pegar(base_ + "bandeja.txt").Split(new char[] { '\n' }, StringSplitOptions.RemoveEmptyEntries)) {
+        string[] partes = linha.Split('\t');
+        string origem;
+        Bitmap b = IconeDoJogo(base_, partes, out origem);
+        int vis = b == null ? 0 : Visiveis(b);
+        if (b == null || vis < 40) codigo = 1;
+        sb.Append(partes[0]).Append('\t').Append(origem).Append('\t').Append(vis).Append('\n');
+        if (b != null) b.Dispose();
+      }
+    } catch (Exception e) {
+      sb.Append("erro\t").Append(e.Message).Append('\n');
+      codigo = 2;
+    }
+    if (saida != null) File.WriteAllText(saida, sb.ToString(), Encoding.UTF8);
+    return codigo;
+  }
+
   public static void Rodar(string[] args) {
     int porta = 8777, pai = 0;
     foreach (string a in args) {
@@ -1077,7 +1136,7 @@ static class Bandeja {
     System.Collections.Generic.List<ToolStripItem> itensDeJogo = new System.Collections.Generic.List<ToolStripItem>();
     string[] jogos = new string[0];
     object trava = new object();
-    // Icone do executavel do jogo; senao o logotipo do servico; senao o selo.
+    // Icone proprio de cada jogo (ver IconeDoJogo); sem ele, o selo.
     System.Collections.Generic.Dictionary<string, Bitmap> logos = new System.Collections.Generic.Dictionary<string, Bitmap>();
     Action lerJogos = delegate {
       ThreadPool.QueueUserWorkItem(delegate {
@@ -1089,11 +1148,8 @@ static class Bandeja {
             string[] partes = linha.Split('\t');
             string chave = partes[0];
             lock (trava) { if (logos.ContainsKey(chave)) continue; }
-            Bitmap logo = null;
-            try { logo = partes.Length > 3 ? Tema.Icone(partes[3].Trim()) : null; } catch { logo = null; }
-            if (logo == null) {
-              try { logo = Tema.Logo(PegarBytes(base_ + "logo-bandeja?chave=" + Uri.EscapeDataString(chave))); } catch { logo = null; }
-            }
+            string origem;
+            Bitmap logo = IconeDoJogo(base_, partes, out origem);
             if (logo != null) lock (trava) logos[chave] = logo;
           }
         } catch { }
@@ -1361,7 +1417,10 @@ class Tema : ToolStripProfessionalRenderer {
     finally { DestroyIcon(h[0]); }
   }
 
-  public static Bitmap Logo(byte[] png) {
+  // Icone PNG do servico, recortado e encaixado em 22 x 22.
+  public static Bitmap Quadrado(byte[] png) { return Encaixar(png, 22, 22); }
+
+  static Bitmap Encaixar(byte[] png, int largura, int altura) {
     if (png == null || png.Length < 8) return null;
     using (MemoryStream m = new MemoryStream(png))
     using (Bitmap orig = new Bitmap(m)) {
@@ -1385,14 +1444,14 @@ class Tema : ToolStripProfessionalRenderer {
       }
       if (x1 < 0) { src.Dispose(); return null; }
       Rectangle corte = new Rectangle(x0, y0, x1 - x0 + 1, y1 - y0 + 1);
-      float escala = Math.Min(44f / corte.Width, 22f / corte.Height);
+      float escala = Math.Min((float)largura / corte.Width, (float)altura / corte.Height);
       int w = Math.Max(1, (int)Math.Round(corte.Width * escala)), h = Math.Max(1, (int)Math.Round(corte.Height * escala));
-      Bitmap bmp = new Bitmap(44, 22, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+      Bitmap bmp = new Bitmap(largura, altura, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
       using (Graphics g = Graphics.FromImage(bmp)) {
         g.InterpolationMode = InterpolationMode.HighQualityBicubic;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.DrawImage(src, new Rectangle((44 - w) / 2, (22 - h) / 2, w, h), corte, GraphicsUnit.Pixel);
+        g.DrawImage(src, new Rectangle((largura - w) / 2, (altura - h) / 2, w, h), corte, GraphicsUnit.Pixel);
       }
       src.Dispose();
       return bmp;

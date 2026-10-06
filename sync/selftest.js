@@ -1257,6 +1257,143 @@ check('lê os arquivos VDF da Steam', () => {
   return 'appmanifest e nomes';
 });
 
+/*
+ * 24. O ícone de cada jogo na bandeja.
+ *
+ * O ícone sai do próprio executável do jogo (recursos do arquivo PE) ou, sem
+ * ele, do .ico que a Steam guarda. Os arquivos de teste são montados aqui.
+ */
+console.log('\n  === 24. O ícone de cada jogo na bandeja e o botão Jogar ===');
+
+// DIB de 32 bits, lado x lado, numa cor só, com máscara.
+function dibDeTeste(lado, cor) {
+  const cab = Buffer.alloc(40);
+  cab.writeUInt32LE(40, 0); cab.writeInt32LE(lado, 4); cab.writeInt32LE(lado * 2, 8);
+  cab.writeUInt16LE(1, 12); cab.writeUInt16LE(32, 14);
+  const px = Buffer.alloc(lado * lado * 4);
+  for (let i = 0; i < lado * lado; i++) { px[i * 4] = cor[2]; px[i * 4 + 1] = cor[1]; px[i * 4 + 2] = cor[0]; px[i * 4 + 3] = 255; }
+  return Buffer.concat([cab, px, Buffer.alloc(Math.ceil(lado / 32) * 4 * lado)]);
+}
+
+// Executável mínimo (PE32) com um grupo de ícones de um quadro.
+function exeDeTeste(dib) {
+  const RVA = 0x1000;
+  const rec = Buffer.alloc(0x200 + dib.length);
+  const dir = (pos, entradas) => {
+    rec.writeUInt16LE(entradas.length, pos + 14);
+    entradas.forEach(([id, alvo], i) => { rec.writeUInt32LE(id, pos + 16 + i * 8); rec.writeUInt32LE(alvo >>> 0, pos + 20 + i * 8); });
+  };
+  const dado = (pos, ini, tam) => { rec.writeUInt32LE(RVA + ini, pos); rec.writeUInt32LE(tam, pos + 4); };
+  // Raiz (0) -> ICON (0x20) e GROUP_ICON (0x40) -> idioma (0x60, 0x80) -> dados (0xa0, 0xb0).
+  dir(0x00, [[3, 0x80000000 | 0x20], [14, 0x80000000 | 0x40]]);
+  dir(0x20, [[1, 0x80000000 | 0x60]]);
+  dir(0x40, [[1, 0x80000000 | 0x80]]);
+  dir(0x60, [[1033, 0xa0]]);
+  dir(0x80, [[1033, 0xb0]]);
+  const grupo = Buffer.alloc(20);
+  grupo.writeUInt16LE(1, 2); grupo.writeUInt16LE(1, 4);
+  grupo[6] = 16; grupo[7] = 16; grupo.writeUInt16LE(1, 10); grupo.writeUInt16LE(32, 12);
+  grupo.writeUInt32LE(dib.length, 14); grupo.writeUInt16LE(1, 18);
+  grupo.copy(rec, 0xc0);
+  dib.copy(rec, 0x200);
+  dado(0xa0, 0x200, dib.length);
+  dado(0xb0, 0xc0, 20);
+  const cab = Buffer.alloc(0x200);
+  cab.write('MZ', 0, 'latin1'); cab.writeUInt32LE(64, 60);
+  cab.write('PE\0\0', 64, 'latin1');
+  cab.writeUInt16LE(0x14c, 68); cab.writeUInt16LE(1, 70); cab.writeUInt16LE(224, 84);
+  const opc = 88;
+  cab.writeUInt16LE(0x10b, opc);
+  cab.writeUInt32LE(RVA, opc + 96 + 16); cab.writeUInt32LE(rec.length, opc + 96 + 20);
+  const sec = opc + 224;
+  cab.write('.rsrc', sec, 'latin1');
+  cab.writeUInt32LE(rec.length, sec + 8); cab.writeUInt32LE(RVA, sec + 12);
+  cab.writeUInt32LE(rec.length, sec + 16); cab.writeUInt32LE(0x200, sec + 20);
+  return Buffer.concat([cab, rec]);
+}
+
+// Cor do pixel central de um PNG RGBA sem filtros.
+function centroDoPng(png) {
+  const zlib = require('zlib');
+  const w = png.readUInt32BE(16), h = png.readUInt32BE(20);
+  let pos = 8; const idat = [];
+  while (pos < png.length) {
+    const tam = png.readUInt32BE(pos), tipo = png.toString('latin1', pos + 4, pos + 8);
+    if (tipo === 'IDAT') idat.push(png.subarray(pos + 8, pos + 8 + tam));
+    pos += 12 + tam;
+  }
+  const cru = zlib.inflateSync(Buffer.concat(idat));
+  const y = h >> 1, x = w >> 1, o = y * (w * 4 + 1) + 1 + x * 4;
+  return [cru[o], cru[o + 1], cru[o + 2], cru[o + 3], w, h];
+}
+
+check('o ícone sai do executável do jogo', () => {
+  const icone = require('./icone');
+  const pasta = fs.mkdtempSync(path.join(require('os').tmpdir(), 'trackeroao-icone-'));
+  try {
+    const exe = path.join(pasta, 'jogo.exe');
+    fs.writeFileSync(exe, exeDeTeste(dibDeTeste(16, [200, 30, 40])));
+    const png = icone.doExe(exe);
+    assert(png, 'não achou o ícone no executável');
+    const [r, g, b, a, w] = centroDoPng(png);
+    assert(w === 16 && r === 200 && g === 30 && b === 40 && a === 255, `cor ${r},${g},${b},${a} em ${w}px`);
+    const r2 = icone.doJogo({ chave: 'teste-exe' }, { exe, steam: null });
+    assert(r2 && r2.origem === 'exe', 'doJogo não usou o executável');
+    fs.writeFileSync(path.join(pasta, 'sem.exe'), Buffer.from('MZ texto qualquer'));
+    assert(icone.doExe(path.join(pasta, 'sem.exe')) === null, 'inventou ícone num arquivo sem recursos');
+    return '16 px, cor e transparência preservadas';
+  } finally { fs.rmSync(pasta, { recursive: true, force: true }); }
+});
+
+check('sem ícone no executável, usa o .ico da Steam', () => {
+  const icone = require('./icone');
+  const steam = fs.mkdtempSync(path.join(require('os').tmpdir(), 'trackeroao-steam-'));
+  try {
+    const hash = 'ab'.repeat(20), outro = 'cd'.repeat(20);
+    const kv = (app, textos) => {
+      const corpo = Buffer.concat([Buffer.alloc(60), ...textos.map((t) => Buffer.from('\x01k\0' + t + '\0', 'latin1'))]);
+      const c = Buffer.alloc(8); c.writeUInt32LE(app, 0); c.writeUInt32LE(corpo.length, 4);
+      return Buffer.concat([c, corpo]);
+    };
+    const cab = Buffer.alloc(16); cab.writeUInt32LE(0x07564429, 0);
+    fs.mkdirSync(path.join(steam, 'appcache'), { recursive: true });
+    fs.writeFileSync(path.join(steam, 'appcache', 'appinfo.vdf'),
+      Buffer.concat([cab, kv(10, [outro]), kv(814380, [outro, hash]), Buffer.alloc(4)]));
+    const dib = dibDeTeste(32, [20, 120, 220]);
+    const ico = Buffer.alloc(22); ico.writeUInt16LE(1, 2); ico.writeUInt16LE(1, 4);
+    ico[6] = 32; ico[7] = 32; ico.writeUInt16LE(32, 12); ico.writeUInt32LE(dib.length, 14); ico.writeUInt32LE(22, 18);
+    fs.mkdirSync(path.join(steam, 'steam', 'games'), { recursive: true });
+    fs.writeFileSync(path.join(steam, 'steam', 'games', hash + '.ico'), Buffer.concat([ico, dib]));
+    const r = icone.doJogo({ chave: 'teste-steam', appId: '814380' }, { exe: null, steam });
+    assert(r && r.origem === 'steam', 'não usou o ícone da Steam');
+    const [cr, cg, cb] = centroDoPng(r.png);
+    assert(cr === 20 && cg === 120 && cb === 220, 'cor errada no ícone da Steam');
+    assert(icone.doJogo({ chave: 'teste-nada', appId: '10' }, { exe: null, steam }) === null, 'deu ícone a um jogo sem .ico');
+    return 'appinfo.vdf lido só na entrada do jogo';
+  } finally { fs.rmSync(steam, { recursive: true, force: true }); }
+});
+
+check('o ícone do Trackeroao vira PNG pelo mesmo caminho', () => {
+  const png = require('./icone').deIco(fs.readFileSync(path.join(RAIZ_PROJETO, 'windows', 'instalador', 'icone', 'trackeroao.ico')));
+  assert(png && png.readUInt32BE(0) === 0x89504e47, 'não virou PNG');
+  return png.length + ' bytes';
+});
+
+check('o botão Jogar abre pela Steam ou pelo executável', () => {
+  const { abrirJogo } = require('./serve');
+  const chamadas = [];
+  const spawn = (cmd, args) => { chamadas.push([cmd].concat(args).join(' ')); return { unref() {} }; };
+  const daSteam = abrirJogo({ chave: 'sekiro', appId: '814380', fontes: ['steam'] },
+    { plataforma: 'win32', spawn, steam: 'C:\\Steam', exe: 'C:\\Jogos\\Sekiro\\sekiro.exe' });
+  assert(daSteam && daSteam.como === 'steam' && /steam:\/\/rungameid\/814380$/.test(chamadas[0]), 'Steam: ' + chamadas[0]);
+  const semSteam = abrirJogo({ chave: 'sekiro', appId: '814380', fontes: ['steam'] },
+    { plataforma: 'win32', spawn, steam: null, exe: 'C:\\Jogos\\Sekiro\\sekiro.exe' });
+  assert(semSteam && semSteam.como === 'executavel' && chamadas[1] === 'C:\\Jogos\\Sekiro\\sekiro.exe', 'sem Steam: ' + chamadas[1]);
+  assert(abrirJogo({ chave: 'x', fontes: ['disco'] }, { plataforma: 'win32', spawn, steam: 'C:\\Steam', exe: null }) === null, 'abriu sem ter o quê');
+  assert(abrirJogo({ chave: 'x' }, { plataforma: 'linux', spawn, exe: '/bin/true' }) === null, 'abriu fora do Windows');
+  return 'Steam quando o jogo é dela, executável sem ela';
+});
+
 console.log('\n  === 11. O repositório se basta ===');
 
 const { execFileSync: exec11 } = require('child_process');

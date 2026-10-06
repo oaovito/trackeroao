@@ -28,8 +28,12 @@ const LISTA = [
 
 let progresso = null;
 
+// O computador abre por 127.0.0.1; o celular, pelo endereço da rede.
+const PC = 'http://127.0.0.1:8777/';
+const CELULAR = 'http://192.168.0.10:8777/';
+
 async function rotas(pg) {
-  await pg.route('http://127.0.0.1:8777/**', (r) => {
+  await pg.route(/^http:\/\/(127\.0\.0\.1|192\.168\.0\.10):8777\//, (r) => {
     const u = new URL(r.request().url());
     if (u.pathname === '/') return r.fulfill({ body: fs.readFileSync(path.join(RAIZ, 'trackeroao.html')), contentType: 'text/html' });
     if (u.pathname === '/progress.json') return r.fulfill({ body: JSON.stringify(progresso), contentType: 'application/json' });
@@ -68,7 +72,7 @@ async function main() {
     });
     const pg = await c.newPage();
     await rotas(pg);
-    await pg.goto('http://127.0.0.1:8777/' + (t.hash ? '#' + t.hash : ''));
+    await pg.goto((t.escala ? CELULAR : PC) + (t.hash ? '#' + t.hash : ''));
     await pg.waitForLoadState('networkidle').catch(() => {});
     await pg.waitForTimeout(4000);
     if (t.qr) {
@@ -101,14 +105,15 @@ async function main() {
         if (!canto || !barra || !el || !meta) return null;
         const c = canto.getBoundingClientRect(), m = el.getBoundingClientRect();
         const cruza = !(m.right <= c.left || m.left >= c.right || m.bottom <= c.top || m.top >= c.bottom);
-        return { cruza, de: m.top, ate: m.bottom, barra: barra.getBoundingClientRect().bottom, meta: meta.getBoundingClientRect().top };
+        const rola = document.documentElement.scrollHeight > innerHeight + 1;
+        return { cruza, rola, de: m.top, ate: m.bottom, barra: barra.getBoundingClientRect().bottom, meta: meta.getBoundingClientRect().top };
       });
-      if (r && (r.cruza || r.de < r.barra - 0.5 || r.ate > r.meta + 0.5)) falhas.push(`${w}x${h} ${foco}: ${JSON.stringify(r)}`);
+      if (r && (r.cruza || r.rola || r.de < r.barra - 0.5 || r.ate > r.meta + 0.5)) falhas.push(`${w}x${h} ${foco}: ${JSON.stringify(r)}`);
       await c.close();
     }
   }
-  if (falhas.length) { console.error('título sobreposto:\n  ' + falhas.join('\n  ')); process.exitCode = 1; }
-  else console.log('  título do jogo sem sobreposição');
+  if (falhas.length) { console.error('título sobreposto ou tela rolando:\n  ' + falhas.join('\n  ')); process.exitCode = 1; }
+  else console.log('  título do jogo sem sobreposição e tela inicial sem rolagem');
 
   // O passo a passo do iOS, que o código QR do iPhone abre.
   const c = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: 'pt-BR' });

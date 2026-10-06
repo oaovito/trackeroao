@@ -2458,6 +2458,19 @@
     transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
   .palco-abre:hover, .palco-abre:focus-visible { outline: 0; transform: translateY(-1px); box-shadow: 0 10px 34px rgba(216, 255, 60, 0.42); }
+  .palco-acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  /* Jogar: só na janela do computador onde o jogo está instalado. */
+  .palco-jogar {
+    appearance: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12); color: #fff; padding: 11px 20px 11px 16px;
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    font-family: var(--font-display); font-weight: 700; font-size: 0.82rem; letter-spacing: 0.02em;
+    transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  }
+  .palco-jogar svg { width: 14px; height: 14px; flex: none; }
+  .palco-jogar:hover, .palco-jogar:focus-visible { outline: 0; transform: translateY(-1px); background: rgba(255, 255, 255, 0.2); border-color: rgba(216, 255, 60, 0.6); }
+  .palco-jogar:disabled { cursor: default; transform: none; opacity: 0.75; }
 
   /* Trilho de pôsteres. */
   .trilho-cabeca { display: flex; align-items: center; gap: 10px; margin: 30px 0 4px; flex-wrap: wrap; }
@@ -2734,7 +2747,7 @@
       align-items: center; column-gap: 16px; padding-top: 0;
     }
     .vista-hub .palco-marca { grid-column: 1 / -1; align-self: stretch; }
-    .vista-hub .palco-abre { justify-self: start; }
+    .vista-hub .palco-acoes { justify-self: start; }
     .vista-hub .trilho { grid-auto-columns: clamp(5rem, min(13vw, 16vh), 11.5rem); }
   }
 
@@ -2973,7 +2986,10 @@
       <div class="palco-info">
         <div class="palco-marca" id="palcoMarca"></div>
         <div class="palco-meta" id="palcoMeta"></div>
-        <button class="palco-abre" id="palcoAbre" type="button" hidden><span data-i18n="hub.abrir">Open progress</span> <span aria-hidden="true">→</span></button>
+        <div class="palco-acoes" id="palcoAcoes" hidden>
+          <button class="palco-jogar" id="palcoJogar" type="button" hidden><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.5 2.6v10.8c0 .5.55.8.97.53l8.3-5.4a.63.63 0 0 0 0-1.06l-8.3-5.4a.63.63 0 0 0-.97.53z"/></svg><span data-i18n="hub.jogar">Play</span></button>
+          <button class="palco-abre" id="palcoAbre" type="button" hidden><span data-i18n="hub.abrir">Open progress</span> <span aria-hidden="true">→</span></button>
+        </div>
       </div>
     </div>
     <div class="trilho-cabeca">
@@ -3464,6 +3480,9 @@ const I18N = {
     "sinc.status": "Sync status: {texto}",
     "secoes.rotulo": "Sections",
     "hub.abrir": "Open progress",
+    "hub.jogar": "Play",
+    "hub.jogando": "Starting…",
+    "hub.jogarFalhou": "Couldn’t start",
     "hub.seusJogos": "Your games",
     "hub.todos": "All games",
     "hub.instalados": "Installed games",
@@ -3689,6 +3708,9 @@ const I18N = {
     "sinc.status": "Sincronização: {texto}",
     "secoes.rotulo": "Seções",
     "hub.abrir": "Abrir progresso",
+    "hub.jogar": "Jogar",
+    "hub.jogando": "Abrindo…",
+    "hub.jogarFalhou": "Não abriu",
     "hub.seusJogos": "Seus jogos",
     "hub.todos": "Todos os jogos",
     "hub.instalados": "Jogos instalados",
@@ -3914,6 +3936,9 @@ const I18N = {
     "sinc.status": "Sincronización: {texto}",
     "secoes.rotulo": "Secciones",
     "hub.abrir": "Abrir progreso",
+    "hub.jogar": "Jugar",
+    "hub.jogando": "Abriendo…",
+    "hub.jogarFalhou": "No se pudo abrir",
     "hub.seusJogos": "Tus juegos",
     "hub.todos": "Todos los juegos",
     "hub.instalados": "Juegos instalados",
@@ -4139,6 +4164,9 @@ const I18N = {
     "sinc.status": "Synchronisation : {texto}",
     "secoes.rotulo": "Sections",
     "hub.abrir": "Voir la progression",
+    "hub.jogar": "Jouer",
+    "hub.jogando": "Lancement…",
+    "hub.jogarFalhou": "Échec du lancement",
     "hub.seusJogos": "Vos jeux",
     "hub.todos": "Tous les jeux",
     "hub.instalados": "Jeux installés",
@@ -4364,6 +4392,9 @@ const I18N = {
     "sinc.status": "Sync-Status: {texto}",
     "secoes.rotulo": "Abschnitte",
     "hub.abrir": "Fortschritt öffnen",
+    "hub.jogar": "Spielen",
+    "hub.jogando": "Startet…",
+    "hub.jogarFalhou": "Start fehlgeschlagen",
     "hub.seusJogos": "Deine Spiele",
     "hub.todos": "Alle Spiele",
     "hub.instalados": "Installierte Spiele",
@@ -4589,6 +4620,9 @@ const I18N = {
     "sinc.status": "Stato sincronizzazione: {texto}",
     "secoes.rotulo": "Sezioni",
     "hub.abrir": "Apri i progressi",
+    "hub.jogar": "Gioca",
+    "hub.jogando": "Avvio…",
+    "hub.jogarFalhou": "Avvio non riuscito",
     "hub.seusJogos": "I tuoi giochi",
     "hub.todos": "Tutti i giochi",
     "hub.instalados": "Giochi installati",
@@ -4814,6 +4848,9 @@ const I18N = {
     "sinc.status": "Синхронизация: {texto}",
     "secoes.rotulo": "Разделы",
     "hub.abrir": "Открыть прогресс",
+    "hub.jogar": "Играть",
+    "hub.jogando": "Запуск…",
+    "hub.jogarFalhou": "Не удалось запустить",
     "hub.seusJogos": "Ваши игры",
     "hub.todos": "Все игры",
     "hub.instalados": "Установленные игры",
@@ -5039,6 +5076,9 @@ const I18N = {
     "sinc.status": "Stan synchronizacji: {texto}",
     "secoes.rotulo": "Sekcje",
     "hub.abrir": "Otwórz postęp",
+    "hub.jogar": "Graj",
+    "hub.jogando": "Uruchamianie…",
+    "hub.jogarFalhou": "Nie udało się uruchomić",
     "hub.seusJogos": "Twoje gry",
     "hub.todos": "Wszystkie gry",
     "hub.instalados": "Zainstalowane gry",
@@ -5264,6 +5304,9 @@ const I18N = {
     "sinc.status": "Eşitleme durumu: {texto}",
     "secoes.rotulo": "Bölümler",
     "hub.abrir": "İlerlemeyi aç",
+    "hub.jogar": "Oyna",
+    "hub.jogando": "Açılıyor…",
+    "hub.jogarFalhou": "Başlatılamadı",
     "hub.seusJogos": "Oyunların",
     "hub.todos": "Tüm oyunlar",
     "hub.instalados": "Yüklü oyunlar",
@@ -5489,6 +5532,9 @@ const I18N = {
     "sinc.status": "同期状態：{texto}",
     "secoes.rotulo": "セクション",
     "hub.abrir": "進捗を開く",
+    "hub.jogar": "プレイ",
+    "hub.jogando": "起動中…",
+    "hub.jogarFalhou": "起動できませんでした",
     "hub.seusJogos": "あなたのゲーム",
     "hub.todos": "すべてのゲーム",
     "hub.instalados": "インストール済みのゲーム",
@@ -5714,6 +5760,9 @@ const I18N = {
     "sinc.status": "동기화 상태: {texto}",
     "secoes.rotulo": "섹션",
     "hub.abrir": "진행 상황 열기",
+    "hub.jogar": "플레이",
+    "hub.jogando": "실행 중…",
+    "hub.jogarFalhou": "실행하지 못했습니다",
     "hub.seusJogos": "내 게임",
     "hub.todos": "모든 게임",
     "hub.instalados": "설치된 게임",
@@ -5939,6 +5988,9 @@ const I18N = {
     "sinc.status": "同步状态：{texto}",
     "secoes.rotulo": "分区",
     "hub.abrir": "打开进度",
+    "hub.jogar": "开始游戏",
+    "hub.jogando": "正在启动…",
+    "hub.jogarFalhou": "无法启动",
     "hub.seusJogos": "你的游戏",
     "hub.todos": "全部游戏",
     "hub.instalados": "已安装的游戏",
@@ -8247,6 +8299,40 @@ function mostrarNoPalco(g) {
   const abre = document.getElementById("palcoAbre");
   abre.hidden = g.leitura !== "completa";
   abre.onclick = () => irPara(g.chave);
+
+  const jogar = document.getElementById("palcoJogar");
+  const acoes = document.getElementById("palcoAcoes");
+  if (!jogar || !acoes) return;
+  jogar.hidden = !podeJogarAqui(g);
+  jogar.disabled = false;
+  const rotulo = jogar.querySelector("span");
+  if (rotulo) rotulo.textContent = t("hub.jogar");
+  jogar.onclick = () => abrirJogo(g, jogar);
+  acoes.hidden = abre.hidden && jogar.hidden;
+}
+
+/* O jogo só abre na máquina onde está instalado: na janela do computador, nunca
+   pelo Web view de outro aparelho nem nos aplicativos de celular. */
+function podeJogarAqui(g) {
+  if (!g || !g.instalado || !daMaquinaLocal()) return false;
+  const noApp = window.TRACKEROAO_APP === true || window.TRACKEROAO_GESTOS === true ||
+    (typeof navigator !== "undefined" && /TrackeroaoApp/.test(navigator.userAgent || ""));
+  return !noApp;
+}
+
+function abrirJogo(g, bt) {
+  if (bt.disabled || typeof fetch !== "function") return;
+  const rotulo = bt.querySelector("span");
+  bt.disabled = true;
+  rotulo.textContent = t("hub.jogando");
+  const voltar = (chave) => setTimeout(() => {
+    rotulo.textContent = t(chave);
+    if (chave !== "hub.jogar") setTimeout(() => { rotulo.textContent = t("hub.jogar"); bt.disabled = false; }, 2500);
+    else bt.disabled = false;
+  }, 1800);
+  fetch("/abrir-jogo?chave=" + encodeURIComponent(g.chave), { method: "POST" })
+    .then((r) => voltar(r.ok ? "hub.jogar" : "hub.jogarFalhou"))
+    .catch(() => voltar("hub.jogarFalhou"));
 }
 
 function renderHub() {

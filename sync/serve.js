@@ -28,6 +28,38 @@ const MIME = {
  * Endereços IPv4 alcançáveis pela rede local. Exclui 169.254.0.0/16 (APIPA),
  * atribuído pelo Windows a adaptadores sem DHCP.
  */
+// Entrada completa do catálogo (com os processos), a partir da chave.
+function doCatalogo(g) {
+  try {
+    const c = require('./jogos').catalogo().find((x) => x.chave === g.chave);
+    return c ? { ...c, ...g, appId: g.appId || c.appId, processos: c.processos || [] } : g;
+  } catch (e) { return g; }
+}
+
+/*
+ * Inicia o jogo: pela Steam quando o jogo é dela e ela está instalada; senão
+ * pelo executável achado na pasta do jogo. null quando não há como.
+ */
+function abrirJogo(g, opts) {
+  const o = opts || {};
+  const plataforma = o.plataforma || process.platform;
+  if (plataforma !== 'win32' || !g || !g.chave) return null;
+  const { spawn } = o.spawn ? { spawn: o.spawn } : require('child_process');
+  let steam = o.steam;
+  if (steam === undefined) { try { steam = require('./instalacao').steamPath(); } catch (e) { steam = null; } }
+  const daSteam = (g.fontes || []).some((f) => /^steam/.test(f));
+  if (steam && daSteam && /^\d+$/.test(String(g.appId || ''))) {
+    spawn('cmd.exe', ['/d', '/c', 'start', '""', 'steam://rungameid/' + g.appId],
+      { windowsHide: true, detached: true, stdio: 'ignore' }).unref();
+    return { ok: true, como: 'steam' };
+  }
+  let exe = o.exe;
+  if (exe === undefined) { try { exe = require('./biblioteca').executavelDoJogo(g); } catch (e) { exe = null; } }
+  if (!exe) return null;
+  spawn(exe, [], { cwd: path.dirname(exe), detached: true, stdio: 'ignore' }).unref();
+  return { ok: true, como: 'executavel' };
+}
+
 function isApipa(ip) {
   return ip.startsWith('169.254.');
 }
@@ -99,6 +131,18 @@ function createServer(options) {
       return;
     }
 
+    // Abre o jogo nesta máquina. Só atende a própria máquina.
+    if (urlPath === '/abrir-jogo') {
+      const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
+      if (!daMaquina || req.method !== 'POST') { res.writeHead(403).end('forbidden'); return; }
+      const chave = new URL(req.url, 'http://x').searchParams.get('chave') || '';
+      let r = null;
+      try { r = abrirJogo(doCatalogo({ chave })); } catch (e) { r = null; }
+      res.writeHead(r ? 202 : 404, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+      res.end(JSON.stringify(r || { ok: false }));
+      return;
+    }
+
     // Agenda uma nova varredura de jogos para a próxima volta do ciclo.
     if (urlPath === '/varrer') {
       const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
@@ -117,18 +161,16 @@ function createServer(options) {
       return;
     }
 
-    // Logotipo transparente de um jogo da lista, para o menu da bandeja.
+    // Ícone próprio do jogo (do executável ou da Steam), para o menu da bandeja.
     if (urlPath === '/logo-bandeja') {
       const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
       if (!daMaquina) { res.writeHead(403).end('forbidden'); return; }
       const chave = new URL(req.url, 'http://x').searchParams.get('chave') || '';
-      let jogo = null;
-      try { jogo = (((require('./jogos').paraProgresso() || {}).lista) || []).find((g) => g.chave === chave); } catch (e) { jogo = null; }
-      Promise.resolve(jogo && jogo.appId ? require('./arte').logoDoJogo(jogo.appId) : null).then((arq) => {
-        if (!arq) { res.writeHead(404).end(); return; }
-        res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' });
-        res.end(fs.readFileSync(arq));
-      }).catch(() => { res.writeHead(404).end(); });
+      let r = null;
+      try { r = require('./icone').doJogo(doCatalogo({ chave })); } catch (e) { r = null; }
+      if (!r) { res.writeHead(404).end(); return; }
+      res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store', 'x-trackeroao-origem': r.origem });
+      res.end(r.png);
       return;
     }
 
@@ -162,7 +204,7 @@ function createServer(options) {
         .map((g) => {
           // Executável do jogo, de onde a bandeja extrai o ícone.
           let exe = '';
-          try { exe = require('./biblioteca').executavelDoJogo(g) || ''; } catch (e) { exe = ''; }
+          try { exe = require('./biblioteca').executavelDoJogo(doCatalogo(g)) || ''; } catch (e) { exe = ''; }
           return [g.chave, g.nome, g.leitura === 'completa' ? '1' : '0', exe].map((v) => String(v).replace(/[\t\r\n]/g, ' ')).join('\t');
         });
       res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
@@ -432,7 +474,7 @@ function lanUrl(porta, indice) {
   return `http://${addrs[0].address}:${p}/${indice || 'trackeroao.html'}`;
 }
 
-module.exports = { start, listenExtra, createServer, localAddresses, lanUrl, isPrivate, isApipa };
+module.exports = { start, listenExtra, createServer, localAddresses, lanUrl, isPrivate, isApipa, abrirJogo };
 
 // ----------------------------------------------------------------------- CLI
 if (require.main === module) {
