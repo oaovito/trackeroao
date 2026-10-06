@@ -1,25 +1,15 @@
 'use strict';
 /*
- * instalacao.js - o Sekiro ainda está instalado nesta máquina?
+ * instalacao.js - verifica se o Sekiro está instalado nesta máquina.
  *
- * A pergunta parece simples e não é. A pasta de save NÃO serve de resposta:
- * ela fica em %APPDATA%\Sekiro e sobrevive à desinstalação, que é justamente o
- * motivo de o progresso continuar lá quando se reinstala o jogo.
+ * A pasta de save sobrevive à desinstalação, então consulta o
+ * `appmanifest_814380.acf` da Steam e a chave de desinstalação no registro.
  *
- * O que some quando o jogo é removido é o `appmanifest_814380.acf` da
- * biblioteca do Steam e a chave de desinstalação no registro. São esses dois
- * que consultamos.
+ *   true  - jogo encontrado
+ *   false - a Steam respondeu e o jogo não está lá
+ *   null  - desconhecido (sem Steam, registro indisponível, disco ausente)
  *
- * A função devolve três respostas, e a terceira é a que importa:
- *
- *   true  - achamos o jogo
- *   false - o Steam respondeu e o jogo não está lá
- *   null  - NÃO SABEMOS
- *
- * `null` acontece quando o Steam não está instalado, o registro não responde,
- * ou a biblioteca está num disco que não foi montado agora. Tratar isso como
- * "desinstalado" desligaria o serviço de quem só desconectou um HD externo.
- * Quem chama tem de agir apenas no `false`.
+ * Quem chama deve agir apenas no `false`.
  */
 
 const fs = require('fs');
@@ -47,12 +37,7 @@ function steamPath() {
   return m[1].trim().replace(/\//g, '\\');
 }
 
-/**
- * Todas as bibliotecas do Steam, inclusive as de outros discos.
- *
- * O arquivo é VDF, não JSON; aqui só interessa o campo "path", e tentar
- * interpretar o formato inteiro seria trabalho para nada.
- */
+/** Todas as bibliotecas da Steam (lê só os campos "path" do VDF). */
 function bibliotecas(steam) {
   const libs = [steam];
   const vdf = path.join(steam, 'steamapps', 'libraryfolders.vdf');
@@ -66,10 +51,8 @@ function bibliotecas(steam) {
 }
 
 /**
- * Devolve { instalado, evidencias, checagemValida }.
- *
- * `checagemValida` diz se dá para confiar num `instalado: false`. Sem o Steam
- * localizado, a resposta não vale nada e sai como null.
+ * Devolve { instalado, evidencias, checagemValida }. `checagemValida` indica
+ * se um `instalado: false` é confiável.
  */
 function estado() {
   if (process.platform !== 'win32') {
@@ -101,14 +84,9 @@ function estado() {
 }
 
 /*
- * Sem Steam, a pergunta continua tendo resposta.
- *
- * A varredura de jogos (biblioteca.js) acha o Sekiro pelo disco, pelo
- * registro ou pela Epic, e a pasta em que ele foi visto fica lembrada aqui.
- * Pasta lembrada que existe é "instalado". Pasta lembrada que sumiu, e que a
- * varredura seguinte também não achou em outro lugar, é "não instalado". Sem
- * nunca ter visto pasta nenhuma, a resposta honesta continua sendo "não sei"
- * -- e "não sei" nunca vira hibernação.
+ * Sem Steam: usa a pasta registrada pela varredura (biblioteca.js). Pasta
+ * existente = instalado; pasta removida e não reencontrada = não instalado;
+ * nenhuma pasta registrada = desconhecido.
  */
 const LEMBRADA = path.join(__dirname, '.jogo-pasta.json');
 

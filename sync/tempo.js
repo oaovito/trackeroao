@@ -1,40 +1,21 @@
 'use strict';
 /*
- * tempo.js - quantas horas de jogo.
+ * tempo.js - tempo de jogo.
  *
- * Isto NÃO sai do save. Procurei lá primeiro e o que aparece são dezenas de
- * inteiros numa faixa plausível, nenhum distinguível dos outros sem uma
- * diferença medida com o jogo aberto. O Steam, por outro lado, já guarda a
- * conta pronta e exata:
+ * Fonte principal: o localconfig.vdf da Steam (Playtime em minutos,
+ * LastPlayed em época unix):
  *
  *     Steam/userdata/<conta>/config/localconfig.vdf
  *       "814380" { "Playtime" "4386"  "LastPlayed" "1790527827" }
  *
- * Playtime vem em minutos, LastPlayed em época unix.
+ * Sem Steam, usa o tempo interno gravado no save (`slotFields.igtSegundos`,
+ * ver offsets.json). As duas medidas são diferentes:
  *
- * MAS a Steam não é obrigatória. Instalado numa máquina sem ela, ou com o
- * jogo vindo de outro lugar, o tempo continua existindo: o próprio save
- * guarda o tempo interno de jogo, em segundos, no bloco de stats do slot
- * (`slotFields.igtSegundos`). Esse offset não estava publicado em lugar
- * nenhum e foi achado aqui, varrendo o slot atrás do valor que a leitura de
- * memória já dava — ver a nota no offsets.json.
+ *   steam : relógio de parede, inclui menus, pausas e carregamentos
+ *   jogo  : tempo interno do jogo
  *
- * Os dois números medem coisas diferentes e por isso não se somam nem se
- * substituem em silêncio:
- *
- *   steam : relógio de parede, conta menu, pausa e carregamento
- *   jogo  : tempo interno, só o que o jogo conta como jogado
- *
- * Quando as duas existem, a da Steam manda (é a que o usuário reconhece do
- * perfil dele) e a do jogo vira conferência: se a interna passar da de
- * relógio, alguma das duas leituras está errada, porque o relógio é sempre o
- * maior dos dois. É essa checagem que prova que o caminho sem Steam funciona,
- * usando a Steam como gabarito enquanto ela está por perto.
- *
- * O arquivo é escrito pelo Steam quando o jogo fecha e quando ele sincroniza,
- * então durante uma sessão longa o número fica parado e só sobe no fim. É uma
- * limitação real e está dita na página: melhor um número exato atrasado do que
- * um número inventado em tempo real.
+ * Com as duas, vale a da Steam e a interna serve de conferência (não pode ser
+ * maior). A Steam só atualiza o arquivo ao fechar o jogo ou sincronizar.
  */
 
 const fs = require('fs');
@@ -63,11 +44,8 @@ function contasDisponiveis(steam) {
 }
 
 /**
- * Lê Playtime e LastPlayed do bloco do app.
- *
- * O arquivo tem o id do app em mais de um lugar — um deles é um blob binário de
- * licença, sem tempo nenhum. Por isso não basta achar o id: é preciso achar a
- * ocorrência que traz os campos de tempo logo depois.
+ * Lê Playtime e LastPlayed do bloco do app. O id aparece mais de uma vez no
+ * arquivo; vale a ocorrência seguida dos campos de tempo.
  */
 function lerLocalConfig(arquivo) {
   let txt;
@@ -87,22 +65,14 @@ function lerLocalConfig(arquivo) {
   return null;
 }
 
-/**
- * Tempo interno lido do save, em segundos.
- *
- * Recebe o payload do slot já escolhido, porque quem sabe qual slot está
- * ativo é o parse — e ler o slot errado daria o tempo de outro personagem,
- * que foi exatamente como o offset se confirmou.
- */
+/** Tempo interno lido do save, em segundos, do slot escolhido pelo parse. */
 function doSave(payload, config) {
   const campo = config && config.slotFields && config.slotFields.igtSegundos;
   if (!campo || !payload) return null;
   const off = campo.offset;
   if (!(off >= 0) || off + 4 > payload.length) return null;
   const seg = payload.readUInt32LE(off);
-  // Um save recém-criado tem tempo baixo mas real; o que não é real é lixo de
-  // ponteiro, que aparece como número absurdo. 10 mil horas é mais que o
-  // recorde de qualquer pessoa e bem abaixo de qualquer valor acidental.
+  // Acima de 10 mil horas, considera a leitura inválida.
   if (!(seg > 0) || seg > 10000 * 3600) return null;
   return seg;
 }
@@ -137,9 +107,7 @@ function tempoDeJogo(opts) {
         ultimaVez: r.ultimaVez,
         fonte: 'steam',
         internoSegundos: doJogo,
-        // A conferência do parágrafo do cabeçalho: relógio de parede tem de ser
-        // maior que tempo interno. Falso aqui é sinal de leitura errada, não de
-        // jogo estranho.
+        // O relógio de parede deve ser maior que o tempo interno.
         conferencia: doJogo === null ? null : {
           relogioSegundos: r.minutos * 60,
           jogoSegundos: doJogo,

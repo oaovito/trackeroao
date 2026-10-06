@@ -1,59 +1,33 @@
 <#
-Instala o trackeroao numa maquina qualquer, do zero.
+Instala o trackeroao a partir da ultima release do repositorio publico.
 
-A ideia e ser replicavel: rodar isto em qualquer PC com Windows deixa o
-tracker funcionando igual, sem precisar carregar pasta nem lembrar de nada. O
-projeto inteiro mora num repositorio publico, entao a instalacao e baixar a
-versao atual dali e registrar o servico.
+Etapas:
+  1. Node.js: o ja instalado, o winget ou o zip oficial do nodejs.org
+     (descompactado na pasta do projeto, com hash conferido)
+  2. o projeto, a partir do zip da ultima release (sem exigir git)
+  3. a tarefa agendada que sobe o servico oculto no logon
+  4. a regra de firewall da porta 8777, para acesso pelo celular
+  5. a primeira leitura do save e a suite de testes
 
-O principio e que o instalador resolve TUDO que a aplicacao precisa e que seja
-tecnica e legalmente possivel resolver sozinho. Nao existe "depois voce
-instala" nem "depois voce libera": cada coisa que ficaria a cargo da pessoa e
-uma chance de a instalacao terminar parecendo pronta e nao funcionar.
-
-O que ele resolve sozinho:
-  - Node.js, por tres caminhos em ordem de preferencia: o que ja existe na
-    maquina, o winget, e -- se nenhum dos dois -- o zip oficial do nodejs.org
-    descompactado dentro da propria pasta do projeto, com o hash conferido
-  - o projeto, na versao da ultima release, baixado do repositorio publico
-    (sem exigir git: usa o zip que o GitHub publica)
-  - a tarefa agendada que sobe o servico oculto no logon
-  - a regra de firewall da porta 8777, para o celular alcancar a pagina --
-    unico passo que pede elevacao, e so ele
-  - a primeira leitura do save, para a pagina nao abrir vazia
-  - a conferencia final, rodando a suite nesta maquina
-
-O que ele NAO faz, e por que:
-  - nao instala o jogo nem a Steam. Nao e software nosso para redistribuir, e
-    a aplicacao funciona sem eles (ver a secao "A Steam e opcional" do README)
-  - nao apaga nada do que ja existir na pasta de destino que nao seja do
-    projeto; se a pasta ja tem uma instalacao, ele atualiza em vez de zerar,
-    preservando os arquivos de estado (contagens, calibracao do contador)
-  - nao roda como administrador. A tarefa agendada e do usuario atual, e
-    elevar o processo inteiro registraria para o usuario errado. So a regra de
-    firewall sobe elevada, num processo separado e de vida curta.
+Nao instala o jogo nem a Steam. Uma instalacao existente e atualizada,
+preservando os arquivos de estado.
 #>
 
-# Os valores padrao aceitam vir do ambiente porque e assim que o
-# trackeroao-instalador.exe repassa o que recebeu na linha de comando dele. A
-# razao de nao repassar por argumento esta comentada no construir-exe.ps1.
+# Os valores padrao podem vir do ambiente, que e como o
+# trackeroao-instalador.exe os repassa (ver construir-exe.ps1).
 param(
   [string]$Destino = $(if ($env:TRACKEROAO_DESTINO) { $env:TRACKEROAO_DESTINO }
                        else { Join-Path $env:LOCALAPPDATA 'trackeroao' }),
   [string]$Repo = $(if ($env:TRACKEROAO_REPO) { $env:TRACKEROAO_REPO }
                     else { 'https://github.com/oaovito/trackeroao' }),
-  # Para quem prefere abrir a porta a mao. O padrao e abrir, porque deixar
-  # para depois e o motivo numero um de o celular nao achar a pagina.
+  # Pula a regra de firewall da porta 8777.
   [switch]$SemFirewall,
-  # Preenchidos pela propria instalacao quando ela se relanca elevada. Nao sao
-  # para uso manual: dizem quem pediu a instalacao, e nao quem a esta rodando.
-  # A diferenca importa quando a elevacao troca de conta -- ver o bloco logo
-  # abaixo.
+  # Uso interno: preenchidos ao relancar elevado, com o usuario original
+  # (a elevacao pode trocar de conta).
   [string]$UsuarioOriginal,
   [switch]$JaElevado,
-  # O proprio trackeroao-instalador.exe, que vira o desinstalador dentro da
-  # pasta. Vem do ambiente na primeira execucao e por argumento na elevada,
-  # porque o processo elevado nao herda o ambiente de quem o pediu.
+  # Caminho do trackeroao-instalador.exe, copiado como desinstalador. Vem do
+  # ambiente ou, no processo elevado, por argumento.
   [string]$Exe = $env:TRACKEROAO_EXE
 )
 
@@ -66,22 +40,15 @@ function Nota($t)  { Write-Host "  $t" -ForegroundColor DarkGray }
 function Ruim($t)  { Write-Host "  $t" -ForegroundColor Red }
 
 <#
-  Rodando pela janela do trackeroao-instalador.exe (TRACKEROAO_GUI), este
-  script nao tem console visivel: ele conta o que esta fazendo por linhas que
-  comecam com @@, que a janela transforma em texto e barra de progresso (o
-  protocolo esta descrito no construir-exe.ps1). O resto da saida vai para o
-  registro em %TEMP%\trackeroao-instalar.log. Pela linha de comando, sem a
-  janela, nada disso aparece e o script fala no console como sempre falou.
-
-  Os textos da janela tem acento: o .exe grava este script como UTF-8 com BOM,
-  e a saida vai em UTF-8.
+  Com TRACKEROAO_GUI, o progresso e enviado em linhas iniciadas por @@ (ver o
+  protocolo em construir-exe.ps1) e o resto vai para
+  %TEMP%\trackeroao-instalar.log. Script gravado como UTF-8 com BOM.
 #>
 $gui = [bool]$env:TRACKEROAO_GUI
-# Um erro que ninguem tratou nao pode sumir: pela janela, ele vira a mensagem
-# de erro que a pessoa le, com a linha onde aconteceu. Pelo console, segue
-# como sempre (break devolve o erro ao PowerShell).
+# Erros nao tratados: na janela, viram mensagem com a linha; no console,
+# seguem para o PowerShell.
 trap {
-  # Pelo console, a pasta do download sai junto com o erro.
+  # No console, remove a pasta do download.
   if ($tmp -and (Test-Path $tmp)) { Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue }
   if ($gui) {
     [Console]::Out.WriteLine("@@ERRO #unexpected|$($_.InvocationInfo.ScriptLineNumber)|$($_.Exception.Message)")
@@ -92,8 +59,7 @@ trap {
 }
 if ($gui) {
   [Console]::OutputEncoding = [Text.Encoding]::UTF8
-  # A barra de progresso do proprio PowerShell nao aparece em lugar nenhum, e
-  # desenha-la deixa o Invoke-WebRequest varias vezes mais lento.
+  # Desativa a barra de progresso (deixa o Invoke-WebRequest lento).
   $ProgressPreference = 'SilentlyContinue'
   if ($env:TRACKEROAO_USUARIO) { $UsuarioOriginal = $env:TRACKEROAO_USUARIO }
 }
@@ -102,23 +68,18 @@ function Tela($tipo, $texto) {
 }
 function Etapa($pct, $texto) { Tela 'PASSO' "$pct $texto" }
 function Detalhe($texto) { Tela 'DETALHE' $texto }
-# Parar de vez: diz o motivo na janela e sai com erro, para ela saber.
+# Encerra com erro e informa o motivo a janela.
 function Falhar($texto, $janela) {
   Ruim $texto
   Tela 'ERRO' $(if ($janela) { $janela } else { $texto })
   exit 1
 }
 <#
-  Programas de fora (node, winget) escrevem avisos na saida de erro. No
-  Windows PowerShell 5.1, com $ErrorActionPreference = 'Stop', cada linha
-  dessas vira um erro fatal quando essa saida e redirecionada, e pela janela
-  ela sempre e: foi assim que a instalacao parava em 84%, quando o parse.js
-  avisava que nao achou o save. Dentro desta funcao a preferencia volta a
-  Continue, so para eles; quem diz se deu certo e o codigo de saida.
+  Executa programas externos (node, winget) com ErrorActionPreference
+  Continue: no PowerShell 5.1, stderr redirecionado com 'Stop' vira erro
+  fatal. O resultado e dado pelo codigo de saida.
 #>
-# Pela janela, as pastas temporarias ficam dentro da pasta do proprio .exe,
-# que ele apaga no fim, de qualquer jeito que o script termine: nada fica
-# para tras em %TEMP%, nem numa instalacao que falhou.
+# Na janela, os temporarios ficam na pasta do .exe, removida ao final.
 $baseTemp = if ($gui -and $PSScriptRoot) { $PSScriptRoot } else { $env:TEMP }
 function Nativo([scriptblock]$bloco) {
   $ErrorActionPreference = 'Continue'
@@ -126,38 +87,16 @@ function Nativo([scriptblock]$bloco) {
 }
 Etapa 2 '#prep_inst'
 
-# O que ficou por fazer, para o relatorio do fim. Instalacao que termina com
-# pendencia silenciosa e pior que instalacao que falha.
+# Pendencias, listadas no relatorio final.
 $pendencias = @()
 
 <#
-  A instalacao inteira sobe elevada, e quem decide e a pessoa.
+  A instalacao roda elevada. Antes de elevar, registra o usuario original e o
+  repassa, para que a tarefa agendada, as pastas e o atalho sejam os dele,
+  mesmo que a elevacao use outra conta.
 
-  A versao anterior elevava so a regra de firewall, num processo separado, para
-  o resto continuar rodando como o usuario comum. O motivo era concreto: uma
-  tarefa agendada registrada dentro de um processo elevado com OUTRA conta
-  ficaria no usuario errado, e o servico nunca subiria no logon de quem joga.
-
-  Elevar tudo e a decisao do dono do projeto, e resolve o incomodo de ver dois
-  prompts. O cuidado que ela exige esta aqui: antes de elevar, a instalacao
-  anota QUEM pediu, e passa esse nome adiante. A tarefa agendada e registrada
-  para essa pessoa, e nao para quem o Windows devolveu depois do prompt.
-
-  Os dois casos, para o leitor futuro entender por que ha tanto cuidado com uma
-  linha so:
-
-    - a pessoa e administradora da propria maquina. O prompt e de consentimento
-      e a conta nao muda; anotar o usuario nao custa nada e nao muda nada.
-    - a pessoa NAO e administradora e alguem digita outra credencial. Aí o
-      processo elevado e de outro usuario, com outro perfil, outro
-      %LOCALAPPDATA% e outro %APPDATA%. Sem anotar quem pediu, a instalacao
-      inteira iria para a pasta da conta errada e o servico subiria para
-      alguem que nao joga.
-
-  Recusar o prompt nao cancela a instalacao: ela segue sem elevacao e faz tudo
-  que nao precisa de administrador, deixando a porta 8777 como pendencia escrita
-  no fim. Nao ter firewall aberto custa o acesso pelo celular; nao ter a
-  instalacao custa tudo.
+  Se a elevacao for recusada, segue sem ela e deixa a porta 8777 como
+  pendencia.
 #>
 $souAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
              ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -166,8 +105,7 @@ $elevacaoNegada = $false
 if (-not $gui -and -not $souAdmin -and -not $JaElevado -and -not $SemFirewall) {
   $quemPediu = "$env:USERDOMAIN\$env:USERNAME"
   Nota 'pedindo administrador para a instalacao inteira'
-  # Nao chamar de $args: e variavel automatica do PowerShell, e sobrescreve-la
-  # dentro de um script funciona mas confunde quem le.
+  # Nao usar $args (variavel automatica).
   $argsElevado = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"",
             '-Destino', "`"$Destino`"", '-Repo', "`"$Repo`"",
             '-UsuarioOriginal', "`"$quemPediu`"", '-JaElevado')
@@ -178,21 +116,18 @@ if (-not $gui -and -not $souAdmin -and -not $JaElevado -and -not $SemFirewall) {
   } catch {
     Nota 'administrador recusado; seguindo sem ele'
     Nota 'tudo que nao depende de administrador vai ser feito normalmente'
-    # Uma bandeira propria, e nao $SemFirewall: reusar a do parametro fazia o
-    # passo 4 anunciar "pulado a pedido", quando ninguem pediu -- o prompt e
-    # que foi negado. Relatorio que descreve errado o proprio estado e pior que
-    # relatorio que nao descreve.
+    # Distinto de $SemFirewall: aqui a elevacao foi negada.
     $elevacaoNegada = $true
   }
 }
 
-# Pela janela, quem pede administrador e o .exe, antes de o script existir.
+# Na janela, a elevacao e feita pelo .exe.
 if ($gui) {
   $JaElevado = $souAdmin
   $elevacaoNegada = -not $souAdmin
 }
 
-# Quem joga e quem pediu a instalacao, nao necessariamente quem a esta rodando.
+# Usuario original da instalacao, que pode diferir do processo elevado.
 if (-not $UsuarioOriginal) { $UsuarioOriginal = "$env:USERDOMAIN\$env:USERNAME" }
 if ($JaElevado -and $UsuarioOriginal -ne "$env:USERDOMAIN\$env:USERNAME") {
   Nota "elevado como $env:USERNAME, mas instalando para $UsuarioOriginal"
@@ -207,22 +142,8 @@ Etapa 6 '#node_check'
 
 function Node-Portatil($raiz) {
   <#
-    Ultimo recurso: o zip oficial do nodejs.org, descompactado dentro da pasta
-    do projeto.
-
-    Isto existe porque winget nao esta em toda maquina -- some em Windows LTSC,
-    em instalacao antiga sem App Installer, e em conta sem loja. Antes, sem
-    winget, o instalador desistia e mandava a pessoa instalar o Node a mao, que
-    e exatamente o tipo de "depois voce faz" que nao pode existir aqui.
-
-    O zip e a distribuicao oficial do proprio projeto Node (MIT), entao nao ha
-    nada a pedir a ninguem. Nao mexe no PATH e nao precisa de administrador: o
-    runtime fica em runtime\node dentro do destino, e a tarefa agendada aponta
-    para o caminho absoluto dele.
-
-    O hash e conferido contra o SHASUMS256.txt que o nodejs.org publica ao lado
-    do arquivo. Baixar binario e executa-lo sem conferir seria o unico ponto do
-    projeto em que se confia numa transferencia sem prova.
+    Sem winget: zip oficial do nodejs.org em runtime\node, dentro do destino,
+    com o hash conferido contra o SHASUMS256.txt. Nao altera o PATH.
   #>
   $arq = switch ($env:PROCESSOR_ARCHITECTURE) {
     'ARM64' { 'win-arm64' }
@@ -304,14 +225,8 @@ $tmp = Join-Path $baseTemp ("trackeroao-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $tmp -Force | Out-Null
 $zip = Join-Path $tmp 'fonte.zip'
 <#
-  A versao instalada e a ultima release, e nao a main.
-
-  E a mesma unidade que a atualizacao automatica usa: cada release marca um
-  ciclo terminado, e a main entre duas releases pode estar no meio de uma
-  mudanca. Instalar pela release tambem da a atualizacao um ponto de partida
-  conhecido -- a tag fica gravada em versao.json. Sem release alcancavel (API
-  fora do ar, limite de pedidos), cai para a main, que e melhor que nao
-  instalar.
+  Instala a ultima release (tag gravada em versao.json). Se a release nao
+  puder ser consultada, usa a main.
 #>
 $tag = 'main'
 $origem = "$Repo/archive/refs/heads/main.zip"
@@ -320,11 +235,7 @@ try {
   $rel = Invoke-RestMethod -Uri "$apiRepo/releases/latest" -UseBasicParsing -Headers @{ 'User-Agent' = 'trackeroao' }
   if ($rel.tag_name) { $tag = $rel.tag_name; $origem = "$Repo/archive/refs/tags/$tag.zip" }
 } catch {
-  <#
-    A API tem cota por endereco, e uma rede compartilhada a gasta sem culpa de
-    ninguem. A pagina da release nao tem essa cota: ela redireciona para a tag,
-    e o nome vem no endereco.
-  #>
+  # Usa o redirecionamento de /releases/latest (sem cota da API).
   try {
     $pedido = [System.Net.WebRequest]::Create("$Repo/releases/latest")
     $pedido.AllowAutoRedirect = $false
@@ -350,11 +261,8 @@ $raizBaixada = (Get-ChildItem $tmp -Directory | Select-Object -First 1).FullName
 New-Item -ItemType Directory -Path $Destino -Force | Out-Null
 
 <#
-  A copia e a mesma da atualizacao automatica: sync\atualizar.js, rodado da
-  pasta baixada. Ele confere se o zip veio inteiro antes de copiar (zip
-  truncado descompacta sem reclamar), preserva o estado desta maquina, tira da
-  raiz o que versoes antigas deixavam la e grava em versao.json o que foi
-  instalado. Duas rotinas para a mesma copia acabariam discordando.
+  A copia usa sync\atualizar.js da pasta baixada: valida o zip, preserva o
+  estado local, remove arquivos legados e grava versao.json.
 #>
 Nativo { & $node (Join-Path $raizBaixada 'sync\atualizar.js') --aplicar $raizBaixada $tag $Destino 2>&1 |
   ForEach-Object { Nota "$_" } }
@@ -365,17 +273,9 @@ $artes = @(Get-ChildItem (Join-Path $Destino 'docs\icones') -Recurse -File -Erro
 Ok "projeto $tag em $Destino  ($artes imagens)"
 
 <#
-  O desinstalador.
-
-  E o proprio .exe que esta rodando agora, copiado para dentro da pasta com
-  outro nome: com "desinstal" no nome, ele desinstala (ver construir-exe.ps1).
-  A release carrega um arquivo so, e quem instalou tem como remover sem voltar
-  a pagina de download.
-
-  O registro em "Aplicativos instalados" e o lugar onde o Windows ensina a
-  procurar como remover um programa. Fica em HKCU, que e da conta de quem
-  instalou e nao pede administrador -- e por isso so e feito quando quem roda
-  e quem pediu: elevado com outra conta, o HKCU seria o do administrador.
+  Desinstalador: o proprio .exe, copiado com "desinstal" no nome (ver
+  construir-exe.ps1). Registrado em "Aplicativos instalados" (HKCU) apenas
+  quando o processo roda com a conta original.
 #>
 Etapa 56 '#register'
 Detalhe '#register_d'
@@ -413,19 +313,14 @@ $instalador = Join-Path $Destino 'windows\install-sync-service.ps1'
 & $instalador -NodePath $node -Usuario $UsuarioOriginal
 
 <#
-  A janela do Trackeroao (app\Trackeroao.exe), que o .exe do instalador traz
-  dentro dele e entrega aqui por TRACKEROAO_APP. Ela substitui a anterior no
-  lugar: a pasta app e trocada inteira, e uma janela aberta e fechada antes.
-  Pela linha de comando, num clone, ela nao existe, e o atalho abre a pagina
-  local como antes.
+  Janela do Trackeroao (app\Trackeroao.exe), recebida por TRACKEROAO_APP. A
+  pasta app e substituida inteira; uma janela aberta e fechada antes.
 #>
 $janela = $null
 if ($env:TRACKEROAO_APP -and (Test-Path (Join-Path $env:TRACKEROAO_APP 'Trackeroao.exe'))) {
   Etapa 70 '#window'
   $pastaApp = Join-Path $Destino 'app'
-  # O servico recem-religado acende o icone da bandeja, que e este mesmo
-  # .exe; se ele voltar entre o fechar e a copia, o arquivo fica preso. Entao
-  # fecha e copia de novo, algumas vezes, ate a copia passar.
+  # O icone da bandeja usa o mesmo .exe; repete fechar e copiar ate conseguir.
   for ($tentativa = 1; ; $tentativa++) {
     Get-Process -Name 'Trackeroao' -ErrorAction SilentlyContinue |
       Where-Object { $_.Path -and $_.Path.StartsWith($pastaApp, [StringComparison]::OrdinalIgnoreCase) } |
@@ -448,20 +343,8 @@ if ($env:TRACKEROAO_APP -and (Test-Path (Join-Path $env:TRACKEROAO_APP 'Trackero
 Passo '4/6  Atalho'
 Etapa 74 '#shortcut'
 <#
-  O atalho na area de trabalho.
-
-  E o que cumpre a primeira metade do pedido: a aplicacao pode ser aberta
-  livremente, quando a pessoa quiser. A outra metade -- abrir sozinha, em
-  silencio, so quando o jogo escolhido comeca -- e da bandeja, e nao depende
-  deste atalho.
-
-  Ele aponta para o wscript com o abrir.vbs, e nao para a URL direto, por tres
-  motivos que um atalho de internet nao resolveria: o servico pode estar
-  parado e precisa subir antes; a chama precisa acender na bandeja; e a espera
-  pelo servidor evita abrir o navegador numa pagina de erro.
-
-  O icone e o do proprio wscript por enquanto; um .ico proprio seria mais um
-  arquivo para sumir no caminho, e o desenho ja vive na bandeja.
+  Atalho na area de trabalho. Aponta para wscript + abrir.vbs, que sobe o
+  servico se necessario, acende a bandeja e abre a pagina.
 #>
 $atalhoVbs = Join-Path $Destino 'sync\abrir.vbs'
 if (-not (Test-Path $atalhoVbs)) {
@@ -469,11 +352,7 @@ if (-not (Test-Path $atalhoVbs)) {
   $pendencias += $(if ($gui) { '#shortcut_fail' } else { 'criar um atalho para o trackeroao: nao consegui' })
 } else {
   try {
-    <#
-      A area de trabalho e a de QUEM PEDIU a instalacao, e nao a do processo.
-      Elevado com outra conta, [Environment]::GetFolderPath('Desktop') devolve
-      a pasta do administrador -- e o atalho nasceria onde ninguem olha.
-    #>
+    # Area de trabalho do usuario original, nao a do processo elevado.
     $desktop = $null
     if ($UsuarioOriginal -and $UsuarioOriginal -ne "$env:USERDOMAIN\$env:USERNAME") {
       $apenasNome = ($UsuarioOriginal -split '\\')[-1]
@@ -482,7 +361,7 @@ if (-not (Test-Path $atalhoVbs)) {
     }
     if (-not $desktop) { $desktop = [Environment]::GetFolderPath('Desktop') }
 
-    # Um atalho so: o de versoes anteriores e trocado por este, no mesmo lugar.
+    # Substitui o atalho existente.
     $lnk = Join-Path $desktop 'Trackeroao.lnk'
     Get-ChildItem $desktop -Filter 'trackeroao.lnk' -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
     $ws = New-Object -ComObject WScript.Shell
@@ -491,8 +370,7 @@ if (-not (Test-Path $atalhoVbs)) {
       $atalho.TargetPath = $janela
       $atalho.Arguments = ''
       $atalho.WorkingDirectory = Split-Path $janela -Parent
-      # O icone fica na raiz, fora de app: o Explorer segura o arquivo que
-      # esta mostrando, e dentro de app isso travaria a troca da janela.
+      # Icone fora de app\, para o Explorer nao travar a troca da janela.
       $ico = Join-Path $Destino 'trackeroao.ico'
       $doApp = Join-Path (Split-Path $janela -Parent) 'trackeroao.ico'
       if (Test-Path $doApp) { Copy-Item $doApp $ico -Force -ErrorAction SilentlyContinue }
@@ -516,24 +394,9 @@ if (-not (Test-Path $atalhoVbs)) {
 Passo '5/6  Rede'
 Etapa 78 '#net'
 Detalhe '#net_d'
-<#
-  A porta 8777 na rede local.
-
-  O trabalho todo mora em windows\liberar-porta.ps1, e nao aqui, por dois motivos. Ele
-  precisa existir sozinho para quem recusou o administrador resolver depois com
-  uma acao em vez de um roteiro pelo Firewall do Windows; e o perfil da rede
-  muda com o lugar, entao a mesma maquina volta a precisar disso sem
-  reinstalar nada.
-
-  O que aquele script corrige em relacao a versao que ficou para tras: ele cria
-  a regra para os perfis EM USO, e nao para um perfil escolhido no escuro. A
-  versao anterior criava so para Private, e numa maquina cuja rede esteja
-  classificada como Public a regra existia sem servir para nada -- que e o pior
-  resultado possivel, porque parece resolvido.
-#>
+# Porta 8777 na rede local, via windows\liberar-porta.ps1.
 if ($gui -and $elevacaoNegada -and -not $SemFirewall) {
-  # Sem administrador, liberar a porta abriria um segundo pedido e uma segunda
-  # janela; pela janela do instalador, fica como pendencia escrita no fim.
+  # Sem administrador, na janela do instalador, fica como pendencia.
   Nota 'sem administrador: a porta fica fechada'
   $pendencias += '#net_pending'
 } elseif ($SemFirewall) {
@@ -545,9 +408,7 @@ if ($gui -and $elevacaoNegada -and -not $SemFirewall) {
     Nota 'liberar-porta.ps1 nao veio no download'
     $pendencias += 'liberar a porta 8777 na rede local'
   } else {
-    # Ja estando elevado, o script nao pede nada e so cria a regra. Se a
-    # elevacao foi negada la em cima, ele pede de novo -- e ai e a segunda
-    # chance de quem mudou de ideia, em vez de uma pendencia seca.
+    # Elevado, so cria a regra; caso contrario, o script solicita elevacao.
     & $liberar
     if ($LASTEXITCODE -ne 0) {
       $pendencias += "liberar a porta 8777: rode $Destino\windows\liberar-porta.ps1 e aceite o pedido de administrador"
@@ -559,8 +420,7 @@ if ($gui -and $elevacaoNegada -and -not $SemFirewall) {
 Passo '6/6  Conferindo'
 Etapa 84 '#read'
 Push-Location $Destino
-# Uma leitura antes da suite: assim a pagina ja abre com numero em vez de
-# tracinho, e a propria suite tem o que conferir.
+# Primeira leitura do save antes da suite.
 Nativo { & $node 'sync/parse.js' 2>&1 | Select-Object -Last 1 | ForEach-Object { Nota "$_" } }
 Etapa 90 '#check'
 Detalhe '#check_d'
@@ -570,13 +430,11 @@ Pop-Location
 if ($testes -eq 0) { Ok 'a suite passou inteira nesta maquina' }
 else {
   Nota 'alguns testes falharam; se for a parte do save, o jogo talvez nao esteja instalado aqui'
-  # Na janela, isto fica so no registro: sem o jogo instalado alguns testes
-  # falham por definicao, e isso nao e algo que a pessoa precise resolver.
+  # Na janela, a saida vai so para o registro (sem o jogo, alguns testes falham).
   if (-not $gui) { $pendencias += "a suite terminou com falha (codigo $testes) -- rode 'npm run selftest' em $Destino para ver quais" }
 }
 
-# Pela janela do instalador, o Trackeroao abre no botao "Abrir o Trackeroao";
-# pelo console, a janela dele abre aqui. Nunca num navegador.
+# No console, abre a janela do Trackeroao aqui; na GUI, pelo botao final.
 if (-not $gui -and $janela) { Start-Process $janela }
 Write-Host "`nPronto." -ForegroundColor Green
 Nota 'para abrir: o icone Trackeroao na area de trabalho, ou dois cliques na chama da bandeja'
@@ -591,14 +449,11 @@ Detalhe '#done_d'
 if ($janela) { Tela 'APP' $janela }
 Tela 'PRONTO' '#installed'
 
-# Rodando elevada, a janela e uma nova e fecha sozinha no fim, levando junto
-# tudo que foi escrito. Esperar uma tecla e o que permite ler o relatorio --
-# inclusive as pendencias, que sao a parte que mais importa ler.
+# Elevado em console proprio: espera uma tecla para o relatorio ficar visivel.
 if ($JaElevado -and -not $gui) {
   Write-Host "`nTecle algo para fechar." -ForegroundColor DarkGray
   [void]$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
 }
 
-# O codigo de saida e o que a janela confere: o do ultimo programa de fora
-# (a suite, que pode falhar sem o jogo instalado) nao pode vazar para ca.
+# Codigo de saida explicito (nao herda o da suite).
 if ($gui) { exit 0 }

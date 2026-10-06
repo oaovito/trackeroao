@@ -1,28 +1,15 @@
 /**
- * atualizar.js - a instalação se mantém atual sozinha, em silêncio.
+ * atualizar.js - atualização automática e silenciosa (saída só no log).
  *
- * O pedido é que quem tem a aplicação instalada receba cada versão nova sem
- * fazer nada, sem mensagem e sem janela. Então este módulo não fala com a
- * tela: o que ele tem a dizer vai para o log, e só.
+ * A unidade de atualização é a release. Dois modos:
  *
- * A unidade de atualização é a release, e não cada commit da main. Todo ciclo
- * de trabalho termina numa release; é ela que marca "isto está pronto", e é o
- * mesmo código que o instalador baixa. Entre releases, a main pode estar no
- * meio de uma mudança.
+ *   - instalação (sem .git): compara a tag de versao.json com a última
+ *     release; se mudou, baixa o zip da tag, copia por cima e remove os
+ *     arquivos que deixaram de existir.
+ *   - clone (com .git): só fast-forward da main, e só com a árvore limpa.
  *
- * Dois modos, decididos pela pasta:
- *
- *   - instalação (sem .git): compara a tag gravada em versao.json com a última
- *     release. Se mudou, baixa o zip da tag, copia por cima e remove o que a
- *     versão anterior tinha e a nova não tem mais.
- *   - clone do repositório (com .git): é a máquina de quem desenvolve. Aqui o
- *     git manda: só avança a main por fast-forward, e só com a árvore limpa.
- *     Qualquer trabalho local em andamento faz a atualização esperar, em vez
- *     de arriscar sobrescrever o que alguém está editando.
- *
- * O estado desta máquina nunca é tocado: progress.json, as contagens, a
- * calibração e a escolha de jogos não vêm no zip, e o que vem no zip mas é
- * gerado aqui (docs/progress.json) fica como está.
+ * O estado local (progress.json, contagens, calibração, seleção de jogos)
+ * não é tocado.
  */
 
 const fs = require('fs');
@@ -35,35 +22,23 @@ const RAIZ = path.join(__dirname, '..');
 const REPO = process.env.TRACKEROAO_REPO_ID || 'oaovito/trackeroao';
 const NOME_ESTADO = 'versao.json';
 
-// O que chega no zip mas é desta máquina: a cópia publicada do progresso.
+// Vem no zip, mas é gerado localmente.
 const PRESERVAR = new Set(['docs/progress.json']);
 
-// Sem estes, o zip veio truncado ou de outro projeto, e copiar seria pior do
-// que não atualizar.
+// Arquivos obrigatórios para considerar o zip válido.
 const EXIGIDOS = [
   'trackeroao.html', 'package.json', 'sync/main.js', 'sync/offsets.json',
   'sync/conquistas.json', 'windows/install-sync-service.ps1', 'docs/index.html',
 ];
 
-/*
- * O que ficava na raiz antes de os scripts irem para pastas próprias.
- *
- * Uma instalação daquela época não tem versao.json, então não há lista do que
- * ela recebeu para comparar. Sem esta lista, a primeira atualização deixaria
- * as cópias velhas na raiz, ao lado das novas em windows\ -- e quem abrisse a
- * pasta não saberia qual rodar.
- */
+// Arquivos legados da raiz, removidos em instalações sem versao.json.
 const LEGADO = [
   'install-sync-service.ps1', 'uninstall-sync-service.ps1', 'liberar-porta.ps1',
   'reativar.ps1', 'run.bat', 'instalar.ps1', 'construir-exe.ps1',
   'trackeroao-instalador.exe',
 ];
 
-/*
- * Pastas que a 1.8.8 levou para dentro de outras (windows\instalador,
- * docs\celular e .github\releases). A cópia só apaga arquivos; sem esta
- * varredura a pasta antiga, já vazia, ficaria na instalação ao lado da nova.
- */
+// Pastas legadas removidas quando ficam vazias.
 const PASTAS_LEGADO = ['instalador', 'android', 'ios', 'altstore', 'releases'];
 
 /** Verdadeiro se não há arquivo nenhum abaixo de `d`, só pastas. */
@@ -127,11 +102,8 @@ function dentro(raiz, rel) {
 }
 
 /**
- * Copia uma versão baixada por cima da instalação.
- *
- * É a mesma rotina para o instalador e para a atualização: os dois recebem a
- * pasta descompactada e fazem exatamente isto, e ter duas cópias do "como se
- * atualiza" seria convidar uma delas a ficar para trás.
+ * Copia uma versão descompactada por cima da instalação. Usado pelo
+ * instalador e pela atualização.
  */
 function aplicarPasta(fonte, tag, raiz) {
   raiz = raiz || RAIZ;
@@ -149,9 +121,7 @@ function aplicarPasta(fonte, tag, raiz) {
     fs.copyFileSync(path.join(fonte, rel), destino);
   }
 
-  // Sai só o que era do projeto e deixou de ser. Arquivo que nunca veio de
-  // release nenhuma -- estado, log, cópia de hibernação -- não está em lista
-  // alguma e fica.
+  // Remove só arquivos da versão anterior que não existem na nova.
   const antigos = anterior && Array.isArray(anterior.arquivos) ? anterior.arquivos : LEGADO;
   const ficam = new Set(novos);
   const removidos = [];
@@ -162,7 +132,7 @@ function aplicarPasta(fonte, tag, raiz) {
     try { fs.unlinkSync(alvo); removidos.push(rel); } catch (e) { /* em uso: sai na próxima */ }
   }
 
-  // As pastas que esvaziaram junto, da mais funda para a raiz.
+  // Pastas que ficaram vazias, da mais funda para a raiz.
   const pastas = [...PASTAS_LEGADO];
   for (const rel of removidos) {
     for (let d = path.posix.dirname(rel); d && d !== '.'; d = path.posix.dirname(d)) pastas.push(d);
@@ -222,9 +192,7 @@ async function ultimaRelease() {
     if (r && r.tag_name) return r.tag_name;
     throw new Error('a API não devolveu release nenhuma');
   } catch (e) {
-    // A API tem cota por endereço, e uma rede compartilhada a gasta sem culpa
-    // de ninguém. A página da release não tem essa cota: ela redireciona para
-    // a tag, e o nome vem no endereço.
+    // Sem cota da API: o redirecionamento de /releases/latest traz a tag.
     const tag = await tagPeloSite().catch(() => null);
     if (tag) return tag;
     throw e;
@@ -254,18 +222,13 @@ async function baixar(tag) {
   try {
     return await baixarEm(tmp, tag, limpar);
   } catch (e) {
-    // Download ou zip que falhou nao deixa pasta para tras.
+    // Remove a pasta temporária em caso de falha.
     limpar();
     throw e;
   }
 }
 
-/*
- * Nada se acumula na pasta temporaria: uma atualizacao interrompida (o PC
- * desligado no meio, o processo morto) deixaria a pasta dela ali para
- * sempre. Antes de baixar, as que sobraram de rodadas anteriores saem. Uma
- * hora de folga para nunca pegar a de uma rodada que ainda esta em curso.
- */
+// Remove pastas temporárias de atualizações interrompidas (com mais de 1 h).
 function varrerTemporarios() {
   const agora = Date.now();
   let nomes = [];
@@ -284,12 +247,8 @@ async function baixarEm(tmp, tag, limpar) {
   const zip = path.join(tmp, 'fonte.zip');
   await pedir(`https://codeload.github.com/${REPO}/zip/refs/tags/${encodeURIComponent(tag)}`, zip);
   const pasta = path.join(tmp, 'x');
-  // O Node não descompacta zip sozinho, e o projeto não ganha dependência por
-  // isso: o Windows já traz o descompactador do .NET. É ele, e não o
-  // Expand-Archive, que descompacta: o Expand-Archive do PowerShell 5 desenha
-  // uma barra de progresso por arquivo mesmo escondido, e com o antivírus
-  // olhando cada um chegava a passar do tempo-limite -- e a atualização
-  // falhava sempre, em silêncio. Fora do Windows, o unzip do sistema.
+  // Windows: ZipFile do .NET (Expand-Archive é lento demais no PowerShell 5).
+  // Fora do Windows: unzip do sistema.
   if (process.platform === 'win32') {
     const z = zip.replace(/'/g, "''");
     const p = pasta.replace(/'/g, "''");
@@ -344,20 +303,16 @@ async function viaRelease(raiz) {
 }
 
 /*
- * A janela do Trackeroao (app\Trackeroao.exe) é binária e não vem no zip do
- * código: ela mora dentro do instalador da release. Quando a versão dela
- * (app\versao.txt) fica para trás, o instalador daquela release é baixado e
- * chamado com /so-janela, que troca só a pasta app, sem janela nenhuma e sem
- * rodar script. Com a janela aberta ele não troca nada, e a próxima
- * conferência tenta de novo. Num clone não há janela, e nada disto roda.
+ * A janela (app\Trackeroao.exe) vem só no instalador da release. Quando
+ * app\versao.txt está desatualizado, o instalador roda com /so-janela, que
+ * troca apenas a pasta app. Não se aplica a clones.
  */
 function numeroDaTag(tag) {
   const m = /(\d+)\.(\d+)\.(\d+)/.exec(tag || '');
   return m ? `${m[1]}.${m[2]}.${m[3]}.0` : null;
 }
 
-// Só troca a janela por uma versão mais nova: uma janela já à frente da
-// release (a que um instalador novo trouxe antes de a release sair) fica.
+// Só troca por uma versão mais nova.
 function maisNova(a, b) {
   const x = String(a || '').split('.').map(Number);
   const y = String(b || '').split('.').map(Number);
@@ -368,7 +323,7 @@ function maisNova(a, b) {
   return false;
 }
 
-// Quem precisa largar o .exe da janela antes da troca (o icone da bandeja).
+// Callback para liberar o .exe antes da troca (ícone da bandeja).
 let envolverTroca = (trocar) => trocar();
 function aoTrocarJanela(fn) { if (typeof fn === 'function') envolverTroca = fn; }
 
@@ -378,17 +333,14 @@ async function trocarJanela(raiz, tag) {
   let atual = null;
   try { atual = fs.readFileSync(path.join(raiz, 'app', 'versao.txt'), 'utf8').trim(); } catch (e) { /* anterior a versao.txt */ }
   if (atual && !maisNova(numeroDaTag(tag), atual)) return null;
-  // A janela a vista nao e trocada: espera ela ir para a bandeja ou fechar.
+  // Com a janela visível, a troca espera.
   let estado = null;
   try { estado = fs.readFileSync(path.join(raiz, 'sync', 'janela.estado'), 'utf8').trim(); } catch (e) { /* fechada */ }
   if (estado === 'vista') return 'adiada (janela à vista)';
   varrerTemporarios();
   /*
-   * Com a janela a vista a troca espera (o instalador sai com 3), e a
-   * conferencia seguinte tenta de novo. O instalador daquela versao fica
-   * guardado entre uma tentativa e outra, um so, para nao ser baixado de
-   * novo a cada cinco minutos; sai quando a troca termina ou quando outra
-   * versao chega.
+   * Código de saída 3: janela visível, tenta de novo na próxima verificação.
+   * O instalador baixado fica em cache até a troca terminar ou sair outra versão.
    */
   const nome = 'trackeroao-janela-' + String(tag).replace(/[^\w.-]/g, '') + '.exe';
   const exe = path.join(os.tmpdir(), nome);
@@ -412,10 +364,7 @@ async function trocarJanela(raiz, tag) {
   }
 }
 
-/**
- * Confere e, havendo versão nova, aplica. Nunca lança: quem chama é o serviço,
- * e uma atualização que falhou não pode derrubar a aplicação que está de pé.
- */
+/** Verifica e aplica uma versão nova, se houver. Nunca lança exceção. */
 async function verificar(raiz) {
   raiz = raiz || RAIZ;
   if (process.env.TRACKEROAO_SEM_ATUALIZAR) return { atualizou: false, motivo: 'desligada por variável de ambiente' };
@@ -427,9 +376,8 @@ async function verificar(raiz) {
 }
 
 /**
- * Só confere, sem aplicar: a versão instalada e a última publicada. É o que o
- * "Forçar atualização" da bandeja pergunta antes de decidir. Num clone, a
- * versão é a do git, e a resposta é sempre "confira pela atualização".
+ * Compara a versão instalada com a última publicada, sem aplicar. Usado pelo
+ * "Forçar atualização" da bandeja.
  */
 async function situacao(raiz) {
   raiz = raiz || RAIZ;
@@ -446,10 +394,7 @@ module.exports = { verificar, situacao, aoTrocarJanela, baixar, ultimaRelease, m
  * Linha de comando.
  *
  *   node sync/atualizar.js                                confere e aplica
- *   node sync/atualizar.js --aplicar <pasta> <tag> <destino>
- *
- * A segunda forma é a que o instalador usa: ele já baixou e descompactou, e só
- * precisa da cópia -- a mesma que a atualização faz.
+ *   node sync/atualizar.js --aplicar <pasta> <tag> <destino>   (instalador)
  */
 if (require.main === module) {
   const a = process.argv.slice(2);

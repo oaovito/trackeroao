@@ -2,10 +2,8 @@ import UIKit
 import WebKit
 
 /*
- * O aplicativo de iOS: uma tela só, com a página que o computador serve na
- * rede de casa, como o aplicativo de Android. Toda a página passa pela Ponte
- * (esquema trackeroao://), que acha o computador, guarda a última cópia de
- * cada arquivo e a entrega quando o computador está fora do alcance.
+ * Aplicativo de iOS: uma tela com a página servida pelo computador, carregada
+ * pelo esquema trackeroao:// da Ponte.
  */
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -35,9 +33,9 @@ final class Principal: UIViewController, WKNavigationDelegate {
         let cfg = WKWebViewConfiguration()
         cfg.setURLSchemeHandler(ponte, forURLScheme: "trackeroao")
         cfg.websiteDataStore = .default()
-        // Os gestos de voltar e avançar ficam com a página (ligarGestos), que
-        // fecha primeiro o que estiver aberto por cima dela.
-        let aviso = WKUserScript(source: "window.TRACKEROAO_GESTOS = true;",
+        // Gestos de voltar/avançar tratados pela página (ligarGestos); a página
+        // também esconde o acesso pelo celular dentro do aplicativo.
+        let aviso = WKUserScript(source: "window.TRACKEROAO_GESTOS = true; window.TRACKEROAO_APP = true;",
                                  injectionTime: .atDocumentStart, forMainFrameOnly: true)
         cfg.userContentController.addUserScript(aviso)
         web = WKWebView(frame: .zero, configuration: cfg)
@@ -55,7 +53,7 @@ final class Principal: UIViewController, WKNavigationDelegate {
         web.load(URLRequest(url: Principal.inicio))
     }
 
-    // Link para outro site abre no Safari; dentro do aplicativo fica só o Trackeroao.
+    // Links externos abrem no Safari.
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = action.request.url, let esquema = url.scheme?.lowercased() else {

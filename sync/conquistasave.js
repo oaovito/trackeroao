@@ -1,11 +1,10 @@
 'use strict';
 /*
- * conquistasave.js - as 34 conquistas tiradas do save, sem Steam.
+ * conquistasave.js - as 34 conquistas deduzidas do save, sem Steam.
  *
- * O jogo concede cada conquista por AwardAchievement(N) nos próprios scripts
- * de evento, e N segue a ordem de conquistas-lista.json (0 = Sekiro ... 33 =
- * Great Colored Carp). O que interessa ao tracker é o que o jogo grava junto
- * no save, e isso existe para quase todas:
+ * O jogo concede cada conquista por AwardAchievement(N) nos scripts de
+ * evento; N segue a ordem de conquistas-lista.json (0 = Sekiro ... 33 =
+ * Great Colored Carp). O que fica gravado no save:
  *
  *   - chefes e finais: ao lado de cada concessão o jogo liga uma flag da
  *     faixa 68xx, a mesma que o common.emevd consulta para dar o Man Without
@@ -14,18 +13,14 @@
  *   - o resto é inventário: próteses e suas melhorias, ninjutsu, habilidades,
  *     a cabaça e os colares.
  *
- * Fontes (conferidas uma a uma, não copiadas de lembrança):
+ * Fontes:
  *   common.emevd decompilado (Man Without Equal, Ashina Traveler, Resurrection);
  *   SoulsRandomizers events.txt e annotations.txt (chefes, finais, carpa);
  *   tabela de itens do Sekiro-Practice-CT e o Paramdex (ids de item e skill).
  *
- * Cada regra devolve true, false ou null. null é "o save não diz": acontece
- * nas duas conquistas sem prova confiável no save (Memorial Mob e Great
- * Serpent) e quando a leitura das flags não calibrou. A página não transforma
- * null em "não conquistada" sem dizer: ela marca a conquista como incerta.
- *
- * A Steam, quando está na máquina, confere. Ela nunca é a fonte de que o
- * resto depende: sem ela, isto aqui é a lista inteira.
+ * Cada regra devolve true, false ou null (sem prova no save: Memorial Mob,
+ * Great Serpent, ou flags não calibradas). A página marca null como incerta.
+ * Quando há Steam, ela serve de conferência.
  */
 
 const path = require('path');
@@ -46,7 +41,7 @@ const MELHORIAS = [
   ...faixa(76100, 76300, 100), ...faixa(77100, 77200, 100), ...faixa(78100, 78400, 100),
   ...faixa(79100, 79200, 100),
 ];
-/* As quatro melhorias de lazulita que a comunidade confirma. */
+/* As quatro melhorias de lazulita. */
 const LAZULITA = [70500, 72300, 73300, 75300];
 
 /* As 48 habilidades da árvore. */
@@ -140,13 +135,8 @@ function derivar({ f, goods, armas, essenciais }) {
 }
 
 /**
- * Junta o que o save diz com o que a Steam diz, quando há Steam.
- *
- * O save manda na ausência dela. Com ela presente, uma conquista vale se
- * qualquer dos dois a tiver: a Steam guarda o que a CONTA já conquistou em
- * qualquer save e em qualquer ciclo, e o save só sabe deste personagem. Quando
- * os dois discordam, a conquista sai marcada com `confere: false` -- é a
- * conferência que o pedido descreve, visível e sem esconder o desencontro.
+ * Combina save e Steam. Com Steam, a conquista vale se qualquer um a tiver
+ * (a Steam cobre a conta inteira); divergências saem com `confere: false`.
  */
 function juntar(doSave, daSteam) {
   const steamPor = new Map();

@@ -1,22 +1,10 @@
 'use strict';
 /*
- * hibernar.js - o jogo saiu da máquina, então o serviço sai também.
+ * hibernar.js - desliga o serviço quando o jogo é desinstalado.
  *
- * A ideia é separar duas coisas que costumam vir juntas e não deveriam:
- *
- *   - o que RODA (tarefa agendada, processo node, portas abertas, respondedor
- *     de nome na rede) some por completo;
- *   - o que VALE (progresso lido, calibrações descobertas, e o próprio save)
- *     é guardado, e fica esperando.
- *
- * O save é copiado de propósito. Ele mora em %APPDATA%\Sekiro e normalmente
- * sobrevive à desinstalação — mas "normalmente" não é garantia: quem manda o
- * Steam apagar o conteúdo local, ou limpa o AppData, perde onze megabytes que
- * representam o jogo inteiro. Copiar custa pouco e é a única parte disto que
- * não dá para refazer.
- *
- * Nada aqui apaga coisa alguma. Hibernar é acrescentar uma cópia e desligar o
- * que roda; reativar é religar. O caminho de volta está em reativar.ps1.
+ * Remove a tarefa agendada e encerra o processo, mas antes guarda o progresso,
+ * as calibrações e uma cópia do save. Nada é apagado. Para voltar, use
+ * reativar.ps1.
  */
 
 const fs = require('fs');
@@ -25,15 +13,7 @@ const { execFileSync } = require('child_process');
 
 const RAIZ = path.join(__dirname, '..');
 const ARQUIVO = path.join(RAIZ, 'arquivo');
-/*
- * O nome da tarefa agendada.
- *
- * São dois porque o projeto mudou de nome: o serviço já instalado numa máquina
- * continua registrado como `SekiroProgressSync` até alguém rodar o instalador
- * de novo. Procurar só pelo nome novo faria a hibernação achar que não há
- * tarefa e deixar o serviço voltando no próximo login, exatamente o que ela
- * existe para evitar. O nome novo vem primeiro; o antigo é a reserva.
- */
+// Nomes da tarefa agendada: o atual e o legado `SekiroProgressSync`.
 const TAREFA = 'TrackeroaoSync';
 const TAREFAS = [TAREFA, 'SekiroProgressSync'];
 
@@ -52,19 +32,13 @@ function copiar(de, para) {
 }
 
 /**
- * Guarda tudo numa pasta com a data. Devolve o relatório do que foi guardado.
- *
- * Pasta nova a cada vez, em vez de sobrescrever: se isto rodar por engano, a
- * hibernação anterior continua intacta ao lado.
+ * Guarda tudo numa pasta nova, nomeada pela data. Devolve o relatório.
  */
 function arquivar(opts) {
   const o = opts || {};
   const quando = new Date();
   const base = quando.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  // O nome tem resolução de segundo, então duas hibernações no mesmo segundo
-  // cairiam na mesma pasta e a segunda escreveria por cima da primeira. Na
-  // prática não acontece (o processo encerra depois de hibernar), mas "na
-  // prática não acontece" é o que se diz antes de acontecer.
+  // Evita colisão de duas hibernações no mesmo segundo.
   const raizArquivo = o.destino || ARQUIVO;
   let nome = base;
   let n = 2;
@@ -84,7 +58,7 @@ function arquivar(opts) {
     }
   }
 
-  // O save: a parte insubstituível.
+  // Cópia do save.
   const saves = [];
   for (const s of (o.saves || [])) {
     try {
@@ -111,7 +85,7 @@ function arquivar(opts) {
   return { destino, manifesto };
 }
 
-/** Tira a tarefa agendada, que é o que faria o serviço voltar no próximo login. */
+/** Remove a tarefa agendada do logon. */
 function removerTarefa() {
   const removidas = [];
   for (const nome of TAREFAS) {

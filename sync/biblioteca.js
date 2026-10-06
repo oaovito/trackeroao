@@ -1,27 +1,11 @@
 'use strict';
 /*
- * biblioteca.js - quais jogos existem nesta máquina e na conta da pessoa.
+ * biblioteca.js - jogos instalados nesta máquina e jogados pela conta Steam.
  *
- * O pedido tem três fontes para o que pode ser encontrado:
- *
- *   - a biblioteca da Steam da pessoa: o que está instalado pela Steam e o que
- *     a conta já jogou;
- *   - o catálogo geral da Steam: serve para reconhecer um jogo pelo nome da
- *     pasta numa máquina que não tem Steam nenhuma (instalado pela Epic, pela
- *     GOG, por um instalador próprio, copiado de outro disco);
- *   - os jogos mais populares do momento, que incluem os que nem existem na
- *     Steam (Valorant, League of Legends, Fortnite, Minecraft).
- *
- * A regra do projeto vale aqui por inteiro: nada depende da Steam. Sem ela,
- * a varredura continua pelo disco, pelo registro do Windows e pelos
- * manifestos da Epic, e reconhece os nomes pela lista de populares que vem
- * com o projeto e pelo catálogo guardado da última vez que houve rede. Com
- * ela, ela acrescenta o que só ela sabe e confirma o que o disco achou.
- *
- * A varredura é pesada para o padrão do serviço (lista pastas de vários
- * discos e lê o registro), então não roda a cada ciclo: roda na partida e uma
- * vez por dia, entre duas rodadas, nunca com jogo aberto. O resultado fica em
- * biblioteca.json, estado desta máquina e fora do git.
+ * Fontes: a biblioteca Steam local, o catálogo geral da Steam (para reconhecer
+ * pastas de jogos de outras lojas) e a lista de jogos populares (inclui jogos
+ * fora da Steam). Sem Steam, a varredura usa disco, registro do Windows e
+ * manifestos da Epic. O resultado fica em biblioteca.json (fora do git).
  */
 
 const fs = require('fs');
@@ -40,11 +24,8 @@ const DIA = 24 * 60 * 60 * 1000;
 /* ------------------------------------------------------------- nomes */
 
 /**
- * O nome reduzido ao que identifica o jogo.
- *
- * Pasta e catálogo escrevem o mesmo jogo de jeitos diferentes: "Baldurs Gate
- * 3" contra "Baldur's Gate 3", "ELDEN RING" contra "Elden Ring™". Minúsculas,
- * sem marca registrada e sem pontuação sobrevive às duas grafias.
+ * Normaliza um nome para comparação: minúsculas, sem marcas registradas e sem
+ * pontuação ("Baldurs Gate 3" = "Baldur's Gate 3").
  */
 function normalizar(nome) {
   return String(nome || '')
@@ -60,11 +41,7 @@ function chaveDe(j) {
   return j.appId ? 'steam-' + j.appId : 'jogo-' + normalizar(j.nome);
 }
 
-/*
- * O que não é jogo mesmo estando no catálogo da Steam: trilha sonora, kit de
- * desenvolvimento, servidor dedicado, demonstração. Reconhecer uma pasta
- * "Soundtrack" como jogo seria a varredura inventando coisa.
- */
+// Entradas do catálogo que não são jogos (trilhas, SDKs, servidores, demos).
 const NAO_JOGO = /\b(soundtrack|ost|sdk|dedicated server|server|demo|playtest|benchmark|editor|tool|redistributable|dlc|season pass|artbook|wallpaper engine|beta)\b/i;
 
 /* ------------------------------------------------------------- VDF */
@@ -135,11 +112,8 @@ function steamInstalados(steam, bibliotecas) {
 }
 
 /**
- * Jogos que a conta já jogou, estejam instalados ou não.
- *
- * O arquivo guarda por appId quando o jogo foi aberto e por quanto tempo; o
- * nome não está lá, e vem do catálogo. Sem nome no catálogo, o jogo fica de
- * fora em vez de aparecer como um número.
+ * Jogos que a conta já jogou, instalados ou não. O nome vem do catálogo;
+ * appIds sem nome são ignorados.
  */
 function steamConta(steam) {
   const ids = new Set();
@@ -161,11 +135,8 @@ function steamConta(steam) {
 }
 
 /**
- * Quando a conta abriu cada jogo pela última vez, em segundos, por appId.
- *
- * É o mesmo arquivo que steamConta lê. Serve só para a tela inicial destacar
- * o jogo mais recente; sem Steam, a ordem vem do que o próprio tracker viu
- * abrir (ver jogos.js).
+ * Última abertura de cada jogo pela conta, em segundos, por appId. Sem Steam,
+ * a ordem vem de jogos.js.
  */
 function steamRecentes(steam) {
   const vez = {};
@@ -219,21 +190,14 @@ function doCache(nome, validade) {
 }
 
 /**
- * O catálogo geral da Steam, { appId: nome }.
- *
- * Duas fontes públicas e sem chave, uma de reserva da outra: a lista de apps
- * da própria Steam, e a do SteamSpy (só os mais jogados, mas com nome).
- * Guardado por uma semana. Sem rede, vale o último que houve; sem nunca ter
- * havido, o catálogo é vazio e a varredura segue com os populares.
+ * Catálogo geral da Steam, { appId: nome }. Fontes: lista de apps da Steam,
+ * com o SteamSpy de reserva. Cache de uma semana.
  */
 async function catalogoGeral(opts) {
   const o = opts || {};
   if (o.catalogo) return o.catalogo;
-  /*
-   * A base que vem com a release (sync/catalogo-jogos.json.gz, refeita a cada
-   * versão) é o chão: com ela a varredura reconhece jogos sem rede nenhuma. O
-   * que a rede trouxer entra por cima, e cobre o que saiu depois da release.
-   */
+  // Base incluída na release (sync/catalogo-jogos.json.gz), complementada
+  // pelo que vier da rede.
   const base = o.semBase ? {} : ((require('./gerar-catalogo').ler() || {}).jogos || {});
   const junto = (extra) => Object.assign({}, base, extra || {});
   const c = doCache('catalogo-steam.json', 7 * DIA);
@@ -261,11 +225,8 @@ async function catalogoGeral(opts) {
 }
 
 /**
- * Os mais jogados agora: [{ appId, nome, posicao }].
- *
- * Da Steam, a lista dos mais jogados; de reserva, o SteamSpy. Guardado por um
- * dia. A lista que vem com o projeto (populares.json) entra sempre, porque é
- * ela que cobre quem não está na Steam.
+ * Jogos mais jogados: [{ appId, nome, posicao }]. Steam, com SteamSpy de
+ * reserva; cache de um dia. populares.json sempre entra (jogos fora da Steam).
  */
 async function populares(catalogo, opts) {
   const o = opts || {};
@@ -300,14 +261,9 @@ async function populares(catalogo, opts) {
 /* ------------------------------------------------------------- disco */
 
 /**
- * Onde jogos costumam morar, em cada disco.
- *
- * Duas famílias de pasta. As "de jogo" (Games, XboxGames, Epic Games, GOG,
- * steamapps\common) só guardam jogo, então ali qualquer nome do catálogo
- * geral vale. As "de programa" (Program Files) guardam de tudo, e ali só
- * vale o que é certamente jogo: a biblioteca da pessoa e os populares. Sem
- * essa separação, um "Blender" em Program Files viraria jogo só porque a
- * Steam também vende o Blender.
+ * Pastas de instalação em cada disco. Nas pastas de jogos (Games, XboxGames,
+ * Epic Games, GOG, steamapps\common) vale o catálogo geral; em Program Files
+ * só a biblioteca da conta e os populares.
  */
 function raizesDoDisco() {
   if (process.platform !== 'win32') return [];
@@ -317,7 +273,7 @@ function raizesDoDisco() {
     'Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\games', 'Program Files (x86)\\Steam\\steamapps\\common',
     'Program Files\\Steam\\steamapps\\common', 'Program Files\\ModifiableWindowsApps',
   ];
-  // A pasta de jogos que a própria pessoa criou, no idioma dela.
+  // Pastas de jogos criadas manualmente, em vários idiomas.
   const deJogoLocal = ['Jogos', 'Juegos', 'Jeux', 'Spiele', 'Giochi', 'Gry', 'Oyunlar', 'Игры', 'ゲーム', '游戏', '게임',
     'Games\\Steam\\steamapps\\common', 'Program Files (x86)\\Games', 'Program Files\\Games'];
   const dePrograma = ['Program Files', 'Program Files (x86)'];
@@ -327,8 +283,7 @@ function raizesDoDisco() {
     try { if (!fs.existsSync(disco)) continue; } catch (e) { continue; }
     for (const p of deJogo.concat(deJogoLocal)) raizes.push({ pasta: path.join(disco, p), tipo: 'jogo' });
     for (const p of dePrograma) raizes.push({ pasta: path.join(disco, p), tipo: 'programa' });
-    // A raiz do disco: muita gente instala o jogo direto em D:\. Ali vale o
-    // catálogo inteiro, mas só para uma pasta com o executável de um jogo.
+    // Raiz do disco: catálogo inteiro, desde que a pasta tenha um executável.
     raizes.push({ pasta: disco, tipo: 'raiz' });
   }
   const casa = process.env.USERPROFILE;
@@ -340,16 +295,12 @@ function raizesDoDisco() {
   return raizes;
 }
 
-/*
- * Pastas de sistema que nunca são jogo, na raiz de um disco: nomes que, por
- * acaso, também existem na Steam não podem virar jogo instalado.
- */
+// Pastas de sistema na raiz do disco que nunca são jogos.
 const RAIZ_DE_SISTEMA = /^(windows|users|usuarios|program ?files.*|programdata|perflogs|recovery|intel|amd|nvidia|drivers|temp|tmp|\$.*|system volume information|msocache|onedrivetemp|xboxgames|games|jogos|steamlibrary|epic games|gog games|riot games|found\.\d+|config\.msi|boot|efi|documents and settings|inetpub|python\d*|msys64|cygwin64|android|go|node_modules|backup|backups|downloads|musica|music|videos|pictures|imagens|documents|documentos|desktop|dados|data)$/i;
 
 /*
- * As formas de um nome de pasta que podem ser o nome do jogo: a pasta inteira,
- * sem o que vem entre parênteses ou colchetes, e sem a versão e o que vem
- * depois dela ("Hollow Knight v1.5.78", "Celeste [GOG]", "Hades - Repack").
+ * Variações de um nome de pasta: inteiro, sem parênteses/colchetes e sem a
+ * versão ("Hollow Knight v1.5.78", "Celeste [GOG]", "Hades - Repack").
  */
 function formasDoNome(nomePasta) {
   const f = new Set();
@@ -369,13 +320,12 @@ function subpastas(dir) {
   } catch (e) { return []; }
 }
 
-/* Executáveis que moram na pasta do jogo mas não são o jogo. */
+/* Executáveis auxiliares na pasta do jogo. */
 const NAO_E_O_JOGO = /(unins|uninstall|setup|install|redist|vc_?redist|dxsetup|directx|crash|report|launcher|helper|updater|update|prereq|easyanticheat|eac|battleye|be_service|dotnet|vcredist|ue4prereq|unitycrashhandler|cefprocess|webhelper|overlay|config|settings|server|editor)/i;
 
 /**
- * O executável do jogo numa pasta de instalação: o maior .exe que não seja
- * instalador, atualizador, anti-cheat ou relatório de erro. Procura até três
- * níveis, que é onde os motores costumam pôr (Binaries\Win64, bin\x64).
+ * Executável do jogo: o maior .exe que não seja auxiliar, até três níveis de
+ * profundidade (Binaries\Win64, bin\x64).
  */
 function executaveis(pasta) {
   const achados = [];
@@ -444,12 +394,8 @@ function epic() {
 /* ------------------------------------------------------------- a varredura */
 
 /**
- * Junta tudo numa lista só, um jogo por entrada.
- *
- * `fontes` diz de onde cada um veio, e é por ela que a página decide os
- * pinos: 'steam' e 'steam-conta' dizem que está na biblioteca da Steam;
- * 'disco', 'registro' e 'epic' dizem que foi achado sem ela. Um jogo achado
- * pelos dois lados é o caso em que a Steam confirma o que o disco viu.
+ * Junta as fontes numa lista, um jogo por entrada. `fontes` registra a origem
+ * ('steam', 'steam-conta', 'disco', 'registro', 'epic') e define os pinos.
  */
 async function varrer(opts) {
   const o = opts || {};
@@ -513,8 +459,7 @@ async function varrer(opts) {
       visto.add(pasta.toLowerCase());
       const r = reconhecer(nomePasta, tipo);
       if (r) {
-        // Pelo catálogo geral, fora de uma pasta só de jogos, a pasta precisa
-        // ter o executável de um jogo: um nome parecido não basta.
+        // Fora de pastas de jogos, o catálogo geral exige um executável.
         const exes = r.achado.processos && r.achado.processos.length ? r.achado.processos : executaveis(pasta);
         if (tipo === 'raiz' && r.doCatalogo && !exes.length) continue;
         juntar({
@@ -522,8 +467,7 @@ async function varrer(opts) {
           instalado: true, processos: exes,
         }, 'disco');
       } else if (tipo === 'jogo' && nivel === 0) {
-        // Um nível abaixo, para quem separa os jogos em subpastas
-        // (D:\Jogos\RPG\..., D:\Games\Steam\...).
+        // Um nível abaixo (D:\Jogos\RPG\..., D:\Games\Steam\...).
         olhar(pasta, tipo, 1);
       }
     }
@@ -542,7 +486,7 @@ async function varrer(opts) {
     juntar({ appId: base.appId || null, nome: base.nome, pasta: reg.pasta, instalado: !!reg.pasta, processos: (pop && pop.processos) || [] }, 'registro');
   }
 
-  // O executável de quem está instalado e ainda não tem, para poder vigiar.
+  // Executável dos jogos instalados, para vigiar o processo.
   for (const j of jogos.values()) {
     if (j.instalado && j.pasta && !j.processos.length) j.processos = executaveis(j.pasta);
     const pop = pops.find((p) => (p.appId && p.appId === j.appId) || normalizar(p.nome) === normalizar(j.nome));
@@ -550,7 +494,7 @@ async function varrer(opts) {
     if (pop && pop.arte) j.arteFonte = pop.arte;
   }
 
-  // O banner de cada um, na maior resolução que houver (ver arte.js).
+  // Banner de cada jogo (ver arte.js).
   try {
     await require('./arte').resolver([...jogos.values()], { semRede: o.semRede, normalizar, pedir: o.pedirArte });
   } catch (e) { /* arte é enfeite: a varredura não cai por ela */ }
@@ -574,16 +518,9 @@ async function varrer(opts) {
 }
 
 /**
- * Olha as pastas onde um jogo novo aparece ao ser instalado e avisa quando
- * algo muda nelas, para a varredura rodar logo em vez de esperar o dia
- * seguinte. Nada é recursivo: cada pasta é uma inscrição só no sistema, sem
- * custo enquanto ninguém instala nada.
- *
- * - steamapps de cada biblioteca da Steam: um appmanifest novo por jogo;
- * - os manifestos da Epic: um .item novo por jogo;
- * - as pastas de jogos e a raiz de cada disco: uma pasta nova.
- *
- * Devolve a função que desliga tudo.
+ * Vigia (sem recursão) as pastas onde jogos novos aparecem: steamapps de cada
+ * biblioteca, manifestos da Epic, pastas de jogos e raiz de cada disco.
+ * Devolve a função que desliga as vigias.
  */
 function vigiarInstalacoes(aoMudar, opts) {
   const o = opts || {};
@@ -602,7 +539,7 @@ function vigiarInstalacoes(aoMudar, opts) {
   let espera = null;
   const avisar = () => {
     clearTimeout(espera);
-    // Uma instalação escreve muita coisa seguida; um aviso só, depois que acalma.
+    // Debounce: um aviso só depois que as escritas param.
     espera = setTimeout(aoMudar, o.esperaMs || 4000);
     if (espera.unref) espera.unref();
   };
@@ -629,11 +566,8 @@ function ultima() {
 }
 
 /*
- * O caminho completo do executável de um jogo instalado, para o menu da
- * bandeja tirar dele o ícone oficial do jogo (o mesmo que o Windows mostra).
- * Vale para qualquer loja, e para jogo fora de loja: basta a pasta. Procura o
- * processo que a varredura anotou; sem ele, o maior .exe da pasta. Lembrado
- * por pasta, para não varrer o disco a cada vez que o menu abre.
+ * Caminho do executável de um jogo instalado, para a bandeja extrair o ícone.
+ * Usa o processo anotado pela varredura ou o maior .exe da pasta; cache por pasta.
  */
 const exeLembrado = new Map();
 function executavelDoJogo(jogo) {

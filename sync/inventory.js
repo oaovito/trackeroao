@@ -2,8 +2,7 @@
 /*
  * inventory.js - read the item table out of a Sekiro save slot.
  *
- * Structure (derived empirically from a real save, then cross-checked against
- * the FromSoftware item-id convention):
+ * Structure (follows the FromSoftware item-id convention):
  *
  *   The slot contains an array of 16-byte records on a 16-byte lattice:
  *       +0x00  uint32  item id, or 0xFFFFFFFF for an empty cell
@@ -16,10 +15,9 @@
  *       0x2  accessory     0x4  goods (consumables, materials, upgrade items)
  *   The remaining 28 bits are the param id, e.g. 0x40000DB6 -> goods 3510.
  *
- * We locate the table structurally rather than by a fixed offset: we find the
- * longest run of empty cells spaced exactly 16 bytes apart, which is a very
- * strong signature and does not move if a game patch shifts the layout. A
- * hardcoded window can be supplied in offsets.json to override this.
+ * The table is located structurally, as the longest run of empty cells spaced
+ * exactly 16 bytes apart, so it survives layout shifts between game patches.
+ * A fixed window in offsets.json overrides the search.
  */
 
 const EMPTY = 0xffffffff;

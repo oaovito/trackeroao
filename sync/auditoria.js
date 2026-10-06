@@ -1,12 +1,8 @@
 'use strict';
 /*
- * auditoria.js - escreve um txt com TUDO que uma pessoa com o link público
- * consegue acessar, já com as perguntas que quem for revisar precisa responder.
- *
- * O ponto é não descrever de memória. O arquivo é montado a partir do que está
- * de fato publicado — a página, o JSON, o README, o repositório, a API do
- * GitHub — porque uma auditoria feita sobre o que se supõe ter publicado não
- * audita nada.
+ * auditoria.js - gera um relatório em txt de tudo o que é acessível pelo link
+ * público, a partir do conteúdo publicado (página, JSON, README, repositório e
+ * API do GitHub), com uma lista de verificação para revisão.
  */
 
 const fs = require('fs');

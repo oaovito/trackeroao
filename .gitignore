@@ -1,12 +1,9 @@
-# O repositório é o projeto inteiro: clonar esta pasta e rodar tem de bastar.
-# O que fica de fora daqui é só o que nasce em tempo de execução nesta máquina,
-# nunca algo de que o projeto dependa para funcionar.
+# Apenas arquivos gerados em tempo de execução nesta máquina.
 
 # --- estado desta máquina ---
-# A leitura crua do save. A versão saneada dela vai publicada em docs/.
+# Leitura crua do save; a versão saneada vai para docs/.
 /progress.json
-# O que cada contador já aprendeu. Carregam carimbo de hora de quando se jogou,
-# que é justamente o que não vai para o ar; e se perdidos, se refazem sozinhos.
+# Estado dos contadores (com horários de jogo; refeitos se apagados).
 /deaths.json
 /deaths-mem.json
 /bosskills.json
@@ -17,9 +14,9 @@ sync/.state.json
 auditoria-publica.txt
 sync/trackeroao.log
 sync/trackeroao.log*
-# Despejos de memória do jogo para achar o offset das mortes: dezenas de MB.
+# Despejos de memória para localizar offsets (dezenas de MB).
 sync/snapshots/
-# Cópias da hibernação: contêm o save, com Steam ID. Nunca vão para o git.
+# Cópias da hibernação: contêm o save, com Steam ID.
 arquivo/
 
 # --- ambiente ---
@@ -28,21 +25,20 @@ sync/offsets.json.bak
 redirect/
 
 /selecao.json
-# Quando cada jogo vigiado abriu por último, para a tela inicial destacar o
-# mais recente. Só a ordem sai daqui; a hora não vai para a página.
+# Última abertura de cada jogo vigiado (ordem da tela inicial).
 /recentes.json
 /biblioteca.json
 sync/cache/
 sync/.jogo-pasta.json
 /jogador.json
-# O idioma escolhido no globo da página.
+# Idioma escolhido na página.
 sync/idioma.json
-# Fechado pela bandeja: o serviço não sobe sozinho enquanto existir.
+# "Fechar" da bandeja: impede a subida automática do serviço.
 sync/fechado.flag
-# Pedido de abrir à mão: com ele a tarefa agendada sobe o serviço (dois minutos).
+# Marca de abertura manual, lida pela tarefa agendada.
 sync/abrir.pedido
-# A caixa "Iniciar com o Windows" do menu da bandeja, marcada.
+# "Iniciar com o Windows" marcado na bandeja.
 sync/iniciar-com-windows.flag
-# Se a janela está à vista ou escondida na bandeja, para a troca da atualização.
+# Estado da janela (visível ou na bandeja), lido pela atualização.
 sync/janela.estado
 docs/celular/ios/build/

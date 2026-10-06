@@ -14,10 +14,8 @@
  *
  *     base + zone * zoneStride + word * 4
  *
- * `base` was found empirically and is verified on every read: the boss flags
- * must agree with the boss Memories we read from the item table, which is an
- * independent source. If they ever disagree - a patch moved the block, say -
- * we re-scan for a base that does agree instead of reporting wrong data.
+ * `base` is verified on every read against the boss Memories in the item
+ * table; on mismatch, a matching base is searched for.
  */
 
 function decompose(id) {
@@ -47,15 +45,11 @@ function read(payload, cfg, id) {
 }
 
 /**
- * Check the configured base against ground truth we trust, and look for a
- * better one if it fails.
- *
- * `expected` maps flag id -> boolean, built from the boss Memories in the item
- * table. Those are read a completely different way, so agreement between the
- * two is strong evidence the base is right.
+ * Validates the configured base and searches for another if it fails.
+ * `expected` maps flag id -> boolean, from the boss Memories in the item table.
  *
  * Returns { base, how, checked } where `how` is 'configured', 'recalibrated'
- * or 'unverified' (too little ground truth to tell yet).
+ * or 'unverified' (not enough reference data).
  */
 function calibrate(payload, cfg, expected) {
   const ids = Object.keys(expected).map(Number);
@@ -69,9 +63,8 @@ function calibrate(payload, cfg, expected) {
 
   if (agrees(cfg.base)) return { base: cfg.base, how: 'configured', checked: ids.length };
 
-  // The configured base is wrong for this save. All the boss flags live in one
-  // word, so scan 4-byte-aligned positions for a base that satisfies every
-  // known flag, and only accept an unambiguous answer.
+  // Scan 4-byte-aligned bases for one matching every known flag; accept only
+  // an unambiguous result.
   const found = [];
   for (let base = 0; base + cfg.zoneStride * cfg.zoneCount <= payload.length; base += 4) {
     if (agrees(base)) {

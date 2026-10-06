@@ -1,17 +1,10 @@
 'use strict';
 /*
- * main.js - the resident process.
+ * main.js - processo residente.
  *
- * Two jobs, deliberately kept separate:
- *
- *   1. A cheap poll (default every 5s) that just asks "is sekiro.exe running?".
- *      This is all that runs while the game is closed - no file handles, no
- *      watcher, no reading an 11 MB save.
- *   2. Only while the game IS running, a real fs.watch on the save directory
- *      that re-reads and re-parses the save shortly after each autosave.
- *
- * When the game exits the watcher is closed and we drop back to job 1.
- * The web server runs the whole time so the page stays reachable.
+ * Com o jogo fechado, só um poll leve (padrão 5s) verifica se o processo está
+ * rodando. Com o jogo aberto, um fs.watch na pasta do save relê e processa o
+ * save após cada autosave. O servidor web fica no ar o tempo todo.
  */
 
 const fs = require('fs');
@@ -29,8 +22,7 @@ const jogos = require('./jogos');
 const atualizar = require('./atualizar');
 
 // --------------------------------------------------------------------- log
-// Instalado como tarefa agendada, o processo roda oculto e o stdout se perde.
-// Espelhar tudo num arquivo é a única forma de diagnosticar depois.
+// Como tarefa agendada o processo roda oculto; o log espelha o console em arquivo.
 const LOG_FILE = path.join(__dirname, 'trackeroao.log');
 const LOG_MAX = 512 * 1024;
 
@@ -63,42 +55,26 @@ function hookConsole() {
           .map((a) => (typeof a === 'string' ? a : require('util').inspect(a)))
           .join(' ');
         const limpo = bruto.replace(ANSI, '');
-        // Linha só de espaços com muito conteúdo bruto é resto de desenho no
-        // terminal: não diz nada num arquivo de log.
+        // Ignora linhas que só continham sequências de controle do terminal.
         if (limpo.trim() === '' && bruto.length > 40) return;
         fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${limpo}\n`);
       } catch (e) {
-        /* log é diagnóstico, nunca motivo para derrubar o serviço */
+        /* falha no log não derruba o serviço */
       }
     };
   }
 }
 
-/*
- * O nome do processo saiu daqui e foi para o catalogo.
- *
- * Escrito nesta linha, ele nao tinha como ser escolhido nem trocado sem mexer
- * em codigo -- e o pedido e justamente que a pessoa escolha, dentro da
- * aplicacao, qual jogo faz a bandeja acender. O que sobra aqui e a reserva
- * para o caso de o catalogo nao poder ser lido.
- */
+// Processo usado quando o catálogo de jogos não pode ser lido.
 const PROCESS_FALLBACK = 'sekiro.exe';
 const POLL_MS = Number(process.env.SEKIRO_POLL_MS || 5000);
 const DEBOUNCE_MS = Number(process.env.SEKIRO_DEBOUNCE_MS || 900);
 const PORT = Number(process.env.PORT || 8777);
 
 /**
- * Por quais nomes a máquina atende na rede local.
- *
- * O sufixo `.local` não é preferência minha: é o único que o mDNS atende, e é
- * justamente ele que faz iPhone, iPad e Mac resolverem sem instalar nem
- * configurar nada. Um nome como "oaovito.sekiro" sairia do aparelho como
- * consulta de DNS comum, não chegaria até aqui, e morreria no servidor do
- * provedor.
- *
- * `trackeroao.local` é o nome do aplicativo de tela inicial do celular: é por
- * ele que o iPhone e o Android acham este computador na rede de casa, sem IP
- * e sem domínio. Os outros ficam por quem já usava os nomes antigos.
+ * Nomes anunciados por mDNS na rede local. O sufixo `.local` é o único que o
+ * mDNS resolve. `trackeroao.local` é o usado pelos aplicativos do celular; os
+ * demais são mantidos por compatibilidade.
  */
 const NOMES_REDE = ['trackeroao.local', 'oaovito.sekiro.local', 'sekiro.local', 'oaovito.local'];
 
@@ -112,12 +88,7 @@ function alvos() {
   return lista.length ? lista : [PROCESS_FALLBACK];
 }
 
-/**
- * Qual jogo vigiado esta aberto, ou null.
- *
- * Devolve o nome do processo e nao um booleano porque quem chama precisa saber
- * QUAL jogo abriu: e o nome dele que vai para a bandeja e para o log.
- */
+/** Nome do processo do jogo vigiado que está aberto, ou null. */
 function jogoAberto() {
   const nomes = alvos();
   if (!nomes.length) return Promise.resolve(null);
@@ -125,34 +96,21 @@ function jogoAberto() {
   if (process.platform === 'win32') {
     return new Promise((resolve) => {
       /*
-       * Sem filtro, e a filtragem e feita aqui.
-       *
-       * A versao anterior passava um `/FI IMAGENAME eq X` por jogo vigiado,
-       * achando que o tasklist juntaria os filtros com OU. Ele junta com E: com
-       * dois jogos no catalogo, a pergunta vira "qual processo se chama ao
-       * mesmo tempo sekiro.exe e outracoisa.exe", e a resposta e sempre
-       * nenhum. Com um jogo so funcionava por acidente, e teria quebrado
-       * exatamente quando o catalogo crescesse -- que e para onde esta parte
-       * do projeto existe para ir. Medido: "No tasks are running which match
-       * the specified criteria" para dois filtros de processos que ESTAO
-       * rodando.
-       *
-       * A lista inteira custa ~190 ms e ~9 KB uma vez a cada cinco segundos, e
-       * e uma chamada so independente de quantos jogos forem vigiados.
+       * Lista todos os processos e filtra aqui: vários /FI no tasklist são
+       * combinados com E, não com OU. Custa ~190 ms por chamada.
        */
       execFile('tasklist', ['/NH', '/FO', 'CSV'],
         { windowsHide: true, timeout: 8000, maxBuffer: 4 * 1024 * 1024 },
         (err, stdout) => {
           if (err) return resolve(null);
           const saida = String(stdout).toLowerCase();
-          // O nome vem entre aspas na primeira coluna do CSV. Comparar com as
-          // aspas evita que "sekiro.exe" case com "naosekiro.exe.bak".
+          // Compara com as aspas do CSV para casar só o nome exato.
           resolve(nomes.find((n) => saida.includes('"' + n + '"')) || null);
         });
     });
   }
 
-  // Linux / Steam Deck: le /proc direto em vez de abrir processo nenhum.
+  // Linux / Steam Deck: lê /proc diretamente.
   return new Promise((resolve) => {
     fs.readdir('/proc', (err, entries) => {
       if (err) return resolve(null);
@@ -171,38 +129,31 @@ function jogoAberto() {
   });
 }
 
-/** A forma antiga da pergunta, que o resto do codigo e os testes usam. */
+/** Versão booleana de jogoAberto(). */
 function isGameRunning() {
   return jogoAberto().then((n) => !!n);
 }
 
 // ------------------------------------------------------------ bandeja
 /*
- * O icone na area de notificacao e o UNICO sinal de que a aplicacao esta
- * aberta.
- *
- * A regra pedida: automaticamente, a aplicacao so abre quando um jogo
- * escolhido comeca, e abre em silencio -- sem janela e sem navegador, que
- * roubariam o foco de quem acabou de entrar no jogo. Pelo atalho da area de
- * trabalho ela abre quando a pessoa quiser.
- *
- * O servico em si continua subindo no logon e servindo a pagina; isso nao e a
- * aplicacao "aberta", e o que mantem o link do celular funcionando e o save
- * sendo lido. O que aparece e some e a chama na bandeja.
+ * Ícone na área de notificação: indica que a aplicação está aberta. Acende
+ * sem janela quando um jogo vigiado começa, para não tirar o foco do jogo.
  */
 let bandeja = null;
 
 function abrirBandeja(motivo) {
   if (bandeja && !bandeja.killed) return;
   if (process.platform !== 'win32') return;
-  /*
-   * Instalado, o icone e o proprio Trackeroao.exe (/bandeja): o Windows lista
-   * o icone com o nome e o desenho do Trackeroao. Num clone, sem a janela,
-   * vale o bandeja.ps1, que o Windows lista como PowerShell.
-   */
+  // Instalado, usa Trackeroao.exe /bandeja; num clone, o bandeja.ps1.
   const exe = path.join(__dirname, '..', 'app', 'Trackeroao.exe');
   const script = path.join(__dirname, 'bandeja.ps1');
   const comExe = fs.existsSync(exe);
+  const instalado = !fs.existsSync(path.join(__dirname, '..', '.git'));
+  if (!comExe && instalado) {
+    // A janela pode estar no meio de uma troca; o ícone volta com o executável.
+    setTimeout(() => abrirBandeja(motivo), 5000);
+    return;
+  }
   if (!comExe && !fs.existsSync(script)) return;
   try {
     bandeja = comExe
@@ -227,8 +178,7 @@ function fecharBandeja() {
   console.log('  [bandeja] icone apagado');
 }
 
-// A troca da janela pela atualizacao precisa do .exe livre, e o icone da
-// bandeja e o mesmo .exe: ele sai durante a troca e volta se estava aceso.
+// A troca do .exe na atualização exige fechar o ícone da bandeja (mesmo .exe).
 atualizar.aoTrocarJanela(async (trocar) => {
   const acesa = !!(bandeja && !bandeja.killed);
   fecharBandeja();
@@ -238,9 +188,8 @@ atualizar.aoTrocarJanela(async (trocar) => {
 
 // ------------------------------------------------------------- slot learning
 /**
- * Remember each slot block's checksum. When exactly one changes between two
- * reads, that is the slot the game is actually writing, which is a far more
- * reliable answer than guessing from the contents.
+ * Guarda o checksum de cada slot. Quando só um muda entre duas leituras, esse
+ * é o slot em uso pelo jogo.
  */
 function learnActiveSlot(save, state) {
   const digests = {};
@@ -271,10 +220,8 @@ let lastWrittenHash = null;
 
 /* --------------------------------------------------------- hibernação */
 
-// De dez em dez minutos, e só age depois de três confirmações seguidas E meia
-// hora. Um disco externo que não montou, ou o Steam no meio de uma atualização,
-// dão uma leitura de "não instalado" que se desfaz sozinha em segundos —
-// desligar na primeira delas seria desligar por engano.
+// Verifica a cada 10 min e só age após 3 confirmações seguidas e 30 min, para
+// ignorar ausências temporárias (disco não montado, Steam atualizando).
 const CHECAR_INSTALACAO_MS = 10 * 60 * 1000;
 const CONFIRMACOES = 3;
 const ESPERA_MINIMA_MS = 30 * 60 * 1000;
@@ -286,8 +233,7 @@ function vigiarInstalacao(aoSumir) {
     let e;
     try { e = instalacao.estado(); } catch (err) { return; }
 
-    // Só o `false` conta. O `null` quer dizer "não sei", e não saber nunca
-    // pode virar motivo para desligar nada.
+    // Só `false` conta; `null` significa estado desconhecido.
     if (e.instalado !== false || !e.checagemValida) {
       if (ausenteVezes) console.log('  [jogo] voltou a aparecer; hibernação cancelada');
       ausenteDesde = null;
@@ -350,12 +296,6 @@ function hibernarAgora(e) {
   process.exit(0);
 }
 
-/*
- * Não há mais site público: o progresso só se vê pela janela do Trackeroao,
- * no próprio computador, e pelos aplicativos do celular na rede de casa.
- * Nada daqui sai para a internet.
- */
-
 function syncNow(reason) {
   let progress;
   try {
@@ -374,9 +314,8 @@ function syncNow(reason) {
         console.log(`  [slot] o jogo está gravando no slot ${learned}; usando esse a partir de agora`);
       }
       parse.saveState(state);
-      // observe: este é o processo residente, o único que vê as gravações do
-      // save em sequência, e portanto o único que pode alimentar a busca do
-      // contador de mortes.
+      // observe: só o processo residente acompanha as gravações em sequência,
+      // o que alimenta a busca do contador de mortes.
       progress = parse.buildProgress({ config, state, file, save, observe: true });
     }
   } catch (err) {
@@ -388,12 +327,10 @@ function syncNow(reason) {
     };
   }
 
-  // Uma falha nunca apaga o ultimo resultado bom; o hash tem que ser o do que
-  // vai ser realmente escrito, nao o do objeto cru.
+  // Uma falha mantém o último resultado bom; o hash é do que será gravado.
   progress = parse.finalizeProgress(OUT_FILE, progress);
 
-  // Skip the write when nothing actually changed, so the page's poll does not
-  // see a new timestamp on every autosave of an unrelated part of the save.
+  // Skip the write when nothing changed apart from the timestamp.
   const body = JSON.stringify(progress);
   const hash = crypto.createHash('md5').update(body.replace(/"generatedAt":"[^"]*"/, '')).digest('hex');
   if (hash === lastWrittenHash) return;
@@ -433,8 +370,7 @@ function startWatching() {
   const dir = path.dirname(file);
   const base = path.basename(file);
   try {
-    // Watching the directory rather than the file survives the game replacing
-    // the save rather than writing in place.
+    // Watch the directory so replacing the save file is also detected.
     watcher = fs.watch(dir, { persistent: true }, (eventType, filename) => {
       if (filename && path.basename(filename) !== base) return;
       clearTimeout(debounceTimer);
@@ -463,17 +399,12 @@ function stopWatching() {
 
 // ------------------------------------------------------------------ a rede
 /*
- * Como serviço, este processo sobe segundos depois do logon - antes de o Wi-Fi
- * associar. Nesse instante não existe IP de LAN, então não adianta anunciar a
- * URL uma vez só no boot. Aqui ficamos de olho: quando um endereço aparece
- * (ou muda, por DHCP), o mDNS reanuncia e o log registra.
+ * O serviço pode subir antes de a rede ter IP. O endereço é vigiado e, quando
+ * aparece ou muda, o mDNS reanuncia e o log registra.
  */
 let ultimoIp = null;
 
-/**
- * `obterUrl` existe para poder testar as transições sem depender da placa de
- * rede real; em produção é sempre serve.lanUrl.
- */
+/** `obterUrl` permite testar as transições; o padrão é serve.lanUrl. */
 function vigiarRede(obterUrl, intervalo, aoMudar) {
   const fonte = obterUrl || (() => serve.lanUrl(PORT));
   const avisar = (ip) => { try { if (aoMudar) aoMudar(ip); } catch (e) { /* gancho não derruba o watcher */ } };
@@ -527,17 +458,15 @@ async function pollOnce() {
       const nome = g ? g.nome : qual;
       if (g) jogos.marcarAberto(g.chave);
       console.log('\n  >> ' + nome + ' aberto - sincronização ativa');
-      // A aplicacao acende aqui, e so aqui: e o momento que o pedido descreve.
       abrirBandeja(nome);
       startWatching();
       syncNow('jogo aberto');
     } else {
       console.log('\n  >> jogo fechado - só o poll leve continua rodando');
       stopWatching();
-      // Uma ultima leitura: a sessao que acabou e a que interessa ver. O icone
-      // da bandeja fica, porque o Trackeroao continua aberto.
+      // Última leitura da sessão; o ícone da bandeja continua aceso.
       syncNow('jogo fechado');
-      // A atualização que esperou o jogo fechar roda já na próxima folga.
+      // Atualização pendente roda na próxima volta.
       conferirLogo();
     }
   }
@@ -545,40 +474,23 @@ async function pollOnce() {
 
 /* ------------------------------------------------------- atualização */
 
-// Primeira conferência pouco depois de subir: no logon a rede costuma chegar
-// segundos depois do serviço, e perguntar antes disso só produziria um erro.
+// Primeira verificação após a rede ter tempo de subir.
 const ATUALIZAR_PRIMEIRA_MS = 20 * 1000;
-// Uma versão publicada chega em poucos minutos: a release só sai depois que a
-// instalação completa passou num Windows limpo, e /releases/latest nunca
-// aponta para rascunho ou pré-lançamento. Doze consultas por hora cabem na
-// cota anônima da API, e a página de releases cobre quando ela acaba.
+// 12 consultas por hora cabem na cota anônima da API do GitHub.
 const ATUALIZAR_MS = 5 * 60 * 1000;
 const ATUALIZAR_ERRO_MS = 5 * 60 * 1000;
 let proximaAtualizacao = Date.now() + ATUALIZAR_PRIMEIRA_MS;
-// Pedida à mão, pelo menu da bandeja: roda na próxima folga entre rodadas,
-// mesmo com o jogo aberto, porque foi a pessoa quem pediu.
+// Acionada pelo menu da bandeja: roda na próxima volta, mesmo com jogo aberto.
 let atualizacaoForcada = false;
-// Enquanto a atualização pedida pela bandeja não termina, o ícone da bandeja
-// mostra o anel girando, inclusive se for aceso de novo no meio dela.
+// Mantém o ícone da bandeja com o anel de progresso até a atualização terminar.
 let atualizandoPelaBandeja = false;
 function pedirAtualizacao() { atualizacaoForcada = true; atualizandoPelaBandeja = true; proximaAtualizacao = 0; }
-// Abrir a janela antecipa a conferência para a próxima folga, pela regra de
-// sempre (com jogo aberto, espera): quem abre o Trackeroao vê a versão nova.
+// Antecipa a verificação para a próxima volta (ainda espera o jogo fechar).
 function conferirLogo() { proximaAtualizacao = Math.min(proximaAtualizacao, Date.now()); }
 
 /**
- * Mantém a instalação atual sem que isso chegue a quem usa.
- *
- * O pedido é que a atualização não interfira em nada: sem mensagem, sem
- * janela, sem navegador, e sem competir com o trabalho da aplicação. Por isso
- * ela não tem relógio próprio. Ela roda DENTRO do ciclo de verificação, no
- * intervalo entre uma volta e a seguinte, e a volta seguinte espera ela
- * terminar -- a verificação atrasa um pouco naquela vez, e nada acontece ao
- * mesmo tempo que ela. Tudo que ela tem a dizer vai só para o log.
- *
- * Com um jogo aberto ela nem começa. Reiniciar o serviço no meio de uma sessão
- * apagaria e reacenderia a chama na bandeja, que é justamente o tipo de coisa
- * que se vê -- e a leitura daquela sessão passaria por dois processos.
+ * Atualização silenciosa, executada dentro do ciclo, entre duas voltas.
+ * Não roda com jogo aberto (salvo se acionada pela bandeja); saída só no log.
  */
 async function passoDeAtualizacao() {
   if (gameWasRunning && !atualizacaoForcada) return;
@@ -597,23 +509,15 @@ async function passoDeAtualizacao() {
   proximaAtualizacao = Date.now() + (r.erro ? ATUALIZAR_ERRO_MS : ATUALIZAR_MS);
 }
 
-/*
- * A varredura de jogos (biblioteca.js), pela mesma regra da atualização: entre
- * duas rodadas, nunca com jogo aberto, e sem nada na tela. Ela lista pastas de
- * vários discos e lê o registro, então roda na partida e depois uma vez por
- * dia -- ou antes, quando a página pede uma nova.
- */
+// Varredura de jogos (biblioteca.js): na partida e uma vez por dia, entre
+// duas voltas e nunca com jogo aberto.
 const VARRER_PRIMEIRA_MS = 45 * 1000;
 const VARRER_MS = 24 * 60 * 60 * 1000;
 let proximaVarredura = Date.now() + VARRER_PRIMEIRA_MS;
 function pedirVarredura() { proximaVarredura = 0; }
 
-/*
- * Um jogo instalado agora aparece na tela inicial logo, sem esperar a volta
- * do dia: as pastas de instalação são vigiadas (ver vigiarInstalacoes) e,
- * quando mudam, a próxima volta do ciclo já varre. As vigias são refeitas a
- * cada varredura, porque uma biblioteca nova da Steam muda a lista de pastas.
- */
+// Vigia as pastas de instalação para antecipar a varredura; refeito a cada
+// varredura, pois a lista de bibliotecas pode mudar.
 let pararVigiasDeJogo = null;
 function vigiarJogosNovos() {
   if (pararVigiasDeJogo) pararVigiasDeJogo();
@@ -637,15 +541,11 @@ async function passoDeVarredura() {
 }
 
 /**
- * Troca este processo por um novo, já com o código atualizado.
- *
- * O filho nasce desligado deste e sem janela, e sabe por variável de ambiente
- * que é um reinício: se a porta ainda estiver presa a este processo quando ele
- * subir, ele insiste por alguns instantes em vez de desistir. A página aberta
- * num celular fica sem resposta por menos de um ciclo dela, e segue.
+ * Reinicia o processo com o código atualizado. TRACKEROAO_REINICIO faz o novo
+ * processo insistir na porta enquanto este a libera.
  */
 function reiniciar() {
-  // O ícone que estava aceso volta aceso na versão nova, já com o anel fechado.
+  // Repassa o estado do ícone da bandeja ao novo processo.
   const acesa = !!(bandeja && !bandeja.killed);
   fecharBandeja();
   const filho = require('child_process').spawn(process.execPath, process.argv.slice(1), {
@@ -656,45 +556,30 @@ function reiniciar() {
   process.exit(0);
 }
 
-/*
- * Fechado pela bandeja: enquanto este arquivo existir, o serviço não sobe
- * sozinho -- nem pela tarefa do logon, nem por nada. Quem o apaga é a abertura
- * manual (a janela do Trackeroao, ou o abrir.vbs num clone).
- */
+// Enquanto existir, o serviço não sobe sozinho; removido na abertura manual.
 const FECHADO = path.join(__dirname, 'fechado.flag');
 
 function encerrarDeVez() {
   try { fs.writeFileSync(FECHADO, new Date().toISOString()); } catch (e) { /* sai mesmo assim */ }
-  // Um pedido de abertura que sobrou de antes não pode religar o que a pessoa fechou.
+  // Descarta solicitação de abertura pendente.
   try { fs.unlinkSync(PEDIDO); } catch (e) { /* nao havia */ }
   console.log('  [fechar] fechado pela bandeja; só volta aberto à mão');
   process.exit(0);
 }
 
 /*
- * Quando o serviço pode subir.
- *
- * Nada do Trackeroao começa sozinho com o Windows, a não ser que a caixa
- * "Iniciar com o Windows" do menu da bandeja esteja marcada (a marca é o
- * iniciar-com-windows.flag). A tarefa agendada continua existindo, porque é
- * por ela que a janela sobe o serviço; mas quando ela dispara no logon, sem
- * pedido de ninguém, o serviço sai na hora.
- *
- * Pedido é o abrir.pedido, que quem abre o Trackeroao à mão escreve antes de
- * chamar a tarefa (a janela, o atalho de um clone, o instalador), valendo por
- * dois minutos. O reinício de uma atualização passa sempre. O "Fechar" da
- * bandeja vale até o próximo pedido, ou até o computador reiniciar.
+ * No logon o serviço só sobe se iniciar-com-windows.flag existir. A abertura
+ * manual grava abrir.pedido (válido por 2 min) antes de disparar a tarefa.
+ * Reinício de atualização sempre sobe; fechado.flag bloqueia até nova abertura.
  */
 const PEDIDO = path.join(__dirname, 'abrir.pedido');
 const COM_WINDOWS = path.join(__dirname, 'iniciar-com-windows.flag');
 
 function podeSubir(reinicio) {
-  // Fora do Windows não há tarefa; `--manual` (o `npm start`) é alguém
-  // rodando à mão. O console não serve de sinal: a tarefa agendada também
-  // pode subir o node com um console próprio.
+  // Fora do Windows, ou com `--manual` (npm start), sempre sobe.
   if (process.platform !== 'win32' || process.argv.includes('--manual')) return true;
   const idade = (f) => { try { return Date.now() - fs.statSync(f).mtimeMs; } catch (e) { return Infinity; } };
-  // Vale o pedido recente e feito depois do último Fechar.
+  // abrir.pedido recente e posterior ao último fechamento.
   if (idade(PEDIDO) < 2 * 60 * 1000 && idade(PEDIDO) < idade(FECHADO)) {
     try { fs.unlinkSync(PEDIDO); } catch (e) { /* ja foi */ }
     try { fs.unlinkSync(FECHADO); } catch (e) { /* nao havia */ }
@@ -718,8 +603,7 @@ async function run() {
   console.log('  (somente leitura: este programa nunca escreve no save do jogo)');
   console.log('');
 
-  // Uma exceção solta não pode derrubar o serviço: o servidor precisa continuar
-  // no ar mesmo que uma leitura do save falhe de forma inesperada.
+  // Exceções não tratadas são registradas sem derrubar o servidor.
   process.on('uncaughtException', (err) => {
     console.error('  [erro] exceção não tratada:', err && err.stack ? err.stack : err);
   });
@@ -738,9 +622,7 @@ async function run() {
   syncNow('leitura inicial');
 
   try {
-    // Depois de uma atualização, o processo anterior pode ainda estar soltando
-    // a porta. Só nesse caso vale insistir; fora dele, porta ocupada é outro
-    // programa, e insistir só adiaria a mensagem de erro.
+    // Após reinício, tenta de novo enquanto o processo anterior libera a porta.
     for (let tentativa = 1; ; tentativa++) {
       try {
         await serve.start({
@@ -768,15 +650,12 @@ async function run() {
     process.exit(1);
   }
 
-  // Porta 80 além da principal: com ela o endereço perde o ":8777", que é a
-  // diferença entre um link que dá para ditar e um que não dá. Se não der,
-  // seguimos com a porta principal - não é motivo para nada parar.
+  // Porta 80 opcional, para um endereço sem ":8777".
   const extra = await serve.listenExtra({ root: ROOT, port: 80, indexFile: 'trackeroao.html' });
   if (extra.ok) console.log('  [http] também na porta 80');
   else console.log(`  [http] porta 80 indisponível (${extra.error}); o endereço sai com :${PORT}`);
 
-  // Nome na rede local. `.local` não é escolha: é o único sufixo que o mDNS
-  // atende, e é o que faz iPhone e Mac resolverem sem configurar nada.
+  // Nome na rede local via mDNS.
   const nomeador = mdns.responder({
     nomes: NOMES_REDE,
     obterIp: () => {
@@ -794,23 +673,19 @@ async function run() {
     console.log('');
   }
 
-  // O ícone fica na bandeja enquanto o Trackeroao estiver de pé: é por ele
-  // que a janela escondida volta e que a aplicação se fecha de verdade.
+  // O ícone da bandeja fica aceso enquanto o serviço estiver no ar.
   abrirBandeja(bandejaAcesa ? 'depois da atualização' : 'início');
 
   vigiarRede(null, null, (novo) => nomeador.ipMudou(novo));
   vigiarInstalacao(hibernarAgora);
   vigiarJogosNovos();
 
-  // Pastas que uma atualização antiga esvaziou ao mudar arquivos de lugar.
+  // Remove pastas legadas que ficaram vazias.
   const varridas = atualizar.varrerPastasVazias(null, atualizar.PASTAS_LEGADO);
   if (varridas.length) console.log('  [atualizar] pastas vazias removidas: ' + varridas.join(', '));
 
-  /*
-   * O ciclo se reagenda no fim de cada volta, em vez de um setInterval: é o
-   * que deixa a atualização caber entre duas voltas. A próxima só é marcada
-   * depois que a anterior -- e a atualização, quando houver -- terminou.
-   */
+  // Reagenda ao fim de cada volta, para a atualização e a varredura caberem
+  // entre duas voltas sem sobreposição.
   let timer = null;
   const ciclo = async () => {
     try {

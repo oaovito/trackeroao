@@ -1,24 +1,10 @@
 'use strict';
 /*
- * mdns.js - faz a máquina atender por um nome, e não por um IP.
+ * mdns.js - respondedor mDNS mínimo (RFC 6762) para nomes `.local`.
  *
- * O objetivo é um link que dê para dizer em voz alta: em vez de
- * "192.168.1.10:8777", "sekiro.local". Quem estiver no mesmo Wi-Fi abre e
- * pronto, sem instalar nem configurar nada no aparelho.
- *
- * Isso funciona porque mDNS é nativo: iPhone, iPad e Mac resolvem `.local` de
- * fábrica (é o Bonjour), e o Windows 10 em diante também. O que este arquivo
- * faz é entrar no grupo multicast 224.0.0.251:5353, escutar as perguntas e
- * responder "sekiro.local é este IP aqui".
- *
- * O SUFIXO `.local` NÃO É ESCOLHA. mDNS só atende esse sufixo - é o que a RFC
- * 6762 reserva para ele. Um nome como "sekiro.oaovito" sairia do aparelho como
- * consulta de DNS comum, não chegaria aqui, e morreria no servidor do
- * provedor. Para um nome assim seria preciso ou mexer no hosts de cada
- * aparelho, ou pôr um servidor de DNS na rede e apontar o roteador para ele.
- *
- * Nada aqui escreve no sistema nem pede privilégio: é um socket UDP e um
- * grupo multicast, que qualquer processo pode abrir.
+ * Entra no grupo multicast 224.0.0.251:5353 e responde às consultas A dos
+ * nomes configurados com o IP atual. iOS, macOS e Windows 10+ resolvem
+ * `.local` nativamente. Não exige privilégios.
  */
 
 const dgram = require('dgram');
@@ -43,8 +29,7 @@ function codificarNome(nome) {
 
 /**
  * Lê um nome a partir de `off`. Devolve { nome, proximo }.
- * Trata ponteiro de compressão porque pergunta malformada existe, e um laço
- * infinito aqui derrubaria o serviço inteiro.
+ * Trata ponteiros de compressão com limite de saltos contra laços.
  */
 function lerNome(buf, off) {
   const partes = [];
@@ -108,16 +93,11 @@ function lerPerguntas(buf) {
 }
 
 /**
- * Sobe o respondedor.
- *
- * `obterIp` é função porque o IP muda: o serviço sobe antes de o Wi-Fi
- * associar, e a máquina troca de rede. Consultar na hora de responder é o que
- * evita anunciar um endereço que não vale mais.
+ * Sobe o respondedor. `obterIp` é consultado a cada resposta, pois o IP muda.
  */
 function responder(options) {
   const opts = options || {};
-  // Vários nomes de uma vez: responder a mais um custa uma comparação de
-  // string, e assim dá para oferecer o bonito e o garantido ao mesmo tempo.
+  // Aceita vários nomes.
   const nomes = (opts.nomes || ['sekiro.local']).map((x) => x.toLowerCase());
   const obterIp = opts.obterIp || (() => {
     for (const lista of Object.values(os.networkInterfaces())) {
@@ -136,9 +116,7 @@ function responder(options) {
   let ultimoIp = null;
 
   sock.on('error', (err) => {
-    // Outro programa pode já estar com a porta de um jeito que não divide, ou
-    // a rede pode estar caindo. Isso não pode derrubar o resto do serviço: o
-    // acesso por IP continua valendo.
+    // Falha no socket não derruba o serviço; o acesso por IP continua.
     log(`[mdns] desligado: ${err.message}`);
     vivo = false;
     try { sock.close(); } catch (e) { /* já fechado */ }
@@ -149,7 +127,7 @@ function responder(options) {
     let perguntas;
     try { perguntas = lerPerguntas(msg); } catch (e) { return; }
     for (const p of perguntas) {
-      // tipo 1 = A, 255 = ANY. O resto não nos diz respeito.
+      // tipo 1 = A, 255 = ANY.
       if (p.tipo !== 1 && p.tipo !== 255) continue;
       const alvoNome = nomes.find((x) => x === p.nome.toLowerCase());
       if (!alvoNome) continue;
@@ -179,7 +157,7 @@ function responder(options) {
     }
   });
 
-  /** Anuncia sem ninguém perguntar: quem já estava na rede atualiza o cache. */
+  /** Anúncio espontâneo, para atualizar o cache da rede. */
   function anunciar() {
     if (!vivo) return;
     const ip = obterIp();
@@ -188,7 +166,7 @@ function responder(options) {
     for (const nome of nomes) {
       let pacote;
       try { pacote = montarResposta(nome, ip); } catch (e) { continue; }
-      // Duas vezes, com folga: pacote multicast se perde e não é retransmitido.
+      // Enviado duas vezes: multicast não é retransmitido.
       sock.send(pacote, PORTA, GRUPO, () => {});
       setTimeout(() => { if (vivo) sock.send(pacote, PORTA, GRUPO, () => {}); }, 1000);
     }

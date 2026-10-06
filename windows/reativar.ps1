@@ -1,13 +1,12 @@
 # reativar.ps1 - religa o serviço depois de uma hibernação.
 #
-# A hibernação não apaga nada: ela guarda uma cópia, tira a tarefa do login e
-# encerra o processo. Voltar é só religar a tarefa — e, se o save tiver sumido
-# junto com o jogo, restaurar a cópia guardada.
+# Registra a tarefa novamente e, se o save tiver sumido, restaura a cópia
+# guardada.
 #
 # Não precisa de administrador.
 
 $ErrorActionPreference = 'Stop'
-# Este script mora em windows\, e o projeto e a pasta acima dela.
+# O projeto e a pasta acima de windows\.
 $raiz = Split-Path $PSScriptRoot -Parent
 
 Write-Host ''

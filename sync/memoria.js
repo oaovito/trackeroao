@@ -1,20 +1,13 @@
 'use strict';
 /*
- * memoria.js - ponte do Node para a leitura de memória do jogo.
+ * memoria.js - interface Node para a leitura de memória do jogo.
  *
- * O trabalho sujo está em mem.ps1: P/Invoke de OpenProcess e
- * ReadProcessMemory, varredura por padrão de bytes e resolução de ponteiro.
- * Aqui só empacotamos o pedido em JSON, chamamos o PowerShell e desempacotamos
- * a resposta.
+ * A leitura em si está em mem.ps1 (P/Invoke de OpenProcess e
+ * ReadProcessMemory, varredura por padrão de bytes, resolução de ponteiros).
+ * Este módulo serializa as operações em JSON, chama o PowerShell e lê a
+ * resposta. Evita dependências nativas.
  *
- * Por que PowerShell e não uma dependência nativa: este projeto não tem uma
- * única dependência externa, e não vai passar a ter por causa disto. O
- * PowerShell já é usado na tarefa agendada e no instalador, e o Add-Type
- * compila o P/Invoke na hora.
- *
- * SOMENTE LEITURA. O handle é aberto sem PROCESS_VM_WRITE: uma escrita falharia
- * no Windows, não na boa vontade do código. É o mesmo compromisso do leitor de
- * save — este programa observa o jogo, nunca mexe nele.
+ * Somente leitura: o handle é aberto sem PROCESS_VM_WRITE.
  */
 
 const path = require('path');
@@ -32,23 +25,9 @@ const PADROES = {
     desloc: 3, instrucao: 7,
   },
   /*
-   * GameDataMan: a struct que guarda o que sobrevive ao fechar o jogo.
-   *
-   * É daqui que sai a contagem de mortes da jornada inteira, e não a da
-   * sessão. A diferença não é detalhe: um contador solto na região estática
-   * do módulo zera toda vez que o jogo abre, então mediria só a noite de hoje.
-   * Este é carregado do save, então conta desde o primeiro carregamento
-   * daquele arquivo.
-   *
-   * O padrão é o que o SoulSplitter usa para achar o tempo de jogo (IGT), e o
-   * IGT é um campo desta mesma struct — o que dá uma conferência de graça:
-   * lendo os dois, o tempo tem de bater de forma plausível com as horas que a
-   * Steam registra, e foi assim que se confirmou que a struct é esta.
-   *
-   * Procurar por padrão, e não por endereço fixo, é o que faz isto sobreviver
-   * a uma atualização do jogo: as duas ferramentas de contagem de mortes que
-   * existem publicamente gravam o endereço direto, e o delas já não resolve
-   * nesta versão — o ponteiro vem nulo.
+   * GameDataMan: dados carregados do save, incluindo a contagem total de
+   * mortes e o tempo de jogo (IGT). Padrão do SoulSplitter; a busca por
+   * padrão resiste a atualizações do jogo.
    */
   GameDataMan: {
     padrao: '48 8b 05 ? ? ? ? 32 d2 48 8b 48 08 48 85 c9 74 13 80 b9 ba',
@@ -63,11 +42,8 @@ const GAME_DATA = {
 };
 
 /**
- * Executa uma lista de operações numa única chamada.
- *
- * Uma chamada só por ciclo importa: cada invocação do PowerShell custa
- * centenas de milissegundos, e uma varredura do módulo inteiro custa mais.
- * Agrupar é a diferença entre observar o jogo e atrapalhar quem joga.
+ * Executa uma lista de operações numa única chamada ao PowerShell (cada
+ * chamada custa centenas de milissegundos).
  */
 function executar(ops, opts) {
   const o = opts || {};

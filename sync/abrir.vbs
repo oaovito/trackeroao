@@ -1,18 +1,10 @@
-' abrir.vbs - o que o atalho da area de trabalho executa.
+' abrir.vbs - executado pelo atalho da area de trabalho, sem janela:
 '
-' Tres coisas, nesta ordem, e nenhuma delas mostra janela:
-'
-'   1. garante que o servico esta de pe. Ele sobe no logon, mas pode ter sido
-'      encerrado a mao, e um atalho que abre uma aba de erro nao e um atalho.
-'   2. avisa o servico de que a aplicacao foi aberta, para a chama acender na
-'      bandeja. Pelo atalho a abertura e livre e deliberada, entao ela aparece
-'      -- ao contrario da abertura automatica, que so acontece com o jogo.
+'   1. garante que o servico esta no ar;
+'   2. avisa o servico (GET /abrir) para acender o icone da bandeja;
 '   3. abre a pagina no navegador padrao.
 '
-' Em VBScript e nao em PowerShell porque o wscript nao mostra console nenhum,
-' e um atalho que pisca uma janela preta antes de abrir o navegador parece
-' defeito. E o wscript.exe ja vem no Windows, como o resto do que este projeto
-' usa -- nada para baixar.
+' VBScript (wscript) para nao exibir console.
 
 Option Explicit
 
@@ -24,15 +16,13 @@ raiz = fso.GetParentFolderName(fso.GetParentFolderName(WScript.ScriptFullName))
 porta = 8777
 url = "http://localhost:" & porta & "/"
 
-' Abrir a mao desfaz o "Fechar" da bandeja: sem a marca, o servico volta a
-' subir sozinho no logon e com o jogo.
+' A abertura manual remove o fechado.flag gravado pelo "Fechar" da bandeja.
 If fso.FileExists(fso.BuildPath(fso.GetParentFolderName(WScript.ScriptFullName), "fechado.flag")) Then
   fso.DeleteFile fso.BuildPath(fso.GetParentFolderName(WScript.ScriptFullName), "fechado.flag"), True
 End If
 
-' O pedido de abrir: com ele o servico sobe pela tarefa agendada. Sem ele,
-' a tarefa que dispara no logon encerra o servico na hora, porque nada do
-' Trackeroao inicia com o Windows sem a caixa marcada no menu da bandeja.
+' Grava abrir.pedido: sem ele, o servico iniciado pela tarefa agendada encerra
+' (a menos que "Iniciar com o Windows" esteja marcado).
 Dim marca
 Set marca = fso.CreateTextFile(fso.BuildPath(fso.GetParentFolderName(WScript.ScriptFullName), "abrir.pedido"), True)
 marca.Write Now
@@ -51,13 +41,10 @@ Err.Clear
 On Error GoTo 0
 
 If Not vivo Then
-  ' A tarefa agendada e o caminho certo para subir: ela roda como o usuario
-  ' certo e com o diretorio certo. Chamar o node daqui subiria um processo
-  ' orfao que nao sobrevive ao logoff.
+  ' Sobe pela tarefa agendada (usuario e diretorio corretos).
   shell.Run "schtasks /run /tn TrackeroaoSync", 0, True
 
-  ' Espera ate cinco segundos pelo servidor. Abrir o navegador antes de ele
-  ' responder daria a pagina de erro do navegador, que e pior que esperar.
+  ' Espera ate cinco segundos pelo servidor.
   Dim tentativa
   For tentativa = 1 To 10
     WScript.Sleep 500
@@ -78,8 +65,7 @@ If Not vivo Then
 End If
 
 ' --- 2. acende a bandeja ---
-' Sem parar por causa disto: o icone e sinal, e a pagina e o que a pessoa
-' pediu. Falhar aqui nao pode impedir o passo 3.
+' Falha aqui nao impede o passo 3.
 If vivo Then
   On Error Resume Next
   Set http = CreateObject("MSXML2.ServerXMLHTTP.6.0")

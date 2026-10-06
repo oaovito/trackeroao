@@ -1,16 +1,15 @@
 'use strict';
 /**
- * idioma.js - o idioma escolhido à mão no globo da página.
+ * idioma.js - idioma escolhido na página.
  *
- * Um arquivo só, substituído no lugar a cada escolha: sync/idioma.json com
- * { "idioma": "<código>" }, ou sem o arquivo quando a pessoa volta a seguir o
- * idioma do sistema. A página, a bandeja e a janela do Windows leem daqui.
+ * Gravado em sync/idioma.json como { "idioma": "<código>" }; sem o arquivo,
+ * segue o idioma do sistema. Lido pela página, pela bandeja e pela janela.
  */
 const fs = require('fs');
 const path = require('path');
 
 const ARQUIVO = path.join(__dirname, 'idioma.json');
-// Os códigos que a página sabe falar. Qualquer outro é recusado.
+// Idiomas suportados; outros códigos são recusados.
 const IDIOMAS = ['en', 'pt-BR', 'es', 'fr', 'de', 'it', 'ru', 'pl', 'tr', 'ja', 'ko', 'zh-CN'];
 
 function ler() {

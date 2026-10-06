@@ -1,24 +1,8 @@
 <#
-bandeja.ps1 - o icone na area de notificacao.
+bandeja.ps1 - icone na area de notificacao (NotifyIcon do System.Windows.Forms).
 
-Este e o unico sinal visivel de que a aplicacao esta aberta. O pedido e
-explicito: quando o jogo escolhido comeca, a aplicacao abre sozinha e aparece
-so aqui -- sem janela, sem navegador, sem nada roubando o foco de quem acabou
-de entrar no jogo.
-
-Por que PowerShell e nao Node: Node nao tem bandeja sem pacote nativo, e o
-projeto nao tem dependencia nenhuma e nao vai ganhar uma por causa de um
-icone. O NotifyIcon do System.Windows.Forms ja vem no Windows desde sempre e
-faz exatamente isto.
-
-O icone e o do Trackeroao: o mesmo windows\instalador\icone\trackeroao.ico que vai
-na janela e no instalador, para quem ve um reconhecer o outro. Se o arquivo
-faltar, o mesmo desenho (anel de progresso e um T) e feito aqui em memoria --
-icone nenhum na bandeja seria pior que um icone desenhado a mao.
-
-O processo morre junto com quem o abriu: o -ProcessoPai e vigiado, e sem ele o
-icone sai da bandeja. Icone orfao seria pior que icone nenhum, porque prometeria
-uma aplicacao que nao esta mais la.
+Usa windows\instalador\icone\trackeroao.ico; se o arquivo faltar, desenha o
+mesmo icone em memoria. Encerra junto com o processo -ProcessoPai.
 #>
 
 param(
@@ -31,12 +15,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-<#
-  O icone do Trackeroao, no tamanho que o Windows usa na bandeja.
-
-  O .ico traz de 16 a 256; pedir o SmallIconSize faz o Windows receber o
-  desenho feito para aquele tamanho, e nao um reduzido de outro.
-#>
+# Icone no tamanho usado pela bandeja (SmallIconSize).
 function Novo-Icone {
   $tam = [System.Windows.Forms.SystemInformation]::SmallIconSize
   $arquivo = Join-Path (Split-Path $PSScriptRoot -Parent) 'windows\instalador\icone\trackeroao.ico'
@@ -46,20 +25,14 @@ function Novo-Icone {
   return (Desenhar-Icone)
 }
 
-<#
-  A reserva: o mesmo desenho, feito em memoria.
-
-  Quadrado escuro de cantos redondos, tres quartos de anel verde-limao e um T
-  branco no meio. 32x32 porque e o tamanho que o Windows pede em tela comum;
-  em tela de alta densidade ele reduz de 32 melhor do que amplia de 16.
-#>
+# Reserva: o mesmo desenho em memoria, 32x32 (quadrado escuro, anel e um T).
 function Desenhar-Icone {
   $bmp = New-Object System.Drawing.Bitmap 32, 32
   $g = [System.Drawing.Graphics]::FromImage($bmp)
   $g.SmoothingMode = 'AntiAlias'
   $g.Clear([System.Drawing.Color]::Transparent)
 
-  # O fundo: quadrado de cantos redondos, no escuro da pagina.
+  # Fundo: quadrado de cantos arredondados.
   $fundo = New-Object System.Drawing.Drawing2D.GraphicsPath
   $r = 14
   $fundo.AddArc(0, 0, $r, $r, 180, 90)
@@ -70,12 +43,12 @@ function Desenhar-Icone {
   $escuro = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 11, 13, 18))
   $g.FillPath($escuro, $fundo)
 
-  # O anel fechado, como no icone do Trackeroao.
+  # Anel.
   $limao = [System.Drawing.Color]::FromArgb(255, 216, 255, 60)
   $caneta = New-Object System.Drawing.Pen($limao, [single]3.5)
   $g.DrawEllipse($caneta, [single]6.5, [single]6.5, [single]19, [single]19)
 
-  # O T: barra de cima e haste, retangulos cheios.
+  # O T: barra e haste.
   $branco = [System.Drawing.Brushes]::White
   $g.FillRectangle($branco, 11, 11, 10, 3)
   $g.FillRectangle($branco, 14, 11, 4, 10)
@@ -92,10 +65,8 @@ $icone.Text = $Titulo          # o balao do hover; o Windows corta em 63 caracte
 $icone.Visible = $true
 
 <#
-  O idioma do menu: o escolhido no globo da pagina (sync\idioma.json) ou, sem
-  escolha, o do Windows. Os textos vao em escape de unicode e sao decodificados
-  aqui: este arquivo fica em ASCII, que o PowerShell 5.1 le igual em qualquer
-  maquina.
+  Idioma do menu: sync\idioma.json ou, sem escolha, o do Windows. Os textos
+  ficam em escape unicode para manter o arquivo em ASCII (PowerShell 5.1).
 #>
 $textos = @{
   'en' = @('Force update', 'Close', 'You are on the latest version ({0}).')
@@ -126,10 +97,7 @@ function Idioma-Atual {
 }
 $t = $textos[(Idioma-Atual)] | ForEach-Object { [regex]::Unescape($_) }
 
-<#
-  Abrir e so com dois cliques: no icone da bandeja, ou no da area de trabalho. A
-  janela do Trackeroao, quando instalada; sem ela, a pagina local.
-#>
+# Duplo clique abre a janela do Trackeroao, ou a pagina local sem ela.
 function Abrir-Trackeroao {
   $janela = Join-Path (Split-Path $PSScriptRoot -Parent) 'app\Trackeroao.exe'
   if (Test-Path $janela) { Start-Process $janela }
@@ -140,11 +108,8 @@ $menu = New-Object System.Windows.Forms.ContextMenuStrip
 
 $atualizar = $menu.Items.Add($t[0])
 $atualizar.add_Click({
-  <#
-    O servico confere a release agora. Ja na ultima versao, um aviso pequeno
-    sai ao lado deste icone e some sozinho. Havendo versao nova, ela e
-    aplicada em silencio: o servico se reinicia e este icone volta junto.
-  #>
+  # Verifica a release agora. Se ja estiver atualizado, mostra um aviso; se
+  # houver versao nova, o servico a aplica e reinicia.
   try {
     $wc = New-Object Net.WebClient
     $wc.Encoding = [Text.Encoding]::UTF8
@@ -159,15 +124,10 @@ $menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Null
 
 $fechar = $menu.Items.Add($t[1])
 $fechar.add_Click({
-  <#
-    Fecha tudo de verdade: a janela do Trackeroao, este icone e o servico.
-    Nada disso volta sozinho -- nem no logon, nem com o jogo -- ate a pessoa
-    abrir o Trackeroao pelo atalho.
-  #>
+  # Fecha a janela, o icone e o servico, ate a proxima abertura manual.
   [System.Threading.EventWaitHandle]$sinal = $null
   if ([System.Threading.EventWaitHandle]::TryOpenExisting('Local\TrackeroaoFechar', [ref]$sinal)) { [void]$sinal.Set() }
-  # O servico tambem sai, e marca que so volta aberto a mao (nem no logon).
-  # A marca e escrita aqui tambem, para valer mesmo com o servico sem responder.
+  # Grava fechado.flag aqui tambem, caso o servico nao responda.
   try { Set-Content -Path (Join-Path $PSScriptRoot 'fechado.flag') -Value (Get-Date -Format o) } catch { }
   try { (New-Object Net.WebClient).UploadString("http://127.0.0.1:$Porta/encerrar", '') | Out-Null } catch { }
   $icone.Visible = $false
@@ -177,13 +137,7 @@ $fechar.add_Click({
 $icone.ContextMenuStrip = $menu
 $icone.add_MouseDoubleClick({ Abrir-Trackeroao })
 
-<#
-  A vigia do processo que abriu este icone.
-
-  Sem ela, encerrar o servico deixaria o icone aceso na bandeja prometendo uma
-  aplicacao que nao existe mais. Dois segundos e frequencia de sobra para algo
-  que so precisa perceber um encerramento.
-#>
+# Vigia o processo pai a cada 2 s; quando ele encerra, o icone sai.
 if ($ProcessoPai -gt 0) {
   $timer = New-Object System.Windows.Forms.Timer
   $timer.Interval = 2000

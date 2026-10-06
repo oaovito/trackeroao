@@ -23,15 +23,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 /*
- * Ponte - todo pedido da página passa por aqui.
- *
- * A página acha que está em http://trackeroao.local/ e nunca fica sabendo do
- * IP: este lado descobre onde o computador está e busca lá. Assim a origem da
- * página é sempre a mesma (o localStorage não se perde quando o IP muda) e
- * não existe endereço nenhum à vista.
- *
- * Cada GET que dá certo vira cópia local, um arquivo por caminho, trocado no
- * lugar. Com o computador desligado, a página abre com a última leitura.
+ * Ponte - atende as requisições da página em http://trackeroao.local/,
+ * buscando no IP do computador. A origem fixa preserva o localStorage. Cada
+ * GET bem-sucedido vira cópia local, usada quando o computador está fora.
  */
 final class Ponte {
 
@@ -52,24 +46,22 @@ final class Ponte {
         String consulta = uri.getEncodedQuery();
         String alvo = consulta == null ? caminho : caminho + "?" + consulta;
 
-        // O telefone só lê. Mudar alguma coisa é coisa do computador (e ele
-        // mesmo recusa POST que não venha dele).
+        // Somente leitura.
         if (!"GET".equalsIgnoreCase(req.getMethod())) {
             return resposta(405, "Method Not Allowed", "text/plain", new byte[0]);
         }
 
-        // Duas voltas: se o IP guardado morreu, a segunda já usa o novo.
+        // Duas tentativas: a segunda usa o IP redescoberto.
         for (int volta = 0; volta < 2; volta++) {
             String ip = localizador.ip();
             if (ip == null) break;
             try {
                 Busca b = buscar(ip, alvo);
                 if (b.status >= 200 && b.status < 300) guardar(caminho, b.tipo, b.corpo);
-                // A página não precisa ver redirecionamento; e o WebView recusa 3xx aqui.
+                // O WebView não aceita 3xx aqui.
                 if (b.status >= 300 && b.status < 400) break;
                 WebResourceResponse r = resposta(b.status, "OK", b.tipo, b.corpo);
-                // A versão da página que o computador serve: com ela a página
-                // aberta no aplicativo se recarrega sozinha depois de uma atualização.
+                // Versão servida, para a página recarregar após atualização.
                 if (b.pagina != null) r.getResponseHeaders().put("x-trackeroao-pagina", b.pagina);
                 return r;
             } catch (IOException e) {
@@ -134,7 +126,7 @@ final class Ponte {
         byte[] corpo;
     }
 
-    /** Nome do arquivo: hash do caminho, que é curto e nunca tem barra. A consulta fica de fora. */
+    /** Nome do arquivo: hash do caminho, sem a consulta. */
     private File arquivo(String caminho) {
         try {
             byte[] h = MessageDigest.getInstance("SHA-1").digest(caminho.getBytes(StandardCharsets.UTF_8));
@@ -146,10 +138,7 @@ final class Ponte {
         }
     }
 
-    /**
-     * Grava num temporário e renomeia por cima: quem estiver lendo ao mesmo
-     * tempo vê a cópia velha inteira ou a nova inteira, nunca a metade.
-     */
+    /** Gravação atômica: temporário e renomeação. */
     private void guardar(String caminho, String tipo, byte[] corpo) {
         File dest = arquivo(caminho);
         File tmp = new File(pasta, dest.getName() + ".tmp");
@@ -205,11 +194,7 @@ final class Ponte {
         return new WebResourceResponse(mime, charset, status, motivo, cab, new ByteArrayInputStream(corpo));
     }
 
-    /**
-     * Primeira abertura sem o computador por perto e sem cópia guardada.
-     * Nada de texto nem de endereço: só o nome, uma barra pulsando, e uma nova
-     * tentativa a cada poucos segundos.
-     */
+    /** Tela de espera sem computador nem cópia: nome, barra pulsando e nova tentativa periódica. */
     private static final String ESPERA =
         "<!doctype html><html><head><meta charset=utf-8>"
         + "<meta name=viewport content='width=device-width,initial-scale=1'>"

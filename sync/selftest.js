@@ -1,6 +1,6 @@
 'use strict';
 /*
- * selftest.js - prove the pieces work on THIS machine before trusting them.
+ * selftest.js - checks that the pieces work on this machine.
  *
  * Run: npm run selftest
  *
@@ -43,13 +43,8 @@ function assert(cond, msg) {
 }
 
 /**
- * Sai do teste sem reprovar, porque falta algo que só existe depois de rodar.
- *
- * Um clone recém-feito não tem `progress.json`: ele nasce da primeira leitura
- * do save, nesta máquina. Os testes que dependem dele não têm o que verificar
- * ali, e reprovar faria um clone saudável parecer quebrado — exatamente a
- * dúvida que o projeto precisa não deixar no ar. Então eles se anunciam como
- * pulados, com o motivo, em vez de falhar calados ou passar em falso.
+ * Marca o teste como pulado, com o motivo, quando depende de algo gerado em
+ * execução (ex.: `progress.json` num clone recém-feito).
  */
 function pular(motivo) {
   const e = new Error(motivo);
@@ -124,8 +119,8 @@ check('monta o progress.json', () => {
 });
 
 check('materiais de tier tardio não aparecem antes dos iniciais', () => {
-  // A sanity check on the id->name mapping: if it were shuffled, an endgame
-  // material would show up while the early ones are still at zero.
+  // Sanity check on the id->name mapping: late materials must not appear
+  // while early ones are still at zero.
   const p = parse.buildProgress({});
   assert(p.ok, 'parse falhou');
   const by = {};
@@ -141,9 +136,7 @@ check('materiais de tier tardio não aparecem antes dos iniciais', () => {
 console.log('\n  === 4. O progresso não pode ser perdido ===');
 
 check('uma leitura falha não apaga o progresso já conhecido', () => {
-  // O save pode sumir por motivos banais (Steam Cloud mexendo no arquivo, o
-  // serviço subindo antes do perfil montar). Como a página não tem entrada
-  // manual, sobrescrever com um erro deixaria o usuário sem nada.
+  // Falha temporária do save não pode sobrescrever o último resultado bom.
   const tmp = path.join(require('os').tmpdir(), 'sekiro-preserve-test.json');
   const bom = {
     ok: true,
@@ -165,7 +158,7 @@ check('uma leitura falha não apaga o progresso já conhecido', () => {
     const novo = parse.preserveGood(tmp, { ok: true, generatedAt: 'x', essentials: {} });
     assert(!novo.stale, 'manteve o marcador depois de uma leitura boa');
 
-    // Sem nada bom no disco, não há o que preservar: reporta o erro mesmo.
+    // Sem resultado bom no disco, reporta o erro.
     fs.writeFileSync(tmp, JSON.stringify({ ok: false, error: 'antigo' }));
     assert(parse.preserveGood(tmp, falha).ok === false, 'inventou um resultado bom');
   } finally {
@@ -217,9 +210,7 @@ check('registra o que mudou entre duas leituras', () => {
 console.log('\n  === 5. Descoberta do IP da rede ===');
 
 check('ignora endereços APIPA (169.254.x) ao escolher o IP da LAN', () => {
-  // Esta máquina tem quatro adaptadores com 169.254.x (Bluetooth, Ethernet,
-  // Wi-Fi Direct). Entre o logon e o Wi-Fi associar, eles são os únicos que
-  // existem — e anunciar um deles daria um endereço morto no QR.
+  // Adaptadores sem DHCP recebem 169.254.x e não podem ser anunciados.
   const serve = require('./serve');
   assert(serve.isApipa('169.254.232.5'), 'não reconheceu APIPA');
   assert(!serve.isApipa('192.168.1.10'), 'classificou IP da LAN como APIPA');
@@ -231,9 +222,7 @@ check('ignora endereços APIPA (169.254.x) ao escolher o IP da LAN', () => {
 });
 
 check('anuncia quando a rede aparece depois do boot', () => {
-  // O serviço sobe segundos após o logon, antes de o Wi-Fi associar. Este é o
-  // caso que quebrou de verdade num reboot: sem IP no arranque, o serviço
-  // dizia que não havia rede e nunca mais reavaliava.
+  // Sem IP na partida, o serviço deve reavaliar quando o endereço aparecer.
   const main = require('./main');
   const linhas = [];
   const original = console.log;
@@ -242,7 +231,7 @@ check('anuncia quando a rede aparece depois do boot', () => {
   let url = null;
   let v;
   try {
-    v = main.vigiarRede(() => url, 3600000); // intervalo longo: chamamos à mão
+    v = main.vigiarRede(() => url, 3600000); // intervalo longo; checar() é chamado manualmente
     url = 'http://192.168.1.50:8777/trackeroao.html';
     v.checar();
     url = 'http://192.168.1.77:8777/trackeroao.html';
@@ -264,16 +253,8 @@ check('anuncia quando a rede aparece depois do boot', () => {
 /*
  * 7. Leitura da memória do jogo.
  *
- * O contador de mortes deixou de sair do save. O save não guarda essa conta —
- * a busca antiga rodou, eliminou todos os candidatos e provou isso —, então
- * agora quem conta é o próprio jogo, lido da memória do processo.
- *
- * O que se testa aqui é o que dá para testar sem o jogo aberto: que o pedido é
- * montado direito, que a recusa é limpa quando o processo não existe, e que o
- * handle é pedido SOMENTE PARA LEITURA. Esse último é o que mais importa: o
- * projeto inteiro se apoia em nunca escrever no jogo nem no save.
- *
- * Com o jogo aberto, o teste vai além e resolve os ponteiros de verdade.
+ * Sem o jogo aberto: montagem da requisição, recusa limpa sem processo e
+ * handle somente leitura. Com o jogo aberto, resolve também os ponteiros.
  */
 console.log('\n  === 7. Leitura da memória do jogo ===');
 
@@ -282,9 +263,7 @@ const deathsmem = require('./deathsmem');
 const tempo = require('./tempo');
 
 check('o handle é pedido somente para leitura', () => {
-  // Sem os comentários: o cabeçalho do arquivo explica que não há escrita, e
-  // medir a prosa em vez do código daria falso positivo justo na checagem que
-  // mais importa.
+  // Ignora os comentários, que citam as constantes de escrita.
   const bruto = fs.readFileSync(path.join(__dirname, 'mem.ps1'), 'utf8');
   const codigo = bruto
     .split(/\r?\n/)
@@ -292,8 +271,7 @@ check('o handle é pedido somente para leitura', () => {
     .join('\n')
     .replace(/\/\*[\s\S]*?\*\//g, '');
 
-  // A primeira ocorrência é a declaração do P/Invoke, que não tem constante
-  // nenhuma. A que interessa é a chamada.
+  // A primeira ocorrência é a declaração do P/Invoke; interessa a chamada.
   const todas = [...codigo.matchAll(/OpenProcess\(([^)]*)\)/g)];
   const chamada = todas.find((m) => /PROCESS_/.test(m[1]));
   assert(chamada, 'não achei a chamada de OpenProcess com constantes');
@@ -363,11 +341,7 @@ if (jogoAberto.ok) {
 }
 
 check('a contagem por memória se cala quando não tem o que ler', () => {
-  // A premissa antiga era "calibrado, logo tem número", e ela quebrou no
-  // primeiro dia em que o jogo estava fechado na hora do teste. Calibração é
-  // sobre saber ONDE ler; ter o que ler depende do jogo estar aberto. São
-  // duas condições, e confundi-las fazia um estado perfeitamente normal
-  // aparecer como defeito.
+  // Calibrado não implica número disponível: isso depende do jogo aberto.
   const e = deathsmem.estado();
   const c = deathsmem.contagem();
   const aberto = memoria.conectar().ok;
@@ -387,18 +361,15 @@ check('a contagem por memória se cala quando não tem o que ler', () => {
 check('a contagem é da jornada inteira, não da sessão', () => {
   const j = deathsmem.daJornada();
   if (!j) return 'jogo fechado ou no menu principal; nada a ler';
-  // O ponto do teste é a distinção. Um contador da região estática do módulo
-  // zera quando o jogo abre, e mediria só a noite de hoje; este vem da struct
-  // que o save carrega. Se a página voltar a mostrar o de sessão, isto falha.
+  // A contagem deve vir da struct do save (jornada), não do contador de sessão.
   assert(j.escopo === 'jornada', 'escopo "' + j.escopo + '"');
   const p = parse.buildProgress({});
   assert(p.deaths.escopo === 'jornada',
     'a página está publicando escopo "' + p.deaths.escopo + '"');
   assert(p.deaths.count === j.mortes,
     'página diz ' + p.deaths.count + ', a struct diz ' + j.mortes);
-  // A conferência que provou a struct: o tempo de jogo interno é campo dela, e
-  // tem de ser plausível contra as horas de relógio da Steam — menor, porque
-  // não conta menu nem carregamento, e não muito menor.
+  // O tempo interno da struct deve ser plausível frente ao relógio da Steam
+  // (menor, mas não muito menor).
   const t = tempo.tempoDeJogo();
   if (t && j.igtHoras) {
     assert(j.igtHoras < t.horas, `IGT ${j.igtHoras.toFixed(1)}h não pode passar do relógio ${t.horas}h`);
@@ -408,13 +379,7 @@ check('a contagem é da jornada inteira, não da sessão', () => {
   return `${j.mortes} mortes na jornada`;
 });
 
-/*
- * Os efeitos de sessão, contra um relógio controlado.
- *
- * Testar isto esperando acontecer levaria seis horas e dependeria de morrer no
- * jogo. `atualizar` recebe o instante como argumento justamente para que o
- * teste possa viajar no tempo — e é a única razão de esse argumento existir.
- */
+// Efeitos de sessão, com o instante passado como argumento a `atualizar`.
 check('os efeitos acendem no limiar e vencem em seis horas', () => {
   const efeitos = require('./efeitos');
   const guardado = fs.existsSync(efeitos.ESTADO) ? fs.readFileSync(efeitos.ESTADO) : null;
@@ -440,8 +405,7 @@ check('os efeitos acendem no limiar e vencem em seis horas', () => {
     r = passo({ pid: 1, mortesNaSessao: 5, conquistas: 21 }, 60000);
     assert(r.fogo > 0, 'não acendeu com duas conquistas na sessão');
 
-    // Fechar o jogo não apaga o que já acendeu: o pedido é "por seis horas
-    // depois", e depois inclui o jogo fechado.
+    // Fechar o jogo não apaga um efeito aceso.
     r = passo({ pid: null }, H);
     assert(r.podridao > 0 && r.fogo > 0, 'fechar o jogo apagou os efeitos');
     r = passo({ pid: null }, 5 * H);
@@ -458,8 +422,7 @@ check('os efeitos acendem no limiar e vencem em seis horas', () => {
 });
 
 check('o que é publicado é o tempo que falta, não a hora de início', () => {
-  // Hora de início diria quando a pessoa estava jogando, que é exatamente o
-  // que o site público não mostra. Segundos restantes dizem só que está aceso.
+  // Publica só os segundos restantes, nunca a hora de início.
   const efeitos = require('./efeitos');
   const guardado = fs.existsSync(efeitos.ESTADO) ? fs.readFileSync(efeitos.ESTADO) : null;
   try {
@@ -480,10 +443,7 @@ check('o que é publicado é o tempo que falta, não a hora de início', () => {
 });
 
 check('fechar o jogo não derruba a contagem', () => {
-  // É o estado em que o link público passa a maior parte do tempo, e era onde
-  // estava errado: sem a última leitura guardada, a página caía para a
-  // estimativa do save e mostrava 6 onde são 221. Morte não desaparece porque
-  // o jogo saiu da memória.
+  // Com o jogo fechado, vale a última leitura guardada.
   const guardada = deathsmem.ultimaConhecida();
   if (!guardada) return 'ainda não houve leitura boa para guardar';
   const p = parse.buildProgress({});
@@ -518,18 +478,13 @@ check('calibrado e com o jogo aberto, quem manda é a memória', () => {
   if (!e.calibrado) return 'ainda sem offset; nada a comparar';
   if (!c) return 'calibrado, mas o jogo está fechado agora';
   const p = parse.buildProgress({});
-  // Este teste nasce de um defeito que não falhava: a leitura da memória
-  // funcionava e devolvia o número certo, mas a linha que montava a resposta
-  // usava `confidence: high` sem aspas. O ReferenceError caía no catch em
-  // volta, e a página mostrava a contagem do save como se a calibração nunca
-  // tivesse ocorrido. Comparar a via, e não só o número, é o que pega isso.
+  // Confere a via da leitura, não só o número.
   assert(p.deaths.how === 'memoria',
     'a via é "' + p.deaths.how + '" com o contador calibrado e o jogo aberto');
   assert(p.deaths.count === c.mortes,
     'a página diz ' + p.deaths.count + ' e a memória diz ' + c.mortes);
   assert(p.deaths.confidence === 'high', 'confiança "' + p.deaths.confidence + '", esperada "high"');
-  // O offset calibrado é o da sessão; a contagem que chega à página vem da
-  // struct da jornada. Dizer o offset aqui sugeriria que ele produziu o número.
+  // A descrição não deve citar o offset de sessão, que não produziu o número.
   return `${c.mortes} mortes, escopo "${c.escopo}"`;
 });
 
@@ -545,10 +500,8 @@ check('o save é a reserva enquanto a memória não fecha', () => {
 /*
  * 8. O nome na rede local.
  *
- * O respondedor mDNS fala protocolo binário: um byte fora do lugar e o
- * aparelho simplesmente ignora, sem erro nenhum para aparecer em log. Então o
- * teste monta uma pergunta de verdade, passa pelo mesmo leitor que o socket
- * usa, e confere a resposta byte a byte.
+ * Monta uma consulta mDNS real, passa pelo mesmo leitor do socket e confere
+ * a resposta byte a byte.
  */
 console.log('\n  === 8. Nome na rede local (mDNS) ===');
 
@@ -604,7 +557,7 @@ check('monta a resposta A no formato do protocolo', () => {
 });
 
 check('nome malformado não derruba o serviço', () => {
-  // Ponteiro que aponta para si mesmo: sem trava, laço infinito.
+  // Ponteiro que aponta para si mesmo.
   const mau = Buffer.concat([Buffer.alloc(12), Buffer.from([0xc0, 0x0c])]);
   mau.writeUInt16BE(1, 4);
   const p = mdns.lerPerguntas(mau);
@@ -623,10 +576,7 @@ check('não responde por nome que não é o dele', () => {
 /*
  * 9. Hibernação quando o jogo sai da máquina.
  *
- * O risco aqui não é falhar em desligar — é desligar por engano. Um disco
- * externo que não montou dá exatamente a mesma leitura de "não achei o jogo".
- * Então o que se testa é a recusa: a checagem que não vale nada não pode
- * derrubar nada, e nada pode ser desligado antes de a cópia estar feita.
+ * Checagem inválida não desliga nada, e nada é desligado antes da cópia.
  */
 console.log('\n  === 9. Hibernação (jogo desinstalado) ===');
 
@@ -641,7 +591,7 @@ check('detecta o estado real do Sekiro nesta máquina', () => {
 });
 
 check('"não sei" nunca vira "desinstalado"', () => {
-  // É o caso do HD externo desconectado, ou do Steam ausente.
+  // HD externo desconectado ou Steam ausente.
   const e = { instalado: null, checagemValida: false, evidencias: ['simulado'] };
   const agiria = e.instalado === false && e.checagemValida;
   assert(!agiria, 'agiria sobre uma checagem que não vale');
@@ -657,8 +607,7 @@ check('a cópia guarda o progresso e o save, sem apagar nada', () => {
 
   const r = hibernar.arquivar({ destino: path.join(tmp, 'saida'), saves: [falso], motivo: 'teste' });
 
-  // Num clone que ainda não leu o save não há progresso para guardar, e
-  // cobrar isso faria a hibernação parecer quebrada numa máquina limpa.
+  // Num clone sem leitura do save não há progresso para guardar.
   if (temProgresso()) {
     const guardouProgresso = r.manifesto.projeto.some((g) => g.arquivo === 'progress.json' && g.bytes > 0);
     assert(guardouProgresso, 'não guardou o progress.json');
@@ -666,7 +615,7 @@ check('a cópia guarda o progresso e o save, sem apagar nada', () => {
   const guardouSave = r.manifesto.save.some((g) => g.bytes === 2048);
   assert(guardouSave, 'não guardou o save');
   assert(fs.existsSync(falso), 'APAGOU o original — hibernar só copia');
-  // Só faz sentido conferir que não mexeu no original se ele existe aqui.
+  // Só confere o original se ele existir.
   if (temProgresso()) assert(fs.existsSync(path.join(RAIZ_PROJETO, 'progress.json')), 'mexeu no progress.json de verdade');
 
   const n = r.manifesto.projeto.length + r.manifesto.save.length;
@@ -681,8 +630,7 @@ check('cada hibernação vai para uma pasta nova', () => {
   const b = hibernar.arquivar({ destino: tmp, saves: [] });
   const pastas = fs.readdirSync(tmp).length;
   fs.rmSync(tmp, { recursive: true, force: true });
-  // Duas no mesmo segundo não podem cair na mesma pasta: a segunda apagaria a
-  // cópia da primeira, que é exatamente o que hibernar existe para evitar.
+  // Duas hibernações no mesmo segundo usam pastas distintas.
   assert(a.destino !== b.destino, 'duas hibernações no mesmo segundo colidiram');
   assert(pastas === 2, `esperava 2 pastas, achei ${pastas}`);
   return '2 pastas distintas, mesmo no mesmo segundo';
@@ -716,19 +664,14 @@ check('existe o caminho de volta, e ele não apaga save sozinho', () => {
 /*
  * 10. O site público mostra a página inteira.
  *
- * O progress.json público é montado por lista do que ENTRA, para campo novo
- * nascer privado. O preço disso é real: acrescentar um campo à página e
- * esquecer da lista faz o bloco sumir do site público sem erro nenhum — foi o
- * que aconteceu com o tempo de jogo e com o contador de chefes.
- *
- * Este grupo cruza as duas pontas. Tudo que a página lê de `sync` tem de estar
- * na lista pública, ou estar declarado aqui como excluído de propósito.
+ * Todo campo que a página lê de `sync` deve estar na lista pública do
+ * publish.js ou declarado aqui como excluído.
  */
 console.log('\n  === 10. O público recebe o que a página desenha ===');
 
 const publish = require('./publish');
 
-// Fora de propósito, com o motivo. Qualquer outro ausente é esquecimento.
+// Campos excluídos da versão pública, com o motivo.
 const EXCLUIDOS = {
   goodsRaw: 'despejo cru do inventário; a página não usa e era metade do arquivo',
   weaponsRaw: 'idem',
@@ -784,27 +727,10 @@ check('o público não recebe quando a pessoa jogou', () => {
 });
 
 /*
- * A regra acima nomeia dois campos, e foi por isso que um terceiro passou: a
- * leitura de mortes levava um carimbo de hora que, com o jogo fechado, era a
- * ultima vez que ele foi visto aberto -- o last played por outro nome. A pagina
- * nunca leu o campo; ele ia de carona.
+ * 13. Independência da Steam.
  *
- * Entao aqui a regra deixa de ser por nome e passa a ser por forma: nenhuma
- * data em lugar nenhum do arquivo publico, com uma excecao declarada para
- * 'generatedAt', que diz quando o arquivo foi montado e nao quando se jogou (o
- * servico monta em ciclo fixo, jogando ou nao).
- */
-/*
- * 13. Independencia da Steam.
- *
- * O tracker nasceu numa maquina com Steam e por isso tratava a Steam como
- * parte do ambiente: o apelido estava escrito no HTML, e o tempo de jogo so
- * existia se o localconfig.vdf existisse. Instalado em outro lugar, a pagina
- * mentia o nome e perdia as horas.
- *
- * O que se testa aqui e o contrario: que cada coisa que vinha da Steam tenha
- * um caminho proprio, e que a Steam, quando existe, sirva de gabarito para
- * esse caminho em vez de ser a unica fonte.
+ * Cada dado que vem da Steam tem uma fonte própria; a Steam, quando existe,
+ * serve de conferência.
  */
 check('o tempo de jogo tem fonte propria, fora da Steam', () => {
   const sl2 = require('./sl2');
@@ -827,12 +753,7 @@ check('e a Steam confere esse tempo em vez de substitui-lo', () => {
   assert(t, 'sem tempo de jogo lido');
   if (t.fonte !== 'steam') return 'sem Steam nesta maquina: a fonte e o proprio jogo (' + t.fonte + ')';
   assert(t.conferencia, 'com Steam presente, a conferencia tinha de existir');
-  /*
-   * A regra e de sentido unico: relogio de parede conta menu, pausa e
-   * carregamento, entao ele e sempre MAIOR que o tempo interno. Se o interno
-   * passar o relogio, uma das duas leituras esta errada -- e provavelmente a
-   * nova, que e a que este teste existe para vigiar.
-   */
+  // O relógio de parede é sempre maior que o tempo interno.
   assert(t.conferencia.coerente,
     'tempo interno (' + (t.conferencia.jogoSegundos / 3600).toFixed(1) + ' h) passou do relogio de parede ('
     + (t.conferencia.relogioSegundos / 3600).toFixed(1) + ' h)');
@@ -851,11 +772,7 @@ check('o nome do cabecalho vem da maquina, nao do codigo', () => {
 });
 
 check('e o nome de login da conta nunca entra no processo', () => {
-  /*
-   * O loginusers.vdf tem dois nomes por conta: PersonaName, que e o apelido
-   * publico, e AccountName, que e o login. So o primeiro pode sair daqui, e
-   * a diferenca e importante o bastante para virar teste em vez de comentario.
-   */
+  // Só PersonaName (apelido público) pode ser lido; AccountName (login), nunca.
   const jogador = require('./jogador');
   const inst = require('./instalacao');
   const steam = inst.steamPath();
@@ -874,10 +791,8 @@ check('e o nome de login da conta nunca entra no processo', () => {
 /*
  * 14. Os dois estados do bloco de mortes.
  *
- * Sino e podridao nao tem campo no save: o jogo conta os dois pelo
- * inventario. Entao o que se testa e a ponte -- que os ids do config existam,
- * que o leitor devolva estado em vez de silencio, e que a lista de nomes
- * esteja completa.
+ * Sino e podridão são lidos do inventário: confere os ids do config, o estado
+ * devolvido e a lista de nomes.
  */
 check('o Sino Demoniaco vira estado, nao silencio', () => {
   const p2 = progressoLocal();
@@ -923,34 +838,17 @@ check('quem clonar recebe as artes dos Headless tambem', () => {
 });
 
 /*
- * 15. O instalador nao pode parecer malware.
+ * 15. O instalador não pode parecer malware.
  *
- * O executavel nasceu passando o script por -EncodedCommand com
- * -ExecutionPolicy Bypass na linha de comando. Funciona em teoria e nao
- * funciona na pratica: o Windows Defender mata o processo antes de ele
- * existir e classifica como Trojan:Win32/ClickFix.PM!MTB. A assinatura nao e
- * do nosso script -- e da forma "um .exe abre o powershell com um blob
- * codificado", que e o padrao das campanhas em que a pessoa e convencida a
- * colar um comando codificado no Executar.
- *
- * O que custou tempo foi o sintoma: vem como "Access is denied" do
- * CreateProcess, como se faltasse permissao para rodar o powershell.exe.
- * Nada aponta para antivirus. Por isso isto e teste e nao so comentario: se
- * alguem "simplificar" de volta para -EncodedCommand, o instalador para de
- * funcionar em toda maquina com Defender ligado, que sao praticamente todas,
- * e o erro nao vai dizer o motivo.
+ * Um .exe que abre o PowerShell com -EncodedCommand é bloqueado pelo Windows
+ * Defender (Trojan:Win32/ClickFix.PM!MTB), e o erro aparece apenas como
+ * "Access is denied" no CreateProcess.
  */
 check('o instalador nao usa os padroes que o antivirus derruba', () => {
   const construir = fs.readFileSync(path.join(RAIZ_PROJETO, 'windows', 'instalador', 'construir-exe.ps1'), 'utf8');
   const gerado = /\$cs = @"([\s\S]*?)"@/.exec(construir);
   assert(gerado, 'nao achei o C# embutido no construir-exe.ps1');
-  /*
-   * Os comentarios saem antes da conferencia.
-   *
-   * Eles citam os padroes proibidos de proposito -- e ali que fica escrito
-   * o motivo de nao usa-los, que e a parte que evita o retrabalho. Sem tirar
-   * o comentario, o teste se acusaria pelo proprio texto que o justifica.
-   */
+  // Remove os comentários, que podem citar os padrões proibidos.
   const cs = gerado[1]
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^\s*\/\/.*$/gm, '');
@@ -961,8 +859,7 @@ check('o instalador nao usa os padroes que o antivirus derruba', () => {
   if (/FromBase64String[\s\S]{0,200}ScriptBlock/.test(cs)) proibidos.push('base64 virando ScriptBlock na linha');
   assert(proibidos.length === 0, 'padrao que o Defender derruba: ' + proibidos.join(', '));
 
-  // E o que entrou no lugar tem de estar la, senao o instalador nao roda em
-  // Windows novo, onde a politica padrao e Restricted.
+  // A alternativa precisa estar presente (a política padrão é Restricted).
   assert(/-File/.test(cs), 'o script precisa ser chamado por -File');
   assert(/PSExecutionPolicyPreference/.test(cs),
     'sem a politica pelo ambiente, o -File nao roda em maquina com politica Restricted');
@@ -970,13 +867,8 @@ check('o instalador nao usa os padroes que o antivirus derruba', () => {
 });
 
 check('o executavel nasce na release, dos scripts desta versao', () => {
-  /*
-   * O .exe nao mora mais no repositorio. Ele carregava o instalar.ps1 dentro
-   * dele, e se o .ps1 mudasse e ninguem reconstruisse, o que se distribuia
-   * era a versao velha -- binario nao aparece em diff. E reconstruir exigia um
-   * Windows a mao. Agora a Action de release gera o .exe num runner Windows a
-   * cada versao, entao ele e sempre o dos scripts daquela versao.
-   */
+  // O .exe não é versionado: a Action de release o gera a cada versão a
+  // partir dos scripts.
   assert(!fs.existsSync(path.join(RAIZ_PROJETO, 'trackeroao-instalador.exe')),
     'ha um .exe versionado na raiz: ele ficaria velho em relacao ao que a release gera');
   const wf = fs.readFileSync(path.join(RAIZ_PROJETO, '.github', 'workflows', 'release.yml'), 'utf8');
@@ -1011,9 +903,8 @@ check('existe o desinstalador, e ele desfaz o que o instalador fez', () => {
 });
 
 /*
- * Pela janela do .exe, o PowerShell roda escondido. Qualquer pergunta ou
- * pedido que ele fizesse ali ficaria esperando para sempre numa tela que
- * ninguem ve, e um segundo pedido de administrador abriria outra janela.
+ * Chamado pelo .exe, o PowerShell roda oculto: não pode pedir entrada nem
+ * uma segunda elevação.
  */
 check('pela janela, os scripts nao perguntam nem abrem outra janela', () => {
   const problemas = [];
@@ -1025,7 +916,7 @@ check('pela janela, os scripts nao perguntam nem abrem outra janela', () => {
     if (!src.split('\n').some((l) => /-not \$gui/.test(l) && /JaElevado/.test(l))) problemas.push(nome + ' espera uma tecla na janela');
     if (!/Tela 'PRONTO'/.test(src)) problemas.push(nome + ' nao avisa a janela do fim');
     if (!leTecla.length) problemas.push(nome + ' perdeu a pausa do console');
-    // node e winget escrevem em stderr; com 'Stop' no PowerShell 5.1 isso mata a instalacao.
+    // node e winget escrevem em stderr, o que com 'Stop' no PowerShell 5.1 aborta.
     const soltos = src.split('\n').filter((l) => /^\s*(&\s*\$node|winget )/.test(l));
     if (soltos.length) problemas.push(nome + ' chama programa de fora sem Nativo: ' + soltos[0].trim());
   }
@@ -1037,18 +928,11 @@ check('pela janela, os scripts nao perguntam nem abrem outra janela', () => {
 });
 
 /*
- * 18. Quando a aplicacao aparece, e como se escolhe o que a faz aparecer.
+ * 18. Abertura da aplicação e seleção de jogos.
  *
- * A regra pedida tem duas metades, e elas sao opostas de proposito: pelo
- * atalho a aplicacao abre livremente, quando a pessoa quiser; sozinha, ela so
- * abre quando um jogo ESCOLHIDO comeca, e abre em silencio -- so o icone na
- * bandeja, sem janela e sem navegador roubando o foco de quem acabou de entrar
- * no jogo.
- *
- * O que se testa aqui e o que sustenta as duas metades: que exista o atalho,
- * que exista a bandeja, que a bandeja acenda no lugar certo do ciclo, e que a
- * escolha seja escolha -- catalogo separado do estado, e gravavel so de quem
- * esta na propria maquina.
+ * Pelo atalho, abre a qualquer momento; automaticamente, só quando um jogo
+ * selecionado começa, e apenas com o ícone na bandeja. A seleção fica fora do
+ * catálogo e só é gravável a partir da própria máquina.
  */
 check('o jogo vigiado vem de um catalogo, e nao de um nome no codigo', () => {
   const jogos = require('./jogos');
@@ -1060,29 +944,14 @@ check('o jogo vigiado vem de um catalogo, e nao de um nome no codigo', () => {
   const chaves = new Set(cat.map((g) => g.chave));
   assert(chaves.size === cat.length, 'chave repetida no catalogo');
 
-  /*
-   * O nome do executavel nao pode ter voltado para dentro do main.js como
-   * decisao. Ele continua la como RESERVA, para o caso de o catalogo nao poder
-   * ser lido -- e a diferenca entre as duas coisas e o que este teste guarda.
-   */
+  // No main.js o nome do executável é só reserva; a lista vem do catálogo.
   const main = fs.readFileSync(path.join(__dirname, 'main.js'), 'utf8');
   assert(/PROCESS_FALLBACK/.test(main) && !/const PROCESS_NAME =/.test(main),
     'o nome do processo voltou a ser fixo no codigo: nao daria para escolher');
   assert(/jogos\.processos\(\)/.test(main),
     'o main nao pergunta ao catalogo quais processos procurar');
-  /*
-   * O filtro multiplo do tasklist e E, e nao OU.
-   *
-   * A primeira versao passava um /FI IMAGENAME por jogo vigiado. Com um jogo
-   * so funcionava por acidente; com dois, a pergunta virava "qual processo se
-   * chama ao mesmo tempo A e B" e a resposta era sempre nenhum -- ou seja,
-   * teria quebrado exatamente quando o catalogo crescesse, que e para onde
-   * esta parte do projeto existe para ir.
-   */
-  /*
-   * Sem os comentarios: o de cima explica POR QUE nao filtrar, citando o
-   * proprio /FI -- e o teste se acusaria pelo texto que o justifica.
-   */
+  // Vários /FI no tasklist são combinados com E; o filtro deve ser feito no
+  // código. Comentários são ignorados na conferência.
   const mainSemComentario = main
     .replace(/\/\\*[\s\S]*?\*\//g, '')
     .replace(/^\s*\/\/.*$/gm, '');
@@ -1092,31 +961,18 @@ check('o jogo vigiado vem de um catalogo, e nao de um nome no codigo', () => {
 });
 
 check('a escolha e estado desta maquina, e nao configuracao versionada', () => {
-  /*
-   * Se a escolha morasse no jogos.json, atualizar o projeto sobrescreveria o
-   * que a pessoa escolheu -- e a escolha de quem desenvolve entraria no commit.
-   * Sao arquivos separados pelo mesmo motivo que progress.json nao e
-   * versionado.
-   */
+  // A seleção é estado local, separada do catálogo versionado.
   const jogos = require('./jogos');
   assert(jogos.CATALOGO !== jogos.SELECAO, 'catalogo e escolha no mesmo arquivo');
 
-  /*
-   * Nunca ter escolhido e diferente de ter escolhido nenhum, e a diferenca tem
-   * efeito oposto: sem escolha, vigia tudo (que e o que nao surpreende quem
-   * acabou de instalar); com escolha vazia, nao vigia nada (que e uma decisao).
-   */
+  // Sem seleção vigia todos; seleção vazia não vigia nenhum.
   assert(typeof jogos.paraProgresso().escolheu === 'boolean',
     'a pagina nao consegue distinguir "nao escolheu" de "escolheu nenhum"');
   return 'catalogo versionado, escolha fora do git';
 });
 
 check('a escolha so pode ser gravada de quem esta nesta maquina', () => {
-  /*
-   * O servidor responde para a rede local inteira. O celular na mesma casa le
-   * a pagina, e isso e o proposito; reconfigurar o PC de alguem, nao. E pelo
-   * link publico nem ha servidor do outro lado.
-   */
+  // Rotas que alteram estado só aceitam requisições da própria máquina.
   const src = fs.readFileSync(path.join(__dirname, 'serve.js'), 'utf8');
   const bloco = /if \(urlPath === '\/selecao'\)[\s\S]*?\n    \}/.exec(src);
   assert(bloco, 'nao achei a rota de selecao');
@@ -1134,15 +990,12 @@ check('a bandeja fica acesa enquanto o Trackeroao esta de pe', () => {
   assert(poll, 'nao achei o poll');
   const corpo = poll[0];
   assert(corpo.indexOf('abrirBandeja') > 0, 'a bandeja nao acende quando o jogo abre');
-  /*
-   * O X da janela a esconde na bandeja, e so o "Fechar" do menu encerra: o
-   * icone nao pode sumir com o jogo, ou a janela escondida ficaria sem volta.
-   */
+  // O ícone não apaga quando o jogo fecha; só o "Fechar" do menu encerra.
   assert(corpo.indexOf('fecharBandeja') < 0, 'a bandeja apaga quando o jogo fecha, e a janela escondida fica sem volta');
   assert(/abrirBandeja\(bandejaAcesa \? 'depois da atualização' : 'início'\)/.test(main), 'o servico nao acende a bandeja ao subir');
-  // E abrir nao pode significar abrir janela: o pedido diz em silencio.
+  // A abertura automática não abre o navegador.
   assert(!/start.*http:\/\/localhost/i.test(corpo),
-    'o poll abre o navegador sozinho, e o pedido e que a abertura automatica seja silenciosa');
+    'o poll abre o navegador sozinho; a abertura automatica e silenciosa');
   return 'acende ao subir e com o jogo, e so sai com o Fechar';
 });
 
@@ -1158,29 +1011,22 @@ check('nada inicia com o Windows sem a caixa marcada', () => {
 });
 
 check('a bandeja nao sobrevive ao servico', () => {
-  /*
-   * Icone orfao e pior que icone nenhum: ele promete uma aplicacao que nao
-   * esta mais la, e clicar nele nao levaria a lugar nenhum.
-   */
+  // O ícone da bandeja encerra junto com o serviço.
   const bandeja = path.join(__dirname, 'bandeja.ps1');
   assert(fs.existsSync(bandeja), 'bandeja.ps1 nao esta na pasta');
   const src = fs.readFileSync(bandeja, 'utf8');
   assert(/ProcessoPai/.test(src) && /Get-Process -Id \$ProcessoPai/.test(src),
     'o icone nao vigia o processo que o abriu');
   assert(/NotifyIcon/.test(src), 'nao e um icone de bandeja');
-  // Sem dependencia: o projeto nao ganha uma por causa de um icone.
-  // A janela do Trackeroao e do proprio projeto (o instalador a poe em app\).
+  // Sem dependências externas; a janela é do próprio projeto (app\).
   assert(!/Install-Module|Import-Module|\.exe/.test(src.replace(/wscript\.exe|powershell\.exe|Trackeroao\.exe/g, '')),
     'o icone depende de algo de fora do Windows');
   return 'NotifyIcon do proprio Windows, e morre junto com o servico';
 });
 
 check('existe o atalho, e ele nao e um link de internet', () => {
-  /*
-   * Um atalho para a URL abriria uma aba de erro com o servico parado, e nao
-   * acenderia a bandeja. O abrir.vbs sobe o servico, espera ele responder,
-   * acende a chama e so entao abre a pagina.
-   */
+  // O abrir.vbs sobe o serviço, espera a resposta, acende a bandeja e só
+  // então abre a página.
   const vbs = path.join(__dirname, 'abrir.vbs');
   assert(fs.existsSync(vbs), 'abrir.vbs nao esta na pasta');
   const src = fs.readFileSync(vbs, 'utf8');
@@ -1193,18 +1039,14 @@ check('existe o atalho, e ele nao e um link de internet', () => {
   assert(/abrir\.vbs/.test(inst), 'o atalho do instalador nao aponta para o abrir.vbs');
   assert(/UsuarioOriginal/.test(inst.slice(inst.indexOf('4/6  Atalho'), inst.indexOf('5/6  Rede'))),
     'o atalho nasce na area de trabalho de quem elevou, e nao de quem joga');
-  return 'wscript + abrir.vbs, na area de trabalho de quem pediu a instalacao';
+  return 'wscript + abrir.vbs, na area de trabalho de quem instalou';
 });
 
 /*
  * 20. A atualização automática.
  *
- * Quem tem a aplicação instalada recebe cada release sozinho, em silêncio, sem
- * que a atualização atrapalhe nada. Três coisas precisam ser verdade, e as três
- * são fáceis de quebrar sem perceber: o estado desta máquina sobrevive à
- * cópia; o que a versão nova não tem mais sai da pasta; e a atualização não
- * disputa tempo com o resto -- ela roda entre duas voltas do ciclo, nunca com
- * o jogo aberto.
+ * O estado local sobrevive à cópia, arquivos removidos na versão nova saem da
+ * pasta, e a atualização roda entre duas voltas do ciclo, nunca com jogo aberto.
  */
 console.log('\n  === 20. A atualização automática ===');
 
@@ -1270,13 +1112,7 @@ check('a atualização roda entre voltas do ciclo, e nunca com o jogo aberto', (
 });
 
 check('nenhum modulo do sync esta quebrado', () => {
-  /*
-   * Parece obvio demais para ser teste, e nao e: o icones.js passou um tempo
-   * com uma string sem aspas, sem que nada acusasse. A suite so olhava o PNG
-   * ja baixado, e o resto do projeto nunca carrega o modulo -- entao ele
-   * podia estar sintaticamente quebrado por semanas. Um require de cada um
-   * custa milissegundos e fecha essa porta.
-   */
+  // Carrega cada módulo, inclusive os que o resto do projeto não importa.
   const quebrados = [];
   for (const arq of fs.readdirSync(__dirname).filter((f) => f.endsWith('.js'))) {
     if (arq === 'selftest.js') continue;
@@ -1288,22 +1124,12 @@ check('nenhum modulo do sync esta quebrado', () => {
 });
 
 /*
- * 16. O link publico e a mesma pagina, nao uma versao reduzida dela.
+ * 16. O link público mostra a mesma página que a instância local.
  *
- * Esta e a funcao da aplicacao, e nao um detalhe de publicacao: o uso normal
- * do projeto e pelo link publico. A instancia local e a que le o save; a
- * publica e a que se olha. Entao tudo que a pagina sabe desenhar rodando na
- * maquina que joga tem de desenhar igual servido pelo Pages.
- *
- * Aqui vai a metade das imagens; a metade do render mora no grupo 6, que e
- * assincrono.
+ * Aqui ficam as imagens; o render está no grupo 6, que é assíncrono.
  */
 check('as artes que a pagina usa estao todas dentro de docs/', () => {
-  /*
-   * O JSON pode estar completo e a pagina ainda sair diferente no ar, se uma
-   * imagem so existir na maquina: no local o servidor tem um atalho que cai na
-   * pasta do projeto, e o GitHub Pages so serve o que esta em docs/.
-   */
+  // Toda imagem usada pela página precisa estar em docs/, que é o que o Pages serve.
   const src = fs.readFileSync(path.join(RAIZ_PROJETO, 'trackeroao.html'), 'utf8');
   const pastas = new Set();
   for (const m of src.matchAll(/["'(](icones\/[^"')]*)["')]/g)) {
@@ -1316,12 +1142,7 @@ check('as artes que a pagina usa estao todas dentro de docs/', () => {
     if (!fs.existsSync(alvo) || fs.readdirSync(alvo).length === 0) vazias.push(dir);
   }
   assert(vazias.length === 0, 'a pagina pede imagem de ' + vazias.join(', ') + ', que nao existe em docs/');
-  /*
-   * A outra metade: os caminhos que a pagina nao escreve, recebe. O icone de
-   * cada conquista vem dentro do proprio JSON, entao nenhuma varredura do
-   * HTML o alcanca -- e foi exatamente esse campo que ja sumiu do site uma vez
-   * sem nada falhar.
-   */
+  // Caminhos de imagem que vêm no JSON (ícones das conquistas).
   const pub = JSON.parse(fs.readFileSync(path.join(RAIZ_PROJETO, "docs", "progress.json"), "utf8"));
   const citados = ((pub.achievements && pub.achievements.lista) || [])
     .map((c) => c.icone).filter(Boolean);
@@ -1354,21 +1175,15 @@ check('nenhum carimbo de hora sobra no arquivo publico', () => {
 /*
  * 11. O repositório se basta.
  *
- * Antes o repositório era só a página montada, com uma cópia do fonte dentro
- * dela: clonar não dava um tracker que roda, e o GitHub media o projeto como
- * "HTML 100%". Agora o repositório É o projeto, e a pasta publicada é uma
- * saída dele. O que se testa aqui é o que essa inversão promete: que quem
- * clonar tenha tudo, que nada seja resolvido para fora da pasta, e que nada do
- * que está aqui identifique a máquina de onde saiu.
+ * Um clone tem tudo o que precisa, nada é resolvido para fora da pasta e
+ * nada versionado identifica a máquina.
  */
 
 /*
  * 21. Sem Steam.
  *
- * A regra é que nada dependa da Steam: sem ela, cada coisa tem outra fonte, e
- * com ela a Steam só confere. Os testes montam uma máquina sem Steam de
- * brinquedo e cobram que as quatro peças que antes sumiam continuem de pé:
- * conquistas, nome do cabeçalho, detecção de instalação e lista de jogos.
+ * Simula uma máquina sem Steam e confere conquistas, nome do cabeçalho,
+ * detecção de instalação e lista de jogos.
  */
 console.log('\n  === 21. Sem Steam ===');
 
@@ -1446,12 +1261,8 @@ console.log('\n  === 11. O repositório se basta ===');
 
 const { execFileSync: exec11 } = require('child_process');
 /*
- * A lista de arquivos versionados, ou null quando não há checkout.
- *
- * O instalador entrega o projeto a partir do zip que o GitHub publica, e zip
- * não traz `.git`. As conferências que dependem do git não têm o que medir
- * ali — e reprovar faria uma instalação perfeitamente boa terminar com sete
- * falhas na tela, assustando justamente quem acabou de instalar.
+ * Lista de arquivos versionados, ou null sem checkout git (instalações vêm
+ * do zip da release, sem `.git`).
  */
 const rastreados = (() => {
   try {
@@ -1467,11 +1278,8 @@ function exigeGit() {
   return rastreados;
 }
 
-/*
- * A raiz do repositório tem no máximo oito itens: é a lista que o GitHub mostra
- * primeiro, e ela cabe de uma vez. O que passar disso entra numa das pastas que
- * já existem (windows/, docs/, .github/), a não ser que seja uma necessidade.
- */
+// A raiz do repositório tem no máximo oito itens; o resto vai para windows/,
+// docs/ ou .github/.
 check('a raiz do repositório tem no máximo oito itens', () => {
   exigeGit();
   const raiz = [...new Set(rastreados.map((a) => a.split('/')[0]))].sort();
@@ -1495,12 +1303,7 @@ check('o projeto inteiro está versionado, não só a página', () => {
 });
 
 check("o catalogo de jogos vem no clone, e a escolha nao", () => {
-  /*
-   * Se a escolha morasse junto do catalogo, atualizar o projeto sobrescreveria
-   * o que a pessoa escolheu -- e a escolha de quem desenvolve entraria no
-   * commit. Sao arquivos separados pelo mesmo motivo que o progress.json nao e
-   * versionado.
-   */
+  // A seleção é estado local e não pode ser versionada.
   exigeGit();
   const jogos = require('./jogos');
   const rel = (f) => path.relative(RAIZ_PROJETO, f).split('\\').join('/');
@@ -1524,28 +1327,15 @@ check('nada é resolvido para fora da pasta clonada', () => {
   for (const a of rastreados) {
     if (!/\.(ps1|js|bat|vbs)$/i.test(a)) continue;
     const t = fs.readFileSync(path.join(RAIZ_PROJETO, a), 'utf8');
-    // Subir um nível a partir de uma pasta do projeto (sync/, windows/) é a
-    // raiz, e isso vale. O que não vale é sair da raiz: era por aí que entrava
-    // o utilitário de terceiro que escondia a janela, morando numa pasta irmã
-    // que não vinha no clone.
+    // Subir de sync/ ou windows/ até a raiz é permitido; sair da raiz, não.
     if (!a.includes('/') && /Split-Path \$PSScriptRoot -Parent/.test(t)) foraDaPasta.push(a + ': sobe acima da raiz');
     if (/\.\.[\\/]\.\.[\\/]/.test(t)) foraDaPasta.push(a + ': caminho para fora da raiz');
     /*
-     * Um .exe de terceiro chamado por caminho é o caso que se quer impedir:
-     * era por aí que entrava o utilitário que escondia a janela, morando numa
-     * pasta irmã que não vinha no clone. O que NÃO é problema é chamar o que a
-     * própria máquina fornece — o Node (que o instalador obtém via winget), o
-     * compilador do .NET Framework e os utilitários do Windows. Esses existem
-     * em qualquer máquina de destino, então não quebram o "clonar e funcionar".
-     *
-     * O `(?![A-Za-z])` no fim existe porque sem ele todo `/regex/.exec(...)`
-     * do projeto casava com ".exe" e o teste acusava meia dúzia de arquivos
-     * que não chamam executável nenhum.
+     * Proíbe executáveis de terceiros chamados por caminho. São permitidos o
+     * Node, o compilador do .NET Framework, utilitários do Windows e os .exe
+     * do próprio projeto (Trackeroao.exe e trackeroao-instalador.exe).
+     * `(?![A-Za-z])` evita casar com `.exec(`.
      */
-    // Trackeroao.exe e a janela do proprio projeto, que o instalador poe em
-    // app\; num clone ela nao existe, e quem a chama cai na pagina local. O
-    // trackeroao-instalador.exe e o da propria release, que a atualizacao
-    // baixa para trocar a janela quando ela muda.
     const DA_MAQUINA = /^(node|csc|wscript|cscript|powershell|winget|explorer|schtasks|taskkill|Trackeroao|trackeroao-instalador)$/i;
     const CAMINHO_EXE = /[\\/]([A-Za-z0-9_-]+)\.exe(?![A-Za-z])/g;
     for (const m of t.matchAll(CAMINHO_EXE)) {
@@ -1560,16 +1350,8 @@ check('nada é resolvido para fora da pasta clonada', () => {
 
 check('a porta da rede local e liberada pelo perfil em uso, nao no escuro', () => {
   /*
-   * A primeira versao criava a regra so para o perfil Private, escolhido por
-   * ser "o mais seguro". Numa maquina cuja rede esteja classificada como
-   * Public -- que e o caso desta, e de muita gente, porque o Windows pergunta
-   * uma vez e quase todo mundo responde que nao quer ser descoberto -- a regra
-   * existia e nao servia para nada. E o pior resultado possivel: parece
-   * resolvido, e o celular continua sem achar a pagina.
-   *
-   * O que se cobra: que os perfis venham do estado da maquina, e que a regra
-   * se limite ao LocalSubnet. A segunda parte e o que torna aceitavel valer
-   * tambem no perfil Public -- so alcanca quem esta no mesmo segmento de rede.
+   * Os perfis da regra vêm do estado da máquina (a rede pode ser Public), e
+   * a regra fica limitada ao LocalSubnet.
    */
   const arq = path.join(RAIZ_PROJETO, 'windows', 'liberar-porta.ps1');
   assert(fs.existsSync(arq), 'liberar-porta.ps1 nao esta na pasta');
@@ -1584,19 +1366,14 @@ check('a porta da rede local e liberada pelo perfil em uso, nao no escuro', () =
   assert(/-LocalPort \$Porta/.test(src) && /-Protocol TCP/.test(src),
     'o escopo tem de ser a porta e o protocolo, e nao o programa inteiro');
 
-  // Rodar duas vezes nao pode criar duas regras nem pedir elevacao de novo.
+  // Idempotente: não duplica a regra nem pede elevação de novo.
   assert(/Regra-Existe/.test(src) && /ja estava liberada/.test(src),
     'o script nao confere se a regra ja existe antes de pedir administrador');
-  /*
-   * E a conferencia tem de ser pelo nome da regra, que e nosso, e nao pela
-   * frase de erro do netsh, que o Windows traduz. Procurar a frase so funciona
-   * nos idiomas em que alguem lembrou de pensar, e nos outros a regra nunca
-   * seria criada.
-   */
+  // Confere pelo nome da regra, não pela mensagem do netsh (traduzida).
   assert(/regex\]::Escape\(\$nome\)/.test(src),
     'a existencia da regra e conferida por texto traduzivel: quebra em Windows de outro idioma');
 
-  // E o instalador delega, em vez de manter uma segunda copia da logica.
+  // O instalador delega ao script, sem duplicar a lógica.
   const inst = fs.readFileSync(path.join(RAIZ_PROJETO, 'windows', 'instalador', 'instalar.ps1'), 'utf8');
   assert(/liberar-porta\.ps1/.test(inst), 'o instalador nao chama o script da porta');
   assert(!/New-NetFirewallRule/.test(inst),
@@ -1605,10 +1382,7 @@ check('a porta da rede local e liberada pelo perfil em uso, nao no escuro', () =
 });
 
 check('e nesta maquina ela esta mesmo aberta', () => {
-  /*
-   * Conferir pelo netsh, e nao pelo Get-NetFirewallRule: o segundo exige
-   * administrador ate para LER, e a suite roda como usuario comum.
-   */
+  // netsh em vez de Get-NetFirewallRule, que exige administrador até para ler.
   const { execFileSync } = require('child_process');
   let saida = '';
   try {
@@ -1619,12 +1393,7 @@ check('e nesta maquina ela esta mesmo aberta', () => {
   if (!/trackeroao/.test(saida)) {
     pular('a regra nao existe aqui; rode liberar-porta.ps1 e aceite o pedido de administrador');
   }
-  /*
-   * A leitura e por VALOR e nao por rotulo. "Profiles:" e "RemoteIP:" sao
-   * traduzidos pelo Windows; "Private", "LocalSubnet" e o numero da porta nao
-   * sao. Procurar pelos rotulos faria este teste falhar num Windows em
-   * portugues sem haver defeito nenhum na regra.
-   */
+  // Lê por valor ("Private", "LocalSubnet", porta), pois os rótulos são traduzidos.
   assert(/\b8777\b/.test(saida), 'a regra existe mas nao menciona a porta 8777');
   assert(/LocalSubnet/i.test(saida),
     'a regra aceita qualquer origem: deveria ser so o LocalSubnet');
@@ -1651,8 +1420,7 @@ check('nada do que está versionado identifica esta máquina', () => {
     if (/\.(png|svg|bin|sl2|zip|exe|ico)$/i.test(a)) continue;
     let t = '';
     try { t = fs.readFileSync(path.join(RAIZ_PROJETO, a), 'utf8'); } catch (e) { continue; }
-    // A pasta publicada é dado, e vale o detector de forma; o resto é código,
-    // e vale o detector de valores concretos.
+    // docs/ usa o detector de dados; o resto, o detector de código.
     const v = a.startsWith('docs/') ? publish.vazamentos(t) : publish.vazamentosNoCodigo(t);
     if (v.length) sujos.push(a + ': ' + v.join(', '));
   }
@@ -1662,25 +1430,20 @@ check('nada do que está versionado identifica esta máquina', () => {
 
 check('nada no projeto carrega o nome antigo', () => {
   exigeGit();
-  // O projeto se chama trackeroao. "Progress — Sekiro" era o título da aba, e
-  // "sekiro-progresso" era o nome do arquivo da página, do log e das chaves de
-  // armazenamento. O nome do jogo continua valendo onde é o jogo que está
-  // sendo descrito — nas listas, nos textos —, mas não como nome do projeto.
-  // Os termos vão montados em pedaços: escritos por extenso, este arquivo se
-  // acusaria na primeira execução, como já houve com o Steam ID de exemplo.
+  // Nomes legados do projeto. Montados em pedaços para este arquivo não
+  // casar consigo mesmo.
   const NOME_ANTIGO = 'sekiro' + '-progresso';
   const LOG_ANTIGO = 'sekiro' + '-sync';
   const TITULO_ANTIGO = 'Progress ' + '— Sekiro';
   const antigos = new RegExp(NOME_ANTIGO + '|' + LOG_ANTIGO, 'gi');
-  // A página tem direito a três: a ponte de compatibilidade das chaves lê a
-  // antiga, apaga a antiga, e explica por quê.
+  // A página usa o nome antigo na migração das chaves de armazenamento.
   const COTA = { 'trackeroao.html': 3 };
 
   const sujos = [];
   for (const a of rastreados) {
     if (/\.(png|svg|bin|sl2|zip|exe|ico)$/i.test(a)) continue;
     if (/^docs\//.test(a)) continue;   // saída publicada, conferida à parte
-    if (a === 'sync/selftest.js') continue;   // é este arquivo, que fala deles
+    if (a === 'sync/selftest.js') continue;   // este arquivo
     if (antigos.test(a)) { sujos.push(a + ' (no nome do arquivo)'); continue; }
     let t = '';
     try { t = fs.readFileSync(path.join(RAIZ_PROJETO, a), 'utf8'); } catch (e) { continue; }
@@ -1696,9 +1459,7 @@ check('nada no projeto carrega o nome antigo', () => {
 });
 
 check('quem já usava a página não perde as preferências', () => {
-  // Renomear chave de localStorage apaga em silêncio o tema e os alfinetes de
-  // quem já estava usando. A leitura cai na chave antiga quando a nova não
-  // existe, e é isso que faz o renome passar despercebido em vez de doer.
+  // A leitura usa a chave antiga do localStorage quando a nova não existe.
   const t = fs.readFileSync(path.join(RAIZ_PROJETO, 'trackeroao.html'), 'utf8');
   assert(/function guardado\(chave\)/.test(t), 'não há função de leitura');
   assert(/getItem\("trackeroao-" \+ chave\)/.test(t), 'não lê a chave nova');
@@ -1712,25 +1473,21 @@ check('o estado de execução ficou fora do git', () => {
   const nunca = ['progress.json', 'deaths.json', 'bosskills.json', 'deaths-mem.json'];
   const vazados = nunca.filter((n) => rastreados.includes(n));
   assert(vazados.length === 0, 'versionado indevidamente: ' + vazados.join(', '));
-  // E o publicado, que é a versão saneada, tem de estar.
+  // A versão publicada (saneada) deve estar presente.
   assert(rastreados.includes('docs/progress.json'), 'o progresso publicado não está versionado');
   return 'o cru fora, o saneado dentro';
 });
 
 check('a conferência do fonte sabe distinguir falar de um caminho e escrever o seu', () => {
   const os = require('os');
-  // Falar do formato passa; escrever o caminho desta máquina, não. Sem essa
-  // distinção o detector recusaria justamente o parser, que precisa dizer
-  // onde o save mora.
+  // Descrever o formato do caminho é permitido; um caminho concreto, não.
   assert(publish.vazamentosNoCodigo('o save fica em AppData/Roaming/Sekiro/<steamid64>/S0000.sl2').length === 0,
     'recusou a descrição do formato');
   assert(publish.vazamentosNoCodigo('C:\\Users\\<usuario>\\AppData').length === 0,
     'recusou o marcador de usuário');
   assert(publish.vazamentosNoCodigo('const BASE_STEAMID64 = 76561197960265728n;').length === 0,
     'recusou a constante pública da Steam');
-  // Montados em pedaços de propósito: escritos inteiros, estes dois exemplos
-  // fariam o detector recusar este próprio arquivo na hora de copiar o fonte
-  // para o site — o teste da regra tropeçando na regra.
+  // Montados em pedaços para este arquivo não casar consigo mesmo.
   const caminhoFalso = 'C:\\Users\\' + 'ful' + 'ano\\AppData';
   const idFalso = '7656119' + '8000000001';
   assert(publish.vazamentosNoCodigo(caminhoFalso).length > 0,
@@ -1743,82 +1500,136 @@ check('a conferência do fonte sabe distinguir falar de um caminho e escrever o 
 });
 
 /*
- * 12. A assinatura do projeto.
+ * 12. Autoria do projeto.
  *
- * O trabalho sai com o nome do autor e de mais ninguém. Isso já escapou três
- * vezes por caminhos diferentes — um trailer no corpo do commit, que o GitHub
- * conta como co-autor e mostra na lista de contribuidores; um comentário solto
- * no meio do código; um arquivo de ferramenta com nome entregando de onde
- * veio. Conferir à mão não pegou nenhuma das três, então passa a ser teste.
- *
- * Os termos procurados são montados em pedaços de propósito. Escritos por
- * extenso, este arquivo acusaria a si mesmo na primeira execução — o teste da
- * regra tropeçando na regra, igual ao que houve com o Steam ID de exemplo.
+ * Arquivos, comentários, commits, autores e referências git são conferidos
+ * contra uma lista de termos e expressões vetados. A lista guarda só o
+ * resumo sha256 de cada termo, para este arquivo não conter o que proíbe.
  */
 console.log('\n  === 12. A assinatura do projeto ===');
 
-const MARCAS = ['cla' + 'ude', 'anthro' + 'pic', 'copi' + 'lot', 'chat' + 'gpt'];
+const crypto = require('crypto');
+const resumoDe = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 16);
+
+const VETADOS = new Set([
+  'c857d09db23e6822', 'c70eca6b0f88f44d', '3ea125d0bff386e6',
+  '60965168ce762e94', '7d3194f79e645c42',
+]);
+const EXPRESSOES = new Set([
+  'a7091b63620eb08f', '0b5a04f1d73989c5', '41406ccf3af905dc',
+  '1c876b8d7b6e39db', 'a9c935bc22f96642', 'f85b295d59714526',
+  '95f8b0d87094092f', '9524a1a13601e991', '8c2d02375b0ae666',
+]);
+
+const palavras = (texto) => String(texto).toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+
+// Termos isolados: qualquer palavra do texto cujo resumo esteja na lista.
 const marcado = (texto) => {
-  const baixo = String(texto).toLowerCase();
-  return MARCAS.filter((m) => baixo.includes(m));
+  const achados = new Set();
+  for (const p of palavras(texto)) if (VETADOS.has(resumoDe(p))) achados.add(p);
+  return [...achados];
 };
 
-const IGNORAR = new Set(['.git', 'node_modules', 'snapshots', 'arquivo', 'icones']);
+// Expressões de uma a três palavras seguidas.
+const expressoes = (texto) => {
+  const ps = palavras(texto);
+  const achados = new Set();
+  for (let i = 0; i < ps.length; i++) {
+    for (let n = 1; n <= 3 && i + n <= ps.length; n++) {
+      const trecho = ps.slice(i, i + n).join(' ');
+      if (EXPRESSOES.has(resumoDe(trecho))) achados.add(trecho);
+    }
+  }
+  return [...achados];
+};
 
-check('nenhum arquivo do projeto entrega de onde veio', () => {
-  const sujos = [];
+// Só o texto de comentários de um arquivo de código.
+const comentarios = (texto, nome) => {
+  if (/\.(md|txt)$/i.test(nome)) return texto;
+  const partes = [];
+  const blocos = /\/\*[\s\S]*?\*\/|<!--[\s\S]*?-->|<#[\s\S]*?#>/g;
+  let m;
+  while ((m = blocos.exec(texto))) partes.push(m[0]);
+  for (const linha of texto.split('\n')) {
+    const l = linha.trim();
+    if (/^(\/\/|#(?!!)|--\s|;)/.test(l)) partes.push(l);
+    else {
+      const fim = linha.match(/\s\/\/\s(.*)$/);
+      if (fim && !/["'`]/.test(fim[1])) partes.push(fim[1]);
+    }
+  }
+  return partes.join('\n');
+};
+
+const IGNORAR = new Set(['.git', 'node_modules', 'snapshots', 'arquivo', 'icones', 'build']);
+
+function arquivosDoProjeto() {
+  const lista = [];
   const anda = (d) => {
     for (const n of fs.readdirSync(d)) {
       if (IGNORAR.has(n)) continue;
       const c = path.join(d, n);
       if (fs.statSync(c).isDirectory()) { anda(c); continue; }
-      if (/\.(log|log\.\d+|png|svg|bin|sl2|txt)$/i.test(n)) continue;
-      const achadosNome = marcado(n);
-      if (achadosNome.length) { sujos.push(path.relative(RAIZ_PROJETO, c) + ' (no nome)'); continue; }
-      let texto = '';
-      try { texto = fs.readFileSync(c, 'utf8'); } catch (e) { continue; }
-      const achados = marcado(texto);
-      if (achados.length) sujos.push(path.relative(RAIZ_PROJETO, c));
+      lista.push(c);
     }
   };
   anda(RAIZ_PROJETO);
-  assert(sujos.length === 0, 'entregam: ' + sujos.join(', '));
-  return 'varreu o projeto inteiro, nome e conteúdo';
+  return lista;
+}
+
+check('nenhum arquivo do projeto traz termo vetado', () => {
+  const sujos = [];
+  for (const c of arquivosDoProjeto()) {
+    const n = path.basename(c);
+    if (marcado(n).length) { sujos.push(path.relative(RAIZ_PROJETO, c) + ' (no nome)'); continue; }
+    if (/\.(log|log\.\d+|png|jpg|ico|svg|bin|sl2|txt|apk|ipa|exe)$/i.test(n)) continue;
+    let texto = '';
+    try { texto = fs.readFileSync(c, 'utf8'); } catch (e) { continue; }
+    if (marcado(texto).length) sujos.push(path.relative(RAIZ_PROJETO, c));
+  }
+  assert(sujos.length === 0, 'com termo vetado: ' + sujos.join(', '));
+  return 'nome e conteúdo de todos os arquivos';
 });
 
-check('nenhuma mensagem de commit publicada entrega de onde veio', () => {
+check('comentários e documentos não usam expressões vetadas', () => {
+  const sujos = [];
+  for (const c of arquivosDoProjeto()) {
+    const n = path.basename(c);
+    if (!/\.(js|cjs|mjs|html|css|ps1|psm1|cs|java|kt|swift|sh|yml|yaml|md|gradle|xml|plist)$/i.test(n)) continue;
+    let texto = '';
+    try { texto = fs.readFileSync(c, 'utf8'); } catch (e) { continue; }
+    const achados = expressoes(comentarios(texto, n));
+    if (achados.length) sujos.push(path.relative(RAIZ_PROJETO, c) + ' (' + achados.join(', ') + ')');
+  }
+  assert(sujos.length === 0, 'expressões vetadas em: ' + sujos.join('; '));
+  return 'comentários do código, README e notas de versão';
+});
+
+check('nenhuma mensagem de commit traz termo vetado', () => {
   const { execFileSync } = require('child_process');
   const site = RAIZ_PROJETO;
-  if (!fs.existsSync(path.join(site, '.git'))) return 'sem repositório publicado aqui';
+  if (!fs.existsSync(path.join(site, '.git'))) return 'sem repositório aqui';
   const log = execFileSync('git', ['log', '--all', '--format=%H%n%s%n%b'],
-    { cwd: site, encoding: 'utf8', windowsHide: true });
-  const achados = marcado(log);
-  assert(achados.length === 0, 'aparece no histórico de commits');
+    { cwd: site, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024 });
+  assert(marcado(log).length === 0, 'aparece no histórico de commits');
   const n = execFileSync('git', ['rev-list', '--count', 'HEAD'],
     { cwd: site, encoding: 'utf8', windowsHide: true }).trim();
-  return n + ' commits, nenhum com trailer de co-autoria';
+  return n + ' commits, nenhum com co-autoria';
 });
 
-check('o histórico publicado tem um autor só', () => {
+check('o histórico tem um autor só', () => {
   const { execFileSync } = require('child_process');
   const site = RAIZ_PROJETO;
-  if (!fs.existsSync(path.join(site, '.git'))) return 'sem repositório publicado aqui';
+  if (!fs.existsSync(path.join(site, '.git'))) return 'sem repositório aqui';
   const quem = execFileSync('git', ['log', '--all', '--format=%an <%ae>|%cn <%ce>'],
-    { cwd: site, encoding: 'utf8', windowsHide: true })
+    { cwd: site, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024 })
     .split('\n').filter(Boolean);
   const distintos = [...new Set(quem.flatMap((l) => l.split('|')))];
   assert(distintos.length === 1, 'mais de um: ' + distintos.join(' / '));
   return distintos[0];
 });
 
-check('nem o nome de nenhuma referência entrega de onde veio', () => {
-  // Esta é a brecha por onde escapou de verdade, e por isso vira teste.
-  //
-  // A conferência olhava arquivo, mensagem de commit e autor — e passava. O
-  // que aparecia na lista de contribuidores do GitHub vinha de outro lugar:
-  // três branches cujos próprios NOMES começavam com a marca, com commits
-  // assinados por ela. Nome de referência não é conteúdo nem mensagem, então
-  // nenhuma das conferências anteriores olhava para lá.
+check('nenhum nome de branch ou tag traz termo vetado', () => {
   const { execFileSync } = require('child_process');
   if (!fs.existsSync(path.join(RAIZ_PROJETO, '.git'))) return 'sem repositório aqui';
   const refs = execFileSync('git', ['for-each-ref', '--format=%(refname)'],
@@ -1826,7 +1637,7 @@ check('nem o nome de nenhuma referência entrega de onde veio', () => {
     .split('\n').filter(Boolean);
   const sujas = refs.filter((r) => marcado(r).length);
   assert(sujas.length === 0, 'referências marcadas: ' + sujas.join(', '));
-  return refs.length + ' referências, todas limpas';
+  return refs.length + ' referências';
 });
 
 function resumo() {
@@ -1845,13 +1656,9 @@ function resumo() {
 /*
  * 6. A página desenha o que o save diz.
  *
- * Os grupos acima provam a leitura do save; nenhum deles nota se a página
- * parou de mostrar o resultado. Este roda o <script> da própria página num DOM
- * de brinquedo, pelo mesmo caminho do navegador (fetch -> pollProgress ->
- * render), e confere as linhas contra o progress.json. É o grupo que pega
- * renome de chave na config, que não quebra nada e só apaga as marcações.
- *
- * É assíncrono, então o resumo saiu para depois dele.
+ * Roda o <script> da página no DOM mínimo, pelo mesmo caminho do navegador
+ * (fetch -> pollProgress -> render), e confere as linhas contra o
+ * progress.json. Assíncrono; o resumo é impresso depois.
  */
 (async () => {
   console.log('\n  === 6. A página desenha o que o save diz ===');
@@ -1873,22 +1680,8 @@ function resumo() {
   }
 
   /*
-   * O espelho: a pagina desenhada com o progresso cru e com o publicado tem de
-   * dar exatamente a mesma tela.
-   *
-   * Esta e a checagem mais direta da funcao da aplicacao. Se o publico desenhar
-   * diferente, alguma coisa so existe no local -- e nao adianta a pagina local
-   * estar perfeita, porque nao e ela que se usa.
-   *
-   * Ja pegou um caso real na primeira execucao: a linha do sync dizia
-   * "saved at <hora>" na maquina e "saved at ?" no link, porque o campo da hora
-   * e podado por dizer quando a pessoa jogou. A correcao nao foi publicar o
-   * campo: foi tira-lo dos dois lados, porque o que nao pode ir para o ar
-   * tambem nao pode criar um segundo comportamento.
-   *
-   * O que este teste NAO cobra e diferenca de dado. Se o sino nao foi tocado,
-   * os dois lados mostram o sino apagado, e isso esta certo. O que ele proibe e
-   * comportamento diferente com o mesmo dado.
+   * A página desenhada com o progresso cru e com o publicado deve produzir a
+   * mesma tela para os mesmos dados.
    */
   console.log('\n  === 16. O link público é a mesma página ===');
   try {
@@ -1897,20 +1690,8 @@ function resumo() {
       console.log('   --    a página publicada desenha igual à local  -  sem leitura crua nesta máquina');
     } else {
       /*
-       * A comparação é entre a leitura crua e ELA MESMA depois da poda, e não
-       * contra o docs/progress.json do disco.
-       *
-       * A primeira versão comparava com o arquivo publicado, e isso deu falso
-       * positivo na primeira instalação nova em que rodou: num clone recém
-       * feito o docs/ traz a publicação de OUTRA máquina, tirada em outro
-       * momento, então as duas telas divergiam por dado e não por
-       * comportamento. O teste acusava defeito onde só havia um arquivo mais
-       * velho.
-       *
-       * Podar em memória compara como com como: mesma leitura, antes e depois
-       * do publicador. É a transformação que se quer vigiar -- se ela tira
-       * algo que a página desenha, as telas divergem, e aí é defeito de
-       * verdade em qualquer máquina.
+       * Compara a leitura crua com ela mesma após a poda do publish.js, não
+       * com o docs/progress.json do disco (que pode ser de outra máquina).
        */
       const pagetest = require('./pagetest');
       const local = JSON.parse(fs.readFileSync(cru, 'utf8'));
@@ -1944,22 +1725,9 @@ function resumo() {
   }
 
   /*
-   * A release publicada é a versão mais nova, e carrega o instalador.
-   *
-   * "Atualiza sempre no Releases" é regra, e regra que depende de lembrança
-   * quebra em silêncio. O .exe agora nasce na própria release, então o que
-   * sobra conferir é que a última nota escrita em .github/releases/ virou release
-   * publicada: é dela que as instalações se atualizam sozinhas, e uma nota que
-   * ficou sem release deixa todo mundo na versão anterior.
-   *
-   * A pergunta vai à API, e não ao link de download do 'latest': o GitHub
-   * cacheia aquele redirecionamento, e ele chegou a apontar para a versão
-   * anterior minutos depois de a nova estar no ar.
-   *
-   * Isto mora aqui, e não entre os checks síncronos, porque lá a espera seria
-   * um laço bloqueante — e laço bloqueante impede o próprio callback da
-   * resposta de rodar. Sem rede o teste se cala em vez de acusar: máquina
-   * offline não é defeito do projeto.
+   * A última nota em .github/releases/ corresponde à release publicada mais
+   * recente, com o instalador. Consulta a API (o redirecionamento de 'latest'
+   * é cacheado). Assíncrono; sem rede, o teste é pulado.
    */
   console.log('\n  === 17. A release publicada ===');
   const NOME_17 = 'a última versão de .github/releases/ está publicada, com o instalador';
@@ -2009,13 +1777,8 @@ function resumo() {
   }
 
   /*
-   * O atalho acende a bandeja de verdade, e nao so responde.
-   *
-   * A checagem do grupo 18 le o fonte: ve que a rota existe e que o abrir.vbs
-   * bate nela. Isso deixou passar um start() que montava o servidor sem
-   * repassar o aoAbrir -- a rota respondia 204 e nao acendia nada, e o atalho
-   * abria so a aba. Aqui a rota e exercitada pelo mesmo start() que o servico
-   * usa, com um GET de localhost igual ao do abrir.vbs.
+   * Exercita a rota /abrir pelo mesmo start() do serviço, com um GET de
+   * localhost como o do abrir.vbs, e confere que o callback é chamado.
    */
   console.log('\n  === 19. O atalho acende a bandeja ===');
   try {
@@ -2050,8 +1813,7 @@ function resumo() {
   console.log('\n  === 23. O consumo da página ===');
   check('a tela inicial não redesenha a cada quadro, e para fora de foco', () => {
     const html = fs.readFileSync(path.join(RAIZ_PROJETO, 'trackeroao.html'), 'utf8');
-    // Animação de máscara, fundo ou sombra repinta a tela inteira: só
-    // transform e opacity andam sem redesenho.
+    // Só transform e opacity animam sem repintar a tela.
     const quadros = {};
     for (const m of html.matchAll(/@keyframes\s+([\w-]+)\s*\{([\s\S]*?)\n  \}/g)) quadros[m[1]] = m[2];
     const fundo = /\.vista-hub \.oao-fundo \{([\s\S]*?)\n  \}/.exec(html);

@@ -19,15 +19,9 @@ import java.util.Collections;
 import java.util.Enumeration;
 
 /*
- * Localizador - descobre sozinho o IP do computador na rede de casa.
- *
- * O Android não resolve `.local` para aplicativo comum de forma confiável
- * (depende da versão e do fabricante), então a pergunta de mDNS é feita aqui
- * mesmo, do jeito que o sync/mdns.js sabe responder: registro A, classe IN,
- * com o bit de "responda em unicast" ligado.
- *
- * A ordem é da mais barata para a mais cara: primeiro o último IP que deu
- * certo (quase sempre ainda vale), só depois o multicast.
+ * Localizador - descobre o IP do computador na rede local. Testa primeiro o
+ * último IP conhecido; depois faz a consulta mDNS (A, IN, bit QU), já que o
+ * Android não resolve `.local` de forma confiável.
  */
 final class Localizador {
 
@@ -38,8 +32,7 @@ final class Localizador {
     private static final int PORTA_MDNS = 5353;
     private static final String CHAVE_IP = "ultimo_ip";
 
-    // Depois de uma busca sem resposta, espera este tanto antes da próxima.
-    // Sem isso, cada pedido da página dispararia um multicast novo.
+    // Intervalo mínimo entre buscas sem resposta.
     private static final long FOLGA_MS = 2500;
 
     private final Context ctx;
@@ -53,9 +46,8 @@ final class Localizador {
     }
 
     /**
-     * O IP do computador, ou null se ele não está na rede agora.
-     * É sincronizado de propósito: os pedidos que chegam juntos esperam uma
-     * única busca em vez de cada um fazer a sua.
+     * O IP do computador, ou null se ele não está na rede.
+     * Sincronizado: chamadas simultâneas compartilham uma única busca.
      */
     synchronized String ip() {
         if (ip != null) return ip;
@@ -71,7 +63,7 @@ final class Localizador {
         return null;
     }
 
-    /** Um pedido para `qual` falhou: esquece, e a próxima chamada procura de novo. */
+    /** Descarta `qual` após uma falha; a próxima chamada busca de novo. */
     synchronized void esquecer(String qual) {
         if (qual != null && qual.equals(ip)) ip = null;
     }
@@ -83,7 +75,7 @@ final class Localizador {
         return novo;
     }
 
-    /** Um GET rápido no progresso: só o nosso serviço responde isso nesta porta. */
+    /** GET rápido no progresso para confirmar que o serviço responde. */
     private static boolean responde(String alvo) {
         HttpURLConnection c = null;
         try {
@@ -107,15 +99,14 @@ final class Localizador {
         WifiManager.MulticastLock trava = null;
         MulticastSocket sock = null;
         try {
-            // Muitos aparelhos descartam multicast com a tela em economia;
-            // a trava pede ao Wi-Fi que deixe passar enquanto perguntamos.
+            // Trava de multicast: evita que o Wi-Fi descarte as respostas.
             if (wifi != null) {
                 trava = wifi.createMulticastLock("trackeroao");
                 trava.setReferenceCounted(false);
                 trava.acquire();
             }
-            // Porta qualquer, não a 5353: o próprio Android pode estar nela, e
-            // com o bit QU a resposta vem direto para esta porta.
+            // Porta efêmera (a 5353 pode estar em uso); o bit QU traz a resposta
+            // em unicast.
             sock = new MulticastSocket(0);
             sock.setTimeToLive(255);
             NetworkInterface nif = interfaceWifi();
@@ -125,7 +116,7 @@ final class Localizador {
             InetAddress grupo = InetAddress.getByName(GRUPO);
             byte[] buf = new byte[1500];
 
-            // Três tentativas: pacote multicast se perde e ninguém retransmite.
+            // Três tentativas: multicast não tem retransmissão.
             for (int tentativa = 0; tentativa < 3; tentativa++) {
                 sock.send(new DatagramPacket(pergunta, pergunta.length, grupo, PORTA_MDNS));
                 long fim = System.currentTimeMillis() + 700;
@@ -152,10 +143,7 @@ final class Localizador {
         }
     }
 
-    /**
-     * A interface do Wi-Fi. Com dados móveis ligados, o multicast pode sair
-     * pela rede da operadora, onde o computador obviamente não está.
-     */
+    /** Interface Wi-Fi, para o multicast não sair pelos dados móveis. */
     private static NetworkInterface interfaceWifi() {
         try {
             NetworkInterface reserva = null;
@@ -196,9 +184,8 @@ final class Localizador {
     }
 
     /**
-     * O IPv4 de um registro A para `nome` dentro do pacote, ou null.
-     * Olha todas as seções, porque respondedor de mDNS às vezes manda o
-     * endereço como registro adicional.
+     * O IPv4 de um registro A para `nome` no pacote, ou null. Percorre todas
+     * as seções, inclusive os registros adicionais.
      */
     static String lerRegistroA(byte[] b, int len, String nome) {
         if (len < 12) return null;
@@ -233,8 +220,7 @@ final class Localizador {
 
     /**
      * Lê um nome a partir de pos[0] e avança pos[0] para depois dele.
-     * Segue ponteiros de compressão com limite de saltos: pacote malformado
-     * existe, e um laço infinito aqui travaria a busca.
+     * Limita os saltos de compressão contra pacotes malformados.
      */
     private static String lerNome(byte[] b, int len, int[] pos) {
         StringBuilder sb = new StringBuilder();

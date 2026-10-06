@@ -1,30 +1,22 @@
 <#
-Remove o trackeroao desta maquina: o oposto exato do instalar.ps1.
+Remove o trackeroao desta maquina, desfazendo o instalar.ps1. Normalmente
+executado pelo trackeroao-desinstalador.exe.
 
-Quem roda isto normalmente e o trackeroao-desinstalador.exe, que o instalador
-deixa dentro da pasta e registra em "Aplicativos instalados" do Windows.
-
-O que ele desfaz, na ordem em que o instalador fez:
+Remove:
   - a tarefa agendada (e a de nome antigo, 'SekiroProgressSync', se existir)
   - os processos do servico e o icone da bandeja
   - o atalho da area de trabalho e o registro em "Aplicativos instalados"
   - a regra de firewall da porta 8777 -- unico passo que pede administrador
   - a pasta da instalacao, com o runtime portatil do Node se ele foi baixado
 
-O que ele NAO desfaz, e por que:
-  - o Node.js instalado pelo winget ou ja presente na maquina. Pode estar
-    servindo a outros programas, e nao e nosso para remover.
-  - o save do jogo. O trackeroao nunca escreveu nele, e continua sem escrever.
+Mantem o Node.js instalado pelo winget ou ja presente, e o save do jogo.
 
-Antes de apagar a pasta, pergunta se deve guardar o progresso desta maquina
-(contagens, efeitos, escolha de jogos e as copias da hibernacao, que contem o
-save). A resposta padrao e guardar: o que se perde aqui nao volta, e uma pasta
-a mais nos Documentos custa pouco. Para rodar sem pergunta, -GuardarProgresso
-ou -ApagarProgresso.
+Antes de apagar a pasta, pergunta se deve guardar o progresso local
+(contagens, efeitos, selecao de jogos e copias da hibernacao) em Documentos;
+o padrao e guardar. Sem pergunta: -GuardarProgresso ou -ApagarProgresso.
 #>
 
-# Como no instalar.ps1, os padroes aceitam vir do ambiente: e assim que o
-# trackeroao-desinstalador.exe repassa o que recebeu.
+# Os padroes podem vir do ambiente (repassados pelo trackeroao-desinstalador.exe).
 param(
   [string]$Destino = $(if ($env:TRACKEROAO_DESTINO) { $env:TRACKEROAO_DESTINO }
                        else { Join-Path $env:LOCALAPPDATA 'trackeroao' }),
@@ -43,15 +35,12 @@ function Nota($t)  { Write-Host "  $t" -ForegroundColor DarkGray }
 function Ruim($t)  { Write-Host "  $t" -ForegroundColor Red }
 
 <#
-  Pela janela do desinstalador (TRACKEROAO_GUI), como no instalar.ps1: sem
-  console, contando o que faz por linhas @@, sem perguntas e sem pedir nada.
-  O administrador ja foi pedido pelo .exe; o progresso e guardado, que e a
-  resposta padrao da pergunta que o console faria.
+  Com TRACKEROAO_GUI: progresso em linhas @@, sem perguntas (a elevacao e
+  feita pelo .exe e o progresso e guardado).
 #>
 $gui = [bool]$env:TRACKEROAO_GUI
-# Um erro que ninguem tratou nao pode sumir: pela janela, ele vira a mensagem
-# de erro que a pessoa le, com a linha onde aconteceu. Pelo console, segue
-# como sempre (break devolve o erro ao PowerShell).
+# Erros nao tratados: na janela, viram mensagem com a linha; no console,
+# seguem para o PowerShell.
 trap {
   if ($gui) {
     [Console]::Out.WriteLine("@@ERRO #unexpected|$($_.InvocationInfo.ScriptLineNumber)|$($_.Exception.Message)")
@@ -77,14 +66,9 @@ Etapa 3 '#prep_rem'
 $pendencias = @()
 
 <#
-  Elevacao, pelo mesmo raciocinio do instalador: pede uma vez, no comeco, e
-  anota quem pediu antes. So a regra de firewall precisa dela; recusar nao
-  cancela nada, e a regra fica como pendencia escrita no fim.
-
-  Anotar quem pediu importa mais aqui do que la. Elevado com outra conta, o
-  %LOCALAPPDATA% do processo e o do administrador -- e o padrao de $Destino
-  apontaria para uma pasta que nao e a da instalacao. Por isso o destino e
-  resolvido ANTES de elevar e passado adiante.
+  Elevacao (necessaria so para a regra de firewall). O usuario e o $Destino
+  sao resolvidos antes de elevar, pois outra conta teria outro %LOCALAPPDATA%.
+  Se recusada, a regra fica como pendencia.
 #>
 $souAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
              ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -109,7 +93,7 @@ if (-not $gui -and -not $souAdmin -and -not $JaElevado) {
 if ($gui) { $JaElevado = $souAdmin }
 if (-not $UsuarioOriginal) { $UsuarioOriginal = "$env:USERDOMAIN\$env:USERNAME" }
 
-# A pasta pessoal de quem pediu, e nao a do processo -- ver o bloco acima.
+# Pasta pessoal do usuario original.
 function Pasta-DeQuemPediu($qual) {
   if ($UsuarioOriginal -ne "$env:USERDOMAIN\$env:USERNAME") {
     $apenasNome = ($UsuarioOriginal -split '\\')[-1]
@@ -134,11 +118,8 @@ foreach ($nome in @('TrackeroaoSync', 'SekiroProgressSync')) {
   }
 }
 
-# So os processos desta instalacao: o servico, o wscript que o sobe e o icone
-# da bandeja rodam todos de dentro de sync\, e esse caminho esta na linha de
-# comando de cada um. Um node qualquer rodando um main.js de outro projeto nao
-# e nosso -- e este proprio script, relancado elevado, carrega o destino nos
-# argumentos, mas nao o sync\.
+# So os processos desta instalacao: os que tem o caminho de sync\ na linha
+# de comando.
 $encerrados = 0
 $marca = $Destino.TrimEnd('\') + '\sync\'
 Get-CimInstance Win32_Process -Filter "Name = 'node.exe' OR Name = 'powershell.exe' OR Name = 'wscript.exe'" |
@@ -148,7 +129,7 @@ Get-CimInstance Win32_Process -Filter "Name = 'node.exe' OR Name = 'powershell.e
     Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
     $encerrados++
   }
-# A janela do Trackeroao, se estiver aberta: a pasta app nao sai com ela de pe.
+# Fecha a janela do Trackeroao, se aberta.
 $pastaApp = Join-Path $Destino 'app'
 Get-Process -Name 'Trackeroao' -ErrorAction SilentlyContinue |
   Where-Object { $_.Path -and $_.Path.StartsWith($pastaApp, [StringComparison]::OrdinalIgnoreCase) } |
@@ -179,7 +160,7 @@ if ($souAdmin -or $JaElevado) {
 # ============================================================= 4. progresso
 Passo '4/5  Progresso'
 Etapa 60 '#r_save'
-# Tudo que nasce nesta maquina e nao vem de release nenhuma.
+# Arquivos gerados localmente.
 $estado = @('progress.json', 'deaths.json', 'deaths-mem.json', 'bosskills.json', 'efeitos.json',
             'selecao.json', 'sync\.state.json', 'arquivo')
 $existentes = @($estado | Where-Object { Test-Path (Join-Path $Destino $_) })
@@ -220,7 +201,7 @@ if ($UsuarioOriginal -eq "$env:USERDOMAIN\$env:USERNAME" -and (Test-Path $chave)
 Passo '5/5  Pasta'
 Etapa 78 '#r_files'
 if (Test-Path $Destino) {
-  # Um processo recem-encerrado pode segurar um arquivo por um instante.
+  # Repete: um processo recem-encerrado pode manter arquivos abertos.
   $removida = $false
   foreach ($tentativa in 1..5) {
     try { Remove-Item -Path $Destino -Recurse -Force; $removida = $true; break }
@@ -246,8 +227,7 @@ if ($pendencias) {
 if ($fraseDaCopia) { Detalhe $fraseDaCopia }
 Tela 'PRONTO' '#removed'
 
-# A janela fecha sozinha no fim -- a elevada sempre, e a do .exe tambem, que
-# ja saiu antes para a pasta poder ser apagada. O relatorio iria junto.
+# Espera uma tecla para o relatorio ficar visivel.
 if (-not $gui -and ($JaElevado -or $env:TRACKEROAO_EXE)) {
   Write-Host "`nTecle algo para fechar." -ForegroundColor DarkGray
   [void]$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')

@@ -1,23 +1,11 @@
 'use strict';
 /*
- * jogos.js - quais jogos o tracker vigia, e qual deles esta escolhido.
+ * jogos.js - catálogo de jogos vigiados e seleção local.
  *
- * Sao duas coisas com tempos de vida diferentes, e por isso moram em arquivos
- * diferentes:
+ *   sync/jogos.json  catálogo versionado, igual em toda máquina.
+ *   selecao.json     seleção desta máquina (fora do git).
  *
- *   sync/jogos.json  catalogo. Versionado, igual em toda maquina, e so muda
- *                    quando um jogo novo passa a ser suportado.
- *   selecao.json     escolha. Estado desta maquina, fora do git como os
- *                    outros arquivos de estado, e muda quando a pessoa mexe
- *                    na pagina.
- *
- * Misturar os dois daria o problema de sempre: atualizar o projeto
- * sobrescreveria a escolha de quem instalou, ou a escolha entraria no commit
- * de quem desenvolve.
- *
- * O padrao, sem selecao gravada, e vigiar TUDO que o catalogo lista. E o
- * comportamento que nao surpreende: quem instalou e abriu o jogo espera que o
- * tracker perceba, sem antes ter de ir escolher nada.
+ * Sem seleção gravada, vigia todos os jogos suportados.
  */
 
 const fs = require('fs');
@@ -38,13 +26,8 @@ function suportados() {
 }
 
 /*
- * O catálogo inteiro: os suportados mais o que a varredura achou nesta
- * máquina e na conta (ver biblioteca.js).
- *
- * Um jogo achado pela varredura entra com leitura 'nenhuma': o tracker sabe
- * que ele abriu e fechou, e é só. Ele pode ser vigiado para acender a
- * aplicação, que é o que a escolha de jogos promete, e aparece na tela de
- * jogos com os pinos de instalado e de vigiado.
+ * Catálogo completo: os suportados mais os achados pela varredura (ver
+ * biblioteca.js), que entram com leitura 'nenhuma' e só podem ser vigiados.
  */
 function catalogo() {
   const base = suportados();
@@ -63,9 +46,7 @@ function catalogo() {
       arte: a.arte || null,
     });
   }
-  // Um jogo que o tracker viu abrir nesta maquina esta instalado nela, mesmo
-  // quando a varredura nao achou a pasta (instalado fora da Steam, num disco
-  // que ela nao le).
+  // Jogo visto aberto nesta máquina conta como instalado.
   let abertos = {};
   try { abertos = JSON.parse(fs.readFileSync(RECENTES, 'utf8')) || {}; } catch (e) { abertos = {}; }
   for (const g of lista) if (!g.instalado && abertos[g.chave]) g.instalado = true;
@@ -77,9 +58,7 @@ function escolhidas() {
   try {
     const j = JSON.parse(fs.readFileSync(SELECAO, 'utf8'));
     if (!Array.isArray(j.jogos)) return null;
-    // Uma chave que nao existe mais no catalogo e ignorada em vez de derrubar
-    // a leitura: o catalogo pode encolher numa atualizacao, e a escolha antiga
-    // continuaria gravada aqui sem culpa de ninguem.
+    // Ignora chaves que não existem mais no catálogo.
     const validas = new Set(catalogo().map((g) => g.chave));
     return j.jogos.filter((c) => validas.has(c));
   } catch (e) {
@@ -91,19 +70,12 @@ function escolhidas() {
 function vigiados() {
   const todos = catalogo();
   const esc = escolhidas();
-  // Sem escolha, vigia os que o projeto sabe ler, e não tudo que a varredura
-  // achou: a bandeja acendendo a cada jogo instalado seria o contrário de
-  // aparecer em silêncio.
+  // Sem seleção, vigia só os jogos suportados, não tudo o que a varredura achou.
   if (!esc) return todos.filter((g) => g.leitura === 'completa');
   return todos.filter((g) => esc.includes(g.chave));
 }
 
-/**
- * Os nomes de imagem a procurar, em minuscula e sem repeticao.
- *
- * Nome de imagem e nao caminho: o mesmo jogo instalado em disco diferente tem
- * caminho diferente e executavel igual, e e o executavel que identifica.
- */
+/** Nomes de imagem (não caminhos) a procurar, em minúsculas e sem repetição. */
 function processos() {
   const nomes = [];
   for (const g of vigiados()) {
@@ -122,12 +94,8 @@ function porProcesso(nome) {
 }
 
 /**
- * Grava a escolha.
- *
- * Lista vazia e escolha valida e quer dizer "nao vigie nada": a aplicacao
- * deixa de acender sozinha e so abre pelo atalho. Isso e diferente de nunca
- * ter escolhido, que vigia tudo -- e a diferenca entre uma decisao e a
- * ausencia dela.
+ * Grava a seleção. Lista vazia significa "não vigiar nenhum", diferente de
+ * não haver seleção.
  */
 function selecionar(chaves) {
   const validas = new Set(catalogo().map((g) => g.chave));
@@ -138,10 +106,7 @@ function selecionar(chaves) {
   return limpas;
 }
 
-/**
- * Marca que um jogo vigiado acabou de abrir. E o que ordena a tela inicial
- * quando nao ha Steam, e o que vale quando o jogo abriu fora dela.
- */
+/** Registra a abertura de um jogo; ordena a tela inicial sem Steam. */
 function marcarAberto(chave) {
   if (!chave) return;
   let j = {};
@@ -154,12 +119,8 @@ function marcarAberto(chave) {
 }
 
 /*
- * A posicao de cada jogo por quao recente foi a ultima vez que abriu: 1 e o
- * mais recente. Junta o que o tracker viu abrir com o que a Steam registra.
- * A pagina recebe so a posicao, nunca a hora.
- *
- * A leitura da Steam e guardada por um minuto: a pagina pergunta a cada
- * poucos segundos, e o arquivo dela nao muda nesse ritmo.
+ * Posição de cada jogo pela abertura mais recente (1 = mais recente), juntando
+ * o registro local e o da Steam. A página recebe só a posição. Cache de 1 min.
  */
 let memoSteam = { em: 0, vez: {} };
 function ordemRecente(lista) {
@@ -182,15 +143,14 @@ function ordemRecente(lista) {
     .sort((a, b) => b.t - a.t);
   const pos = {};
   quando.forEach((x, i) => { pos[x.chave] = i + 1; });
-  // Em andamento: jogado nos últimos sete dias. A página recebe só isso (sim
-  // ou não), e não a data.
+  // Em andamento: jogado nos últimos sete dias (a página não recebe a data).
   const semana = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const andamento = {};
   quando.forEach((x) => { andamento[x.chave] = x.t >= semana; });
   return { pos, andamento };
 }
 
-/** O que a pagina precisa saber para desenhar a escolha. */
+/** Dados da seleção de jogos para a página. */
 function paraProgresso() {
   const esc = escolhidas();
   const cat = catalogo();
@@ -210,7 +170,7 @@ function paraProgresso() {
       // true: jogado na última semana; false: jogado antes disso; null: nunca.
       andamento: g.chave in recente.andamento ? recente.andamento[g.chave] : null,
     })),
-    // Distingue "nunca escolheu" de "escolheu nenhum", que tem efeitos opostos.
+    // Distingue "sem seleção" de "seleção vazia".
     escolheu: esc !== null,
     varredura: (() => {
       try {

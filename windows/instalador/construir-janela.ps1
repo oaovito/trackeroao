@@ -2,19 +2,12 @@
 Gera a janela do Trackeroao (app\Trackeroao.exe) a partir de
 windows\instalador\janela\Trackeroao.cs.
 
-Roda no Windows, a cada release, antes do construir-exe.ps1: o instalador leva
-a janela dentro dele e a poe em <instalacao>\app. A release continua tendo um
-arquivo so, o instalador.
+Roda no Windows, a cada release, antes do construir-exe.ps1, que embute a
+janela no instalador.
 
-A janela usa o WebView2, o componente de pagina que o Windows 10 e 11 ja
-trazem. Para compilar contra ele e rodar, ela precisa de tres arquivos do SDK
-publico da Microsoft (licenca BSD, que permite redistribuir desde que o texto
-da licenca va junto -- e vai, em app\LICENSE-WebView2.txt). O pacote e baixado
-do NuGet numa versao fixa e conferido pelo SHA-256 antes de qualquer uso: um
-pacote diferente do esperado para a construcao aqui.
-
-32 bits de proposito: roda igual num Windows de 32 ou de 64, com um carregador
-so.
+Usa o WebView2. Tres arquivos do SDK (licenca BSD, texto em
+app\LICENSE-WebView2.txt) vem do pacote NuGet em versao fixa, conferido por
+SHA-256. Compilado em 32 bits, para rodar em Windows de 32 e 64 bits.
 #>
 
 param([string]$Saida = (Join-Path $PSScriptRoot 'app'))
@@ -51,11 +44,10 @@ try {
   Copy-Item (Join-Path $sdk 'runtimes\win-x86\native\WebView2Loader.dll') (Join-Path $Saida 'WebView2Loader.dll')
   Copy-Item (Join-Path $sdk 'LICENSE.txt') (Join-Path $Saida 'LICENSE-WebView2.txt')
 
-  # O icone: o do Trackeroao, ja em .ico com todos os tamanhos (16 a 256).
+  # Icone .ico com tamanhos de 16 a 256.
   $icone = Join-Path $projeto 'windows\instalador\icone\trackeroao.ico'
   if (-not (Test-Path $icone)) { throw "faltou o icone: $icone" }
-  # Uma copia ao lado do .exe, para os atalhos: um caminho proprio faz o
-  # Windows ler o icone de novo, em vez de mostrar o que guardou em cache.
+  # Copia do icone ao lado do .exe, para os atalhos (evita o cache de icones).
   Copy-Item $icone (Join-Path $Saida 'trackeroao.ico')
 
   $exe = Join-Path $Saida 'Trackeroao.exe'

@@ -1,27 +1,13 @@
 'use strict';
 /*
- * conquistas.js - ícones e dificuldade das conquistas, baixados uma vez.
+ * conquistas.js - ícones e dificuldade das conquistas.
  *
- * Duas coisas que o cache local do Steam não tem e a página precisa:
+ *   ÍCONE       — baixado do CDN da Steam para dentro do repositório.
+ *   DIFICULDADE — derivada da porcentagem global de jogadores que têm a
+ *                 conquista, publicada pela Steam.
  *
- *   ÍCONE     — o arquivo de stats guarda só os bits de quem conquistou o quê.
- *               A arte mora no CDN da Steam, e é baixada uma vez para dentro
- *               do repositório, como a arte dos chefes. Hotlink quebraria no
- *               dia em que o outro lado mudasse de caminho.
- *
- *   DIFICULDADE — o jogo não classifica conquista em fácil, média ou difícil, e
- *               eu também não vou classificar: seria opinião com cara de dado.
- *               O que existe de objetivo é quantos jogadores no mundo têm cada
- *               uma, que a Steam publica. Raridade não é exatamente
- *               dificuldade — uma conquista de fim de jogo é rara também
- *               porque pouca gente termina —, mas é uma medida real, a mesma
- *               para todos, e dá para dizer de onde veio.
- *
- * A fonte é a página pública de estatísticas do jogo, que não pede chave de
- * API e traz ícone, nome, descrição e porcentagem na mesma linha.
- *
- * Roda à mão (`npm run conquistas`), não a cada leitura: é rede, e o número
- * muda devagar.
+ * Fonte: página pública de estatísticas do jogo (sem chave de API).
+ * Executado manualmente com `npm run conquistas`.
  */
 
 const fs = require('fs');
@@ -32,14 +18,7 @@ const PAGINA = 'https://steamcommunity.com/stats/814380/achievements/';
 const DESTINO = path.join(__dirname, '..', 'docs', 'icones', 'conquistas');
 const TABELA = path.join(__dirname, 'conquistas.json');
 
-/*
- * Os cortes de dificuldade, em porcentagem de jogadores que têm a conquista.
- *
- * Escolhidos onde a distribuição do Sekiro tem degraus de verdade: depois das
- * quatro primeiras o número despenca de 86% para 59%, e abaixo de 20% estão as
- * que quase ninguém tem. Não são tercis — tercil dividiria em três partes
- * iguais e chamaria de "difícil" coisas que 30% das pessoas têm.
- */
+// Cortes de dificuldade, em % de jogadores, nos degraus da distribuição do Sekiro.
 const CORTES = [
   ['facil', 50],
   ['media', 20],
@@ -47,11 +26,8 @@ const CORTES = [
 ];
 
 /**
- * A chave de ligação entre os dois lados: o nome, reduzido ao essencial.
- *
- * Um lado escreve `Isshin, the Sword Saint` e o outro pode escrever com aspas
- * escapadas ou espaço a mais. Minúsculas sem pontuação sobrevive aos dois, e
- * serve de nome de arquivo sem precisar de outra transformação.
+ * Nome normalizado (minúsculas, sem pontuação), usado como chave de ligação
+ * e como nome de arquivo.
  */
 function slug(nome) {
   return String(nome).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -63,19 +39,8 @@ function dificuldade(percent) {
 }
 
 /*
- * As descrições que o jogo esconde.
- *
- * 23 das 34 conquistas do Sekiro são ocultas: nem o arquivo de stats local nem
- * a página pública da Steam trazem o texto delas antes de você desbloquear. E
- * "hidden until unlocked" na tela não ajuda ninguém a saber o que falta.
- *
- * A mesma lista de conquistas sai como troféus no PlayStation, e ali as
- * descrições são públicas desde sempre — é o mesmo jogo e o mesmo conjunto.
- * Copiadas de lá, palavra por palavra, e não escritas por mim: inventar o
- * texto de uma conquista oculta seria adivinhar o que o jogo pede.
- *
- * Usadas SÓ onde não há descrição vinda do jogo. Onde o próprio Sekiro diz
- * algo, é o Sekiro que manda.
+ * Descrições das 23 conquistas ocultas, copiadas dos troféus equivalentes do
+ * PlayStation. Usadas só quando o jogo não fornece descrição.
  *
  * Fonte: lista de troféus de Sekiro: Shadows Die Twice (PowerPyx).
  */
@@ -174,18 +139,7 @@ async function colher(opts) {
   let baixados = 0;
 
   for (const l of linhas) {
-    /*
-     * A ligação é pelo NOME, e isso foi verificado antes de valer.
-     *
-     * A primeira versão supôs que a ordem da página fosse a ordem das chaves
-     * internas — primeira linha ACH00, segunda ACH01. Conferindo contra os
-     * nomes que o save traz, o acerto foi de ZERO em 34: cada ícone teria ido
-     * para a conquista errada, calado, e a página mostraria a arte do
-     * Gyoubu na conquista de pegar a espada.
-     *
-     * Os dois lados têm os mesmos 34 nomes, então o nome é a chave boa. A
-     * normalização existe porque um lado escapa aspas e o outro não.
-     */
+    // Ligação pelo nome normalizado; a ordem da página não segue as chaves internas.
     const chave = slug(l.nome);
     const arquivo = chave + '.jpg';
     const caminho = path.join(DESTINO, arquivo);

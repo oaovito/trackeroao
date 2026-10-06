@@ -1,21 +1,9 @@
 'use strict';
 /*
- * deaths.js - contagem de mortes vista pelo save.
+ * deaths.js - contagem de mortes estimada pelo save (reserva do deathsmem.js).
  *
- * Este é o caminho de reserva. O contador de verdade é o deathsmem.js, que lê
- * a memória do jogo em tempo real e dá o número exato — mas ele precisa de uma
- * calibração por diferença antes de valer, e enquanto ela não fecha é este
- * aqui que a página mostra.
- *
- * O que ele faz: conta as gravações do save em que o Sen caiu sem nenhum item
- * ter entrado. Isso é uma morte. O limite, que está dito na página, é que uma
- * morte só custa Sen quando o Unseen Aid não a perdoa — então o número é um
- * piso, nunca o total.
- *
- * O que ele NÃO faz mais: procurar um contador de mortes dentro do save. Essa
- * busca rodou, eliminou todos os candidatos em dez gravações, e a conclusão
- * bate com a pesquisa — o Sekiro não guarda essa conta em disco. O código dela
- * saiu junto com esta nota.
+ * Conta as gravações em que o Sen caiu sem entrada de itens. Como o Unseen
+ * Aid às vezes evita a perda, o número é um piso.
  */
 
 const fs = require('fs');
@@ -23,7 +11,7 @@ const path = require('path');
 
 const STATE_FILE = path.join(__dirname, '..', 'deaths.json');
 
-/** Só o que a contagem precisa. A busca por offset saiu; o estado encolheu junto. */
+/** Estado da contagem. */
 function estadoVazio(slot) {
   return {
     startedAt: new Date().toISOString(),
@@ -50,7 +38,7 @@ function save(estado, stateFile) {
   fs.renameSync(tmp, alvo);
 }
 
-/** O payload anterior fica só na memória: é 1 MiB e não vale gravar a cada sync. */
+/** Payload anterior, mantido só em memória (1 MiB). */
 let anterior = null;
 
 /**
@@ -62,9 +50,7 @@ function observar(opts) {
   const { payload, goods, weapons, slot, senOffset, stateFile } = opts;
   let estado = load(stateFile);
   if (!estado || estado.slot !== slot) estado = estadoVazio(slot);
-  // Antes, a fase "nada" encerrava a observação de vez. Errado: ela só diz que
-  // a BUSCA PELO CAMPO fracassou, e uma única leitura ruim bastava para chegar
-  // lá. A contagem própria segue correndo de qualquer jeito.
+  // A fase "nada" não interrompe a contagem.
   if (estado.fase === 'resolvido') return estado;
 
   const agora = {
@@ -76,8 +62,7 @@ function observar(opts) {
 
   if (!anterior) { anterior = agora; return estado; }
 
-  // Mesma gravação relida: não é observação nenhuma, e contá-la falsearia a
-  // evidência de "ficou parado".
+  // Mesma gravação relida: ignora.
   if (anterior.payload.equals(payload)) { anterior = agora; return estado; }
 
   const limite = Math.min(anterior.payload.length, payload.length);
@@ -89,25 +74,18 @@ function observar(opts) {
   estado.gravacoes++;
   if (morteCerta) {
     estado.mortesCertas++;
-    // Isto é o contador que a página mostra. Ele não depende da busca pelo
-    // campo do jogo dar certo — e não deu: o Sekiro não guarda essa conta.
+    // Contador exibido pela página.
     estado.contadas = (estado.contadas || 0) + 1;
     if (!estado.contandoDesde) estado.contandoDesde = new Date().toISOString();
   }
 
-  // Só a contagem, sem busca de offset: quem procura o campo agora é o
-  // deathsmem.js, na memória do jogo.
+  // A busca de offset fica no deathsmem.js.
   anterior = agora;
   save(estado, stateFile);
   return estado;
 }
 
-/**
- * O número de reserva: as mortes vistas pelo save.
- *
- * Quem manda é a memória do jogo, pelo deathsmem.js. Isto aqui cobre o período
- * até a calibração fechar, e os momentos em que o jogo está fechado.
- */
+/** Mortes vistas pelo save; usado enquanto a leitura de memória não está calibrada. */
 function paraProgresso(estado) {
   const e = estado || {};
   if (typeof e.contadas === 'number' && e.contadas > 0) {
@@ -128,7 +106,7 @@ function paraProgresso(estado) {
   };
 }
 
-/** Zera o payload guardado em memória. Só o teste precisa disso. */
+/** Zera o payload em memória (testes). */
 function reset() { anterior = null; }
 
 module.exports = { observar, load, paraProgresso, reset, STATE_FILE };

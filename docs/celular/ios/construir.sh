@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Constroi o aplicativo de iOS (docs/celular/ios/build/trackeroao.ipa) num Mac com o Xcode,
-# sem projeto do Xcode: swiftc compila, actool monta o icone, e o .ipa e o
-# pacote Payload/Trackeroao.app zipado. O .ipa sai sem assinatura; quem
-# instala (AltStore, SideStore) assina no proprio aparelho.
+# Constroi docs/celular/ios/build/trackeroao.ipa num Mac com Xcode, sem projeto:
+# swiftc compila, actool gera o icone, e Payload/Trackeroao.app vira o .ipa.
+# O .ipa sai sem assinatura (AltStore/SideStore assinam no aparelho).
 #
 #   VERSAO=1.8.6 bash docs/celular/ios/construir.sh
 set -euo pipefail
@@ -22,7 +21,7 @@ xcrun actool Assets.xcassets --compile "$APP" --platform iphoneos \
   --minimum-deployment-target 15.0 --app-icon AppIcon \
   --target-device iphone --target-device ipad \
   --output-partial-info-plist build/icone.plist >/dev/null
-# As chaves do icone que o actool gera entram no Info.plist do aplicativo.
+# Mescla as chaves de icone do actool no Info.plist.
 python3 - "$APP/Info.plist" build/icone.plist <<'PY'
 import plistlib, sys
 with open(sys.argv[1], 'rb') as f: info = plistlib.load(f)

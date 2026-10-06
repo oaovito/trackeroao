@@ -14,11 +14,8 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 /*
- * Principal - a tela única: um WebView ocupando tudo.
- *
- * O endereço carregado é sempre o mesmo, http://trackeroao.local/, e nenhum
- * pedido para ele sai de fato para a rede pelo WebView: a Ponte atende todos.
- * Link para outro site abre no navegador do sistema.
+ * Principal - tela única com um WebView em http://trackeroao.local/, atendido
+ * pela Ponte. Links externos abrem no navegador do sistema.
  */
 public final class Principal extends Activity {
 
@@ -43,17 +40,15 @@ public final class Principal extends Activity {
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
         s.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        // A página esconde o acesso pelo celular quando já está no aplicativo.
+        s.setUserAgentString(s.getUserAgentString() + " TrackeroaoApp");
         web.setWebViewClient(new Cliente(this, ponte));
         setContentView(web);
 
         if (salvo == null || web.restoreState(salvo) == null) web.loadUrl(INICIO);
     }
 
-    /*
-     * Classe aninhada estática, e não interna: o javac novo marca o parâmetro
-     * escondido do construtor de classe interna de um jeito que derruba
-     * algumas versões do d8.
-     */
+    // Classe aninhada estática: classes internas quebram algumas versões do d8.
     private static final class Cliente extends WebViewClient {
         private final Activity dono;
         private final Ponte ponte;
@@ -65,8 +60,7 @@ public final class Principal extends Activity {
 
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest req) {
-            // Só o que é da página passa pela Ponte; fonte e afins de outros
-            // endereços seguem o caminho normal.
+            // Só requisições da própria página passam pela Ponte.
             if (!Localizador.NOME.equalsIgnoreCase(req.getUrl().getHost())) return null;
             return ponte.atender(req);
         }
@@ -78,7 +72,7 @@ public final class Principal extends Activity {
             try {
                 dono.startActivity(new Intent(Intent.ACTION_VIEW, u).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             } catch (ActivityNotFoundException e) {
-                // nada que abra isso no aparelho; fica onde está
+                // nenhum aplicativo para abrir; ignora
             }
             return true;
         }
@@ -108,12 +102,8 @@ public final class Principal extends Activity {
         super.onDestroy();
     }
 
-    /*
-     * Voltar (o botão ou o gesto da borda) pergunta primeiro à página: se
-     * havia algo aberto por cima dela (uma janela de detalhe, o código QR, uma
-     * lista), ela fecha isso e o voltar para aí. Senão, volta de tela no
-     * histórico, e sem tela anterior o aplicativo sai, como sempre.
-     */
+    // Voltar: a página fecha primeiro o que estiver aberto por cima; senão,
+    // volta no histórico ou sai.
     @Override
     @SuppressWarnings("deprecation")
     public void onBackPressed() {

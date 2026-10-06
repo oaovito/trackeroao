@@ -2,7 +2,7 @@
 /*
  * sl2.js - locate and read Sekiro's S0000.sl2 save file. READ ONLY.
  *
- * Format (verified empirically against a real Sekiro save, not guessed):
+ * Format:
  *   - The file is a plain BND4 archive. Sekiro does NOT encrypt its save,
  *     unlike Dark Souls 3 / Elden Ring, so no AES key is needed.
  *   - Header: "BND4" magic, entry count at 0x0C, header size at 0x10 (0x40),
@@ -12,9 +12,7 @@
  *       USER_DATA010       384 KiB     - shared/global data
  *       USER_DATA011       1 MiB       - unused in the saves observed
  *   - Every entry's data begins with a 16-byte MD5 of the bytes that follow.
- *     That gives us a free integrity check: if the digest does not match we
- *     read the file mid-write (a torn read) and must retry rather than report
- *     garbage. This was confirmed on all 12 blocks of a live save.
+ *     A mismatch means the file was read mid-write and the read is retried.
  */
 
 const fs = require('fs');
@@ -76,8 +74,7 @@ function sekiroRoots() {
  * Returns null when nothing is found.
  */
 function findSavePath() {
-  // Override explícito: útil para quem guarda o save fora do lugar padrão, e
-  // para testar o comportamento do serviço quando o save some.
+  // Override explícito: save fora do lugar padrão, ou testes sem save.
   if (process.env.SEKIRO_SAVE) {
     try {
       if (fs.statSync(process.env.SEKIRO_SAVE).isFile()) return process.env.SEKIRO_SAVE;
@@ -206,12 +203,8 @@ function blockPayload(buf, entry) {
 }
 
 /**
- * Read and validate the save.
- *
- * `retries` covers the case where the game is writing the file as we read it:
- * the MD5 of at least one block will not match, and a moment later it will.
- * We never write to the save, and we open it in a way that tolerates the game
- * holding its own handle open.
+ * Read and validate the save (read only). `retries` covers reads that overlap
+ * a write by the game, detected by an MD5 mismatch.
  */
 function readSave(file, options) {
   const opts = options || {};
@@ -283,11 +276,8 @@ function nonEmptySlots(save) {
 }
 
 /*
- * O que o progresso diz quando nao ha save. Sem o nome do arquivo de proposito:
- * a conferencia do publish.js trata qualquer "S0000.sl2" nos dados como sinal
- * de um caminho real, e esta frase vai para o arquivo publico. Com o nome, a
- * propria mensagem era acusada de vazamento e derrubava a instalacao numa
- * maquina sem o save.
+ * Mensagem quando não há save. Não cita o nome do arquivo, que o publish.js
+ * trataria como caminho real nos dados publicados.
  */
 const MENSAGEM_SEM_SAVE = 'No Sekiro save found. See the README for the paths searched.';
 

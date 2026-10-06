@@ -1,15 +1,10 @@
 'use strict';
 /**
- * A busca de jogos pelo nome, da tela "All games".
+ * Busca de jogos pelo nome (tela "All games").
  *
- * Procura em tudo o que o aplicativo conhece: os jogos desta máquina e da
- * biblioteca da Steam (a lista de jogos.js), a base que vem com a release e o
- * catálogo geral da Steam guardado em cache. Nada aqui vai à rede nem guarda
- * dado novo; é só leitura do que já existe.
- *
- * A base tem perto de duzentos mil nomes. Ela entra na memória na primeira
- * busca e sai sozinha um minuto depois da última, para o serviço não carregar
- * esse peso enquanto ninguém procura.
+ * Procura nos jogos de jogos.js, na base da release e no catálogo da Steam em
+ * cache, sem acessar a rede. A base (~200 mil nomes) é carregada na primeira
+ * busca e liberada um minuto após a última.
  */
 const fs = require('fs');
 const path = require('path');

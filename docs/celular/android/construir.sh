@@ -11,8 +11,7 @@
 #   ANDROID_KEYSTORE       caminho do keystore
 #   ANDROID_KEYSTORE_PASS  senha (do keystore e da chave)
 #   ANDROID_KEY_ALIAS      alias da chave
-# Sem ANDROID_KEYSTORE, assina com uma chave descartável: o APK instala, mas
-# a próxima versão não instala por cima dele (a assinatura muda).
+# Sem ANDROID_KEYSTORE, assina com uma chave descartável (não atualiza por cima).
 
 set -euo pipefail
 
@@ -26,8 +25,7 @@ if [ -z "$SDK" ] || [ ! -d "$SDK" ]; then
   exit 1
 fi
 
-# A versão mais nova instalada de cada coisa, sem nome fixo no script: o
-# runner troca de versão sem avisar.
+# Usa a versão mais nova instalada de cada ferramenta.
 BT_VER="$(ls -1 "$SDK/build-tools" 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -n 1 || true)"
 if [ -z "$BT_VER" ]; then
   echo "erro: nenhuma build-tools em $SDK/build-tools" >&2
@@ -48,8 +46,7 @@ done
 command -v javac >/dev/null || { echo "erro: javac não encontrado (precisa de um JDK)" >&2; exit 1; }
 command -v zip >/dev/null || { echo "erro: zip não encontrado" >&2; exit 1; }
 
-# A versão do aplicativo acompanha a do projeto (package.json na raiz).
-# Na release, quem chama passa VERSAO (a da tag); sem ela, vale o package.json.
+# Versão: VERSAO do ambiente (a tag, na release) ou a do package.json.
 VERSAO="${VERSAO:-$(sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([0-9.]*\)".*/\1/p' "$AQUI/../../../package.json" | head -n 1)}"
 VERSAO="${VERSAO:-1.0.0}"
 IFS=. read -r V_MAIOR V_MENOR V_CORR <<<"$VERSAO"
@@ -74,9 +71,7 @@ mkdir -p "$TMP/gen" "$TMP/classes" "$TMP/dex" "$SAIDA"
   -o "$TMP/base.apk" \
   "$TMP/res.zip"
 
-# 2. Java -> .class. Bytecode 8, que o d8 converte sem surpresa; android.jar
-# no lugar da biblioteca do JDK, para não compilar contra o que o telefone
-# não tem.
+# 2. Java -> .class (bytecode 8), compilado contra android.jar.
 mapfile -t FONTES < <(find "$AQUI/src" "$TMP/gen" -name '*.java')
 javac -encoding UTF-8 -source 1.8 -target 1.8 -Xlint:-options -nowarn \
   -bootclasspath "$ANDROID_JAR" \
@@ -109,7 +104,7 @@ else
     -dname "CN=Trackeroao" >/dev/null 2>&1
 fi
 
-# A senha vai pelo ambiente, não pela linha de comando (que aparece no ps).
+# Senha pelo ambiente, para não aparecer no ps.
 "$BT/apksigner" sign \
   --ks "$KS" \
   --ks-key-alias "$ALIAS" \

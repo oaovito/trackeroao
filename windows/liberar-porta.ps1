@@ -1,33 +1,12 @@
 <#
-Libera a porta 8777 para a rede local, que e o que faz a pagina responder no
-celular alem de responder no proprio PC.
+Libera a porta 8777 no firewall para a rede local, para acesso pelo celular.
+Pode ser executado separadamente do instalador.
 
-Isto vive num script proprio, e nao so dentro do instalador, por dois motivos.
-O primeiro e que quem recusou o pedido de administrador na instalacao precisa
-de um caminho de uma acao para resolver depois -- "abra o Firewall do Windows,
-va em Regras de Entrada, Nova Regra..." nao e um caminho, e uma desistencia. O
-segundo e que o perfil da rede muda: a mesma maquina que estava em Private no
-escritorio aparece em Public na casa, e ai a regra antiga para de valer.
+  - Perfis: os que estao em uso (mais Private).
+  - Origem: somente LocalSubnet.
+  - Escopo: TCP, porta 8777, entrada.
 
-O que ele faz de diferente da versao que ficou para tras:
-
-  - cria a regra para os perfis que estao EM USO, e nao para um perfil
-    escolhido no escuro. A versao anterior criava so para Private, e nesta
-    maquina a rede esta classificada como Public -- a regra existia e nao
-    servia para nada, que e o pior resultado possivel: parece resolvido.
-
-  - restringe a origem ao LocalSubnet. Isso e o que torna aceitavel valer
-    tambem no perfil Public: so alcanca quem esta no mesmo segmento de rede, ou
-    seja o celular na mesma casa, e nao a rede inteira de um cafe.
-
-  - e escopo minimo: TCP, porta 8777, entrada. O Windows costuma deixar para
-    tras regras de "Node.js JavaScript Runtime" que liberam QUALQUER porta para
-    o node, de qualquer origem, criadas quando alguem clicou "Permitir" num
-    aviso. Esta regra e mais estreita que aquelas, e existir nao depende de o
-    node continuar instalado no mesmo lugar.
-
-Roda sozinho: se nao estiver elevado, ele pede administrador e refaz o proprio
-trabalho do outro lado. Recusar nao quebra nada, so nao libera.
+Se nao estiver elevado, solicita administrador e executa novamente.
 #>
 
 param(
@@ -41,39 +20,22 @@ $nomeRegra = "trackeroao ($Porta)"
 function Nota($t) { Write-Host "  $t" -ForegroundColor DarkGray }
 function Ok($t)   { Write-Host "  $t" -ForegroundColor Green }
 
-<#
-  Conferir se a regra existe NAO precisa de administrador quando se pergunta
-  pelo netsh; o Get-NetFirewallRule precisa. Isso importa porque e o que
-  permite o instalador e a pagina saberem o estado sem elevar nada.
-#>
+# Consulta pelo netsh, que nao exige administrador (Get-NetFirewallRule exige).
 function Regra-Existe($nome) {
-  <#
-    A conferencia e pela presenca do NOME na saida, e nao pela frase de erro.
-
-    A primeira versao procurava por "No rules match", com "Nenhuma regra" ao
-    lado para o Windows em portugues. Isso so funciona nos dois idiomas em que
-    alguem lembrou de pensar: num Windows em alemao, espanhol ou japones a
-    frase e outra, a conferencia sempre daria "existe", e a regra nunca seria
-    criada -- numa maquina em que ela e justamente o que falta.
-
-    O nome da regra e nosso e nao e traduzido por ninguem. Procurar por ele
-    funciona em qualquer idioma do sistema.
-  #>
+  # Procura o nome da regra na saida (as mensagens do netsh sao traduzidas).
   # netsh pode escrever em stderr; com 'Stop', o PowerShell 5.1 trataria isso como erro fatal.
   $ErrorActionPreference = 'Continue'
   $saida = & netsh advfirewall firewall show rule name="$nome" 2>&1 | Out-String
   return ($saida -match [regex]::Escape($nome))
 }
 
-# Os perfis em uso agora. Sem isto a regra nasce apontando para o perfil errado
-# e nao vale nada -- foi exatamente o que aconteceu antes.
+# Perfis de rede em uso.
 function Perfis-Em-Uso {
   try {
     $cats = @(Get-NetConnectionProfile -ErrorAction Stop |
               Select-Object -ExpandProperty NetworkCategory -Unique)
   } catch {
-    # Sem conseguir perguntar, cobre os tres. Restringir a Private aqui seria
-    # escolher no escuro de novo, e o LocalSubnet ja e o que limita o alcance.
+    # Sem a consulta, cobre os tres perfis (o alcance ja e limitado ao LocalSubnet).
     return @('Domain', 'Private', 'Public')
   }
   if (-not $cats -or $cats.Count -eq 0) { return @('Domain', 'Private', 'Public') }
@@ -85,8 +47,7 @@ function Perfis-Em-Uso {
       'Public'        { $perfis += 'Public' }
     }
   }
-  # Private entra sempre: se a rede for reclassificada depois, a regra continua
-  # valendo sem precisar rodar isto de novo.
+  # Private sempre incluido, caso a rede seja reclassificada.
   if ($perfis -notcontains 'Private') { $perfis += 'Private' }
   return ($perfis | Select-Object -Unique)
 }

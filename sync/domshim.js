@@ -1,11 +1,6 @@
 /**
- * DOM de brinquedo, só o bastante para rodar os renderizadores da página fora
- * do navegador e conferir o que eles produzem.
- *
- * Não é um navegador: não resolve seletores, não faz layout, não roda CSS. O
- * que ele garante é que uma função de render recebe o progress.json, não
- * estoura, e monta as linhas certas. Isso cobre justamente o que dá errado em
- * troca de nome de campo e lista vazia.
+ * DOM mínimo para rodar os renderizadores da página fora do navegador nos
+ * testes. Não resolve seletores, não faz layout e não aplica CSS.
  */
 'use strict';
 
@@ -20,16 +15,14 @@ class El {
     this.dataset = {};
     this.pai = null;
     this.open = false;
-    // `style` de verdade tem setProperty, usado para as variáveis CSS. Sem
-    // isto a página estourava dentro do catch do poll, sem erro visível.
+    // setProperty, usado pela página para variáveis CSS.
     this.style = {
       setProperty(k, v) { this[k] = v; },
       removeProperty(k) { delete this[k]; },
       getPropertyValue(k) { return this[k]; },
     };
     this.listeners = {};
-    // O navegador comeca com hidden=false e o atributo da marcacao manda; aqui
-    // a marcacao nao e lida, entao o teste ajusta quando precisa.
+    // hidden começa false; a marcação não é lida, o teste ajusta se precisar.
     this.hidden = false;
   }
 
@@ -42,8 +35,7 @@ class El {
       add: (...c) => { self._class = [...new Set(self._class.split(/\s+/).concat(c))].filter(Boolean).join(' '); },
       remove: (...c) => { self._class = self._class.split(/\s+/).filter((x) => x && !c.includes(x)).join(' '); },
       contains: (c) => self._class.split(/\s+/).includes(c),
-      // O segundo argumento força o estado, e a página usa isso. Ignorá-lo
-      // fazia o toggle sempre alternar, escondendo um bug ou inventando outro.
+      // Respeita o segundo argumento (forçar estado).
       toggle: (c, forcar) => {
         const quer = forcar === undefined ? !self.classList.contains(c) : !!forcar;
         if (quer) self.classList.add(c);
@@ -60,9 +52,7 @@ class El {
   set innerHTML(v) { this._html = String(v); this._text = ''; this.children = []; }
 
   appendChild(c) {
-    // Mover de verdade: tira do pai antigo antes de entrar no novo. A página
-    // empresta seções para dentro da janela e as devolve depois, e sem isto
-    // a mesma seção ficaria listada nos dois lugares.
+    // Remove do pai anterior antes de anexar.
     if (c.pai && c.pai !== this) {
       const i = c.pai.children.indexOf(c);
       if (i >= 0) c.pai.children.splice(i, 1);
@@ -79,14 +69,7 @@ class El {
   removeAttribute(k) { delete this.attrs[k]; }
   querySelectorAll() { return []; }
 
-  /*
-   * O suficiente de `dialog` para o DOM de brinquedo.
-   *
-   * A página passou a abrir as listas em janela nativa, e o teste roda fora do
-   * navegador: sem isto, `showModal` não existe e o render inteiro estoura.
-   * Não se imita foco preso nem backdrop — o que os testes precisam saber é se
-   * a janela está aberta e se fechar dispara quem escuta.
-   */
+  // `dialog` mínimo: estado aberto e evento de fechar (sem foco nem backdrop).
   showModal() {
     this.open = true;
     this.setAttribute('open', '');
@@ -99,7 +82,7 @@ class El {
     for (const fn of (this.listeners.close || []).slice()) {
       try { fn({ type: 'close', target: this }); } catch (e) { /* ouvinte não derruba */ }
     }
-    // `{ once: true }` é o uso real na página; simular é só esvaziar a fila.
+    // Ouvintes tratados como `{ once: true }`.
     this.listeners.close = [];
   }
 
@@ -148,12 +131,9 @@ function install(ids, opts) {
   for (const id of ids) nodes[id] = new El('div');
   global.document = {
     createElement: (t) => new El(t),
-    // Nó de texto: a página monta botões com texto e um <span> de contagem,
-    // e sem isto o menu não desenhava.
+    // Nó de texto.
     createTextNode: (t) => { const n = new El('#text'); n.textContent = String(t); return n; },
-    // Cria sob demanda: a página toca em vários ids de chrome (botão de tema,
-    // rodapé) que não interessam ao teste, e devolver null faria o script
-    // estourar antes de chegar no render.
+    // Cria elementos sob demanda para ids não declarados.
     getElementById: (id) => (nodes[id] = nodes[id] || new El('div')),
     addEventListener: () => {},
     querySelectorAll: () => [],
@@ -168,16 +148,14 @@ function install(ids, opts) {
     removeItem: (k) => guardado.delete(k),
   };
   global.window = { matchMedia: () => ({ matches: false, addEventListener: () => {} }) };
-  // A página decide o ritmo do poll pelo host: rede local de um jeito, site
-  // público de outro. Sem `location` aqui, o teste nem carregava.
+  // A página usa `location` para decidir o ritmo do poll.
   global.location = {
     protocol: o.protocol || "http:",
     hostname: o.hostname || "localhost",
     href: (o.protocol || "http:") + "//" + (o.hostname || "localhost") + "/",
   };
-  // A página abre um setInterval para buscar o progress.json. Com o timer real
-  // o processo de teste nunca termina, então aqui o agendamento é engolido.
-  // Guardados para o teste poder conferir o ritmo escolhido.
+  // Timers não são agendados (o teste terminaria nunca); ficam registrados
+  // para o teste conferir o intervalo.
   global.intervalosPedidos = [];
   global.setInterval = (fn, ms) => { global.intervalosPedidos.push(ms); return 0; };
   global.setTimeout = () => 0;

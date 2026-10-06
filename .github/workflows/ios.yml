@@ -1,5 +1,4 @@
-# Confere que o aplicativo de iOS compila a cada mudança nele, antes de uma
-# release depender disso. A release constrói o seu próprio .ipa (release.yml).
+# Compila o aplicativo de iOS a cada mudança nele.
 
 name: ios
 

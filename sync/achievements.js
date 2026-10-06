@@ -1,25 +1,21 @@
 'use strict';
 /*
- * achievements.js - as conquistas do Steam, lidas do disco.
+ * achievements.js - conquistas da Steam, lidas do cache local.
  *
- * Não precisa de chave de API nem de perfil público: o próprio Steam guarda
- * duas coisas em appcache/stats,
+ * Sem chave de API nem perfil público. Arquivos em appcache/stats:
  *
  *   UserGameStatsSchema_<app>.bin   o catálogo: id, nome interno, nome exibido
  *   UserGameStats_<conta>_<app>.bin o que esta conta desbloqueou, e quando
  *
- * Os dois são KeyValues binário da Valve, um formato simples de percorrer:
- * cada nó começa por um byte de tipo, seguido do nome terminado em zero, e o
- * fim de um objeto é o byte 0x08.
+ * Ambos em KeyValues binário da Valve: cada nó tem um byte de tipo e o nome
+ * terminado em zero; 0x08 fecha o objeto.
  *
  *   0x00 objeto aninhado   0x01 string    0x02 int32
  *   0x03 float32           0x04 ponteiro  0x05 wstring
  *   0x06 cor               0x07 uint64    0x08 fim do objeto
  *
- * O arquivo de progresso não guarda nome nenhum: só o número do bloco e a hora.
- * É o esquema que diz que o bloco 14 se chama "Immortal Severance". Por isso os
- * dois são lidos juntos, e por isso uma conquista sem par no esquema entra como
- * desconhecida em vez de sumir da conta.
+ * O progresso só tem bloco e hora; os nomes vêm do esquema. Conquistas sem
+ * par no esquema entram como desconhecidas.
  */
 
 const fs = require('fs');
@@ -37,12 +33,11 @@ function lerNome(buf, off) {
 
 /**
  * Percorre um objeto de KeyValues binário a partir de `off`.
- * Devolve { valor, proximo }. Chave repetida vira lista, porque o esquema
- * repete "bits" para cada conquista.
+ * Devolve { valor, proximo }. Chaves repetidas ("bits") viram lista.
  */
 function lerObjeto(buf, off, prof) {
   const obj = {};
-  if ((prof || 0) > 24) return { valor: obj, proximo: buf.length };   // trava
+  if ((prof || 0) > 24) return { valor: obj, proximo: buf.length };   // limite de profundidade
   let i = off;
   while (i < buf.length) {
     const tipo = buf[i];
@@ -91,9 +86,8 @@ function colher(no, saida, idioma) {
     if (!valor || typeof valor !== 'object') continue;
     const bits = valor.bits;
     if (bits && typeof bits === 'object') {
-      // `chave` aqui é o número do stat. Ele importa: o Sekiro tem dois grupos,
-      // um com 32 bits e outro com 2, e os índices se repetem entre eles. Sem o
-      // par (stat, bit) duas conquistas diferentes viram a mesma.
+      // `chave` é o número do stat; os bits se repetem entre stats, então a
+      // identidade é o par (stat, bit).
       for (const [idx, def] of Object.entries(bits)) {
         if (!def || typeof def !== 'object') continue;
         const disp = def.display || {};

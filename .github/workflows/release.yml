@@ -1,29 +1,10 @@
-# Publica a release quando um arquivo de notas novo chega a main.
+# Publica a release quando .github/releases/vX.Y.Z.md chega a main: o nome do
+# arquivo e a tag, o texto apos a primeira linha e o corpo, e o titulo e
+# "Trackeroao X.Y.Z". Publica toda versao pendente, entao uma execucao com
+# falha e recuperada pela seguinte.
 #
-# A regra do projeto e que todo ciclo de inovacao ou de correcao termina com
-# uma release nova, carregando o instalador daquele momento -- um .exe so, que
-# tambem vira o desinstalador dentro da instalacao (ver construir-exe.ps1).
-# Quem baixa pelo link da release recebe o .exe, e as instalacoes existentes
-# se atualizam sozinhas para a release mais nova (sync/atualizar.js); uma
-# release atrasada entrega codigo velho sem aviso nenhum.
-#
-# O gatilho e o arquivo .github/releases/vX.Y.Z.md aparecer na main: o nome do
-# arquivo e a tag, e o resto depois da primeira linha e o corpo. O titulo e
-# sempre so o nome do aplicativo e a versao ("Trackeroao 1.6.9"), e toda
-# release antiga e acertada para o mesmo formato a cada execucao. A tag e criada pela propria publicacao. Release sem nota nao diz o que
-# mudou, entao sem o arquivo nada sai.
-#
-# Publica toda versao de .github/releases/ que ainda nao tem release, e nao so a do
-# ultimo push: se uma execucao falhar, a seguinte recupera, e corrigir o texto
-# de uma release que ja existe nao gera outra.
-#
-# O .exe nasce aqui, num runner Windows, a partir dos .ps1 desta mesma
-# versao. Assim nao existe .exe esquecido de reconstruir depois de mexer no
-# instalador, nem release que dependa de um Windows a mao.
-#
-# Toda mudanca em .ps1 passa tambem pelo parser do PowerShell, com ou sem
-# release: um erro de sintaxe num script que so roda na maquina de quem instala
-# nao pode ser descoberto por quem instala.
+# O instalador .exe e construido aqui, num runner Windows, a partir dos .ps1
+# desta versao. Toda mudanca em .ps1 passa pelo parser do PowerShell.
 
 name: release
 
@@ -44,10 +25,8 @@ permissions:
   contents: write
 
 jobs:
-  # A base de jogos (sync/catalogo-jogos.json.gz) e refeita antes de toda
-  # release e entra no commit que a release marca: cada versao sai com a lista
-  # de jogos do seu dia, e a varredura reconhece jogos sem depender da rede.
-  # Quando nao ha versao pendente, nada e feito aqui.
+  # Refaz sync/catalogo-jogos.json.gz e o inclui no commit da release.
+  # Sem versao pendente, nao faz nada.
   catalogo:
     runs-on: ubuntu-latest
     outputs:
@@ -72,8 +51,7 @@ jobs:
           done
           if [ -z "$pendente" ]; then echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"; exit 0; fi
           if ! node sync/gerar-catalogo.js; then
-            # Sem fonte hoje: uma base de ate 15 dias ainda vale; mais velha, ou
-            # nenhuma, e a regra do projeto quebrada, e a release espera.
+            # Sem fonte disponivel: aceita base de ate 15 dias.
             idade="$(node -e "const b=require('./sync/gerar-catalogo').ler();console.log(b?Math.floor((Date.now()-Date.parse(b.geradoEm))/864e5):999)")"
             if [ "$idade" -gt 15 ]; then echo "base de jogos com $idade dias e nenhuma fonte respondeu"; exit 1; fi
             echo "::warning::base de jogos mantida, com $idade dia(s)"
@@ -85,15 +63,8 @@ jobs:
           fi
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-  # O aplicativo de Android, construido sem Gradle pelo docs/celular/android/construir.sh
-  # com as ferramentas do SDK que o runner ubuntu ja traz. Ele vai para dentro
-  # do instalador (em <instalacao>\app), e o computador o entrega ao celular
-  # pela rede de casa: a release continua tendo so o .exe.
-  #
-  # A chave de assinatura nasce na propria construcao e nao e guardada em
-  # lugar nenhum. O aplicativo e uma casca: o que ele mostra vem sempre do
-  # computador, entao ele quase nunca precisa ser trocado no celular. Quando
-  # precisar, a versao nova pede para desinstalar a anterior antes.
+  # APK de Android (docs/celular/android/construir.sh, sem Gradle), embutido no
+  # instalador em <instalacao>\app. Assinado com chave descartavel.
   android:
     needs: catalogo
     runs-on: ubuntu-latest
@@ -117,8 +88,7 @@ jobs:
           path: docs/celular/android/build/trackeroao.apk
           retention-days: 1
 
-  # O aplicativo de iOS, num Mac do GitHub: um .ipa sem assinatura, que o
-  # AltStore assina no proprio aparelho (ver docs/celular/ios/construir.sh).
+  # .ipa de iOS sem assinatura (docs/celular/ios/construir.sh).
   ios:
     needs: catalogo
     runs-on: macos-latest
@@ -170,8 +140,7 @@ jobs:
             gh release view "$t" >/dev/null 2>&1 || faltam="$faltam $t"
           done
           faltam="$(echo $faltam)"
-          # O .exe e o desta versao do codigo. Duas versoes pendentes sairiam
-          # com o mesmo executavel, e a mais antiga com o errado.
+          # Uma versao pendente por vez: o .exe corresponde ao codigo atual.
           case "$faltam" in *" "*) echo "mais de uma versao pendente: $faltam"; exit 1;; esac
           echo "tag=$faltam" >> "$GITHUB_OUTPUT"
 
@@ -192,17 +161,14 @@ jobs:
           Copy-Item dist\apk\trackeroao.apk dist\app\trackeroao.apk
           .\windows\instalador\construir-exe.ps1 -Saida dist -Versao "${{ steps.versao.outputs.tag }}" -App dist\app
 
-      # A janela do instalador, num Windows de verdade: abre, le o protocolo
-      # @@ do script, termina com 0 quando ele termina bem e com 1 quando ele
-      # para com erro. Roda um script de ensaio no lugar do instalador, para
-      # nao instalar nada no runner.
+      # Janela do instalador com um script de ensaio: protocolo @@, saida 0 em
+      # sucesso e 1 em erro.
       - name: A janela do instalador funciona
         shell: powershell
         timeout-minutes: 5
         run: |
           $bom = New-Object Text.UTF8Encoding($true)
-          # O acento vem de um codigo, e nao escrito aqui, para nao depender da
-          # codificacao com que o runner grava este passo.
+          # Acento por codigo, independente da codificacao do passo.
           $fim = 'Ensaio conclu' + [char]0x00ED + 'do'
           $ok = Join-Path $env:RUNNER_TEMP 'ensaio-ok.ps1'
           $ruim = Join-Path $env:RUNNER_TEMP 'ensaio-ruim.ps1'
@@ -235,8 +201,7 @@ jobs:
           $p = Start-Process dist\trackeroao-instalador.exe -ArgumentList "/ensaio=$excecao", '/fechar' -Wait -PassThru
           if ($p.ExitCode -ne 1) { throw "o ensaio com excecao saiu com $($p.ExitCode), e nao 1" }
           if (-not (Select-String -Path $log -SimpleMatch 'nao-existe-trackeroao')) { throw 'o erro do PowerShell nao chegou ao registro' }
-          # node escrevendo em stderr, com 'Stop', pela janela: sem Nativo a
-          # instalacao morre (era o que parava em 84%); com Nativo ela segue.
+          # stderr do node com 'Stop': Nativo impede que a instalacao aborte.
           $nativo = [regex]::Match((Get-Content windows\instalador\instalar.ps1 -Raw -Encoding UTF8), '(?s)function Nativo.*?\n\}').Value
           if (-not $nativo) { throw 'nao achei a funcao Nativo no instalar.ps1' }
           $semNativo = Join-Path $env:RUNNER_TEMP 'ensaio-sem-nativo.ps1'
@@ -266,19 +231,14 @@ jobs:
         timeout-minutes: 15
         shell: powershell
         run: |
-          # O instalar.ps1 de verdade, pela janela, do comeco ao fim: baixa a
-          # ultima release, copia, registra o servico, o atalho e a porta, e
-          # roda a suite -- num Windows sem o jogo, que e o caso em que o
-          # parse.js reclama em stderr. Depois, o desinstalar.ps1 desfaz tudo.
+          # instalar.ps1 completo pela janela, num Windows sem o jogo; depois
+          # desinstalar.ps1.
           $log = Join-Path $env:TEMP 'trackeroao-instalar.log'
-          # O servico instalado aqui nao se atualiza sozinho durante o teste: a
-          # release publicada e anterior a esta versao, e a atualizacao trocaria
-          # a janela em teste pela antiga no meio das verificacoes. A troca e
-          # testada a parte, chamando o /so-janela direto.
+          # Sem atualizacao automatica durante o teste; a troca e testada a
+          # parte via /so-janela.
           [Environment]::SetEnvironmentVariable('TRACKEROAO_SEM_ATUALIZAR', '1', 'User')
           $env:TRACKEROAO_SEM_ATUALIZAR = '1'
-          # Duas vezes seguidas: a segunda e uma reinstalacao por cima, e nada
-          # pode sair em dobro por causa dela.
+          # Duas vezes: a reinstalacao nao pode duplicar nada.
           foreach ($vez in 1, 2) {
             $p = Start-Process dist\trackeroao-instalador.exe -ArgumentList "/ensaio=$PWD\windows\instalador\instalar.ps1", '/fechar' -Wait -PassThru
             Get-Content $log -Encoding UTF8 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  | $_" }
@@ -293,8 +253,7 @@ jobs:
           $destino = Join-Path $env:LOCALAPPDATA 'trackeroao'
           if (-not (Test-Path (Join-Path $destino 'sync\main.js'))) { throw "nada foi instalado em $destino" }
 
-          # O instalador baixa o codigo da ultima release publicada; o que se
-          # testa daqui em diante e o deste commit, posto por cima e religado.
+          # Substitui o codigo baixado pelo deste commit e reinicia.
           Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" |
             Where-Object { $_.CommandLine -like "*$destino*" } |
             ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
@@ -310,7 +269,7 @@ jobs:
           }
           if (-not $vivo) { throw 'o servico deste commit nao subiu' }
 
-          # O aplicativo de Android veio no instalador e o computador o entrega.
+          # APK incluido no instalador e servido pelo computador.
           if (-not (Test-Path (Join-Path $destino 'app\trackeroao.apk'))) { throw 'o aplicativo de Android nao foi instalado' }
           $apk = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 'http://127.0.0.1:8777/android.apk'
           if ($apk.StatusCode -ne 200 -or $apk.RawContentLength -lt 10000) { throw 'o computador nao entrega o aplicativo de Android' }
@@ -319,8 +278,7 @@ jobs:
           if (-not $bloqueado) { throw 'o servidor entrega a janela do Windows pela rede' }
           Write-Host 'o aplicativo de Android esta na instalacao e e entregue pela rede'
 
-          # A janela do Trackeroao: abre e fica de pe, uma segunda abertura nao
-          # cria outra, e o sinal do "Fechar" da bandeja a fecha.
+          # Janela: instancia unica e fechamento pelo "Fechar" da bandeja.
           $janela = Join-Path $destino 'app\Trackeroao.exe'
           if (-not (Test-Path $janela)) { throw 'a janela nao foi instalada' }
           $lnk = Get-ChildItem ([Environment]::GetFolderPath('Desktop')) -Filter 'trackeroao*.lnk' | Select-Object -First 1
@@ -344,10 +302,9 @@ jobs:
           Get-CimInstance Win32_Process -Filter "Name='Trackeroao.exe'" | ForEach-Object { Write-Host "  processo $($_.ProcessId) (pai $($_.ParentProcessId)): $($_.CommandLine)" }
           if (@(Trackeroaos).Count -ne 1) { throw "janelas abertas: $(@(Trackeroaos).Count), e nao 1" }
 
-          # O icone da bandeja e o proprio Trackeroao.exe, que a abertura acende
-          # pelo servico, e o Windows o lista com o nome do produto.
+          # Icone da bandeja: Trackeroao.exe iniciado pelo servico.
           $tray = $null
-          # Recem-instalado, o servico pode demorar a atender o pedido da janela.
+          # O servico recem-instalado pode demorar a responder.
           for ($i = 0; $i -lt 60 -and -not $tray; $i++) { Start-Sleep -Milliseconds 500; $tray = (Trackeroaos -Bandeja) | Select-Object -First 1 }
           if (-not $tray) {
             $log = Join-Path $destino 'sync\trackeroao.log'
@@ -359,10 +316,8 @@ jobs:
           if ($desc -ne 'Trackeroao') { throw "o Windows listaria a bandeja como '$desc'" }
           Write-Host "bandeja: Trackeroao.exe /bandeja (pid $($tray.ProcessId)), descricao '$desc'"
 
-          # Orcamento de recursos: com a janela aberta e parada, o Trackeroao
-          # inteiro (servico, janela, bandeja e o motor da pagina) tem de
-          # gastar como um aplicativo leve de uso continuo. Passar daqui e
-          # regressao, e so sobe com autorizacao explicita.
+          # Orcamento de recursos com a janela aberta e ociosa (servico, janela,
+          # bandeja e WebView2).
           $orcCpu = 2.0; $orcRam = 400
           function ArvoreTrackeroao {
             $todos = @(Get-CimInstance Win32_Process)
@@ -398,9 +353,7 @@ jobs:
           if ($cpu -gt $orcCpu) { throw ("CPU acima do orcamento: {0:N2}%" -f $cpu) }
           if ($ramMb -gt $orcRam) { throw ("RAM acima do orcamento: {0:N0} MB" -f $ramMb) }
 
-          # A barra propria: sem a barra de titulo do Windows, a area do
-          # aplicativo comeca no topo da janela; na faixa de cima, fora dos
-          # botoes, o Windows entende barra de titulo; no X, botao do aplicativo.
+          # Barra propria: area cliente no topo; HTCAPTION fora dos botoes.
           Add-Type -Namespace T -Name U -MemberDefinition @'
           [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr h, int m, IntPtr w, IntPtr l);
           [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
@@ -428,12 +381,11 @@ jobs:
           $naBorda = Toque ($wr.L + 2) ($wr.T + 300)
           Write-Host "toque na borda esquerda: $naBorda"
           if ($naBorda -ge 10 -and $naBorda -le 17) { throw "a borda ainda redimensiona a janela ($naBorda)" }
-          # O estado da janela vai para o servico: a vista, a troca espera.
+          # Estado da janela gravado para o servico.
           $estado = Join-Path $destino 'sync\janela.estado'
           if ((Get-Content $estado -ErrorAction SilentlyContinue) -ne 'vista') { throw 'a janela aberta nao se marcou como a vista' }
 
-          # A troca da janela pela atualizacao. A vista, ela nao fecha debaixo de
-          # quem olha: o instalador sai com 3 e a janela fica.
+          # Troca da janela: visivel, o instalador sai com 3 e a janela fica.
           $velho = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk.FullName)
           $velho.IconLocation = "$janela,0"; $velho.Save()
           Remove-Item (Join-Path $destino 'app\versao.txt') -ErrorAction SilentlyContinue
@@ -442,8 +394,7 @@ jobs:
           if ($p.ExitCode -ne 3) { throw "com a janela a vista, /so-janela saiu com $($p.ExitCode), e nao esperou" }
           if ($j.HasExited) { throw 'a troca fechou a janela que estava a vista' }
           Write-Host 'com a janela a vista a troca esperou e a janela ficou'
-          # O X (SC_CLOSE, como o X, o Alt+F4 e o fechar da barra de tarefas) esconde
-          # na bandeja: o processo continua, sem janela a vista.
+          # SC_CLOSE (X, Alt+F4, barra de tarefas) esconde na bandeja.
           [void][T.U]::SendMessage($h, 0x112, [IntPtr]0xF060, [IntPtr]::Zero)
           Start-Sleep -Seconds 2
           if ($j.HasExited) { throw 'o X fechou a aplicacao, em vez de esconder na bandeja' }
@@ -452,7 +403,7 @@ jobs:
           $lugar = Join-Path $env:LOCALAPPDATA 'trackeroao\janela.txt'
           if (-not (Test-Path $lugar)) { throw 'a janela nao guardou onde estava' }
           Write-Host "o X escondeu na bandeja; lugar guardado: $(Get-Content $lugar)"
-          # Escondida, a troca fecha, troca e reabre escondida, sem ninguem mexer.
+          # Escondida: fecha, troca e reabre escondida.
           $p = Start-Process dist\trackeroao-instalador.exe -ArgumentList '/so-janela', "/destino=$destino" -PassThru
           if (-not $p.WaitForExit(120000)) { throw 'com a janela na bandeja, /so-janela nao terminou' }
           if ($p.ExitCode -ne 0) { throw "com a janela na bandeja, /so-janela saiu com $($p.ExitCode)" }
@@ -480,21 +431,19 @@ jobs:
           if (@(Trackeroaos -Bandeja).Count) { throw 'o icone da bandeja segurou o .exe durante a troca' }
           Write-Host 'a janela abriu, e unica e fecha pelo menu da bandeja'
 
-          # "Forcar atualizacao": recem-instalada, a versao e a ultima.
+          # "Forcar atualizacao" com a versao mais recente instalada.
           $r = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8777/atualizar'
           Write-Host "atualizar: instalada $($r.instalada), ultima $($r.ultima), atual $($r.atual)"
           if (-not $r.atual) { throw 'a versao recem-instalada nao foi reconhecida como a ultima' }
 
-          # A atualizacao silenciosa baixa o zip da release e o descompacta no
-          # proprio Windows: tem de caber com folga no tempo-limite.
+          # Download e descompactacao da atualizacao dentro do tempo-limite.
           $t = [Diagnostics.Stopwatch]::StartNew()
           node -e "const a=require('./sync/atualizar');a.ultimaRelease().then(a.baixar).then(b=>{const n=a.listar(b.pasta).length;b.limpar();console.log('zip descompactado: '+n+' arquivos');if(n<50)process.exit(1)}).catch(e=>{console.error(e.message);process.exit(1)})"
           if ($LASTEXITCODE -ne 0) { throw 'a atualizacao pelo zip nao descompactou' }
           if ($t.Elapsed.TotalSeconds -gt 120) { throw "o zip levou $([int]$t.Elapsed.TotalSeconds) s para descompactar" }
           Write-Host "zip da atualizacao em $([int]$t.Elapsed.TotalSeconds) s"
 
-          # "Fechar": o servico sai e nao volta sozinho, nem pela tarefa do logon;
-          # so a abertura manual (a janela) o traz de volta.
+          # "Fechar": o servico so volta pela abertura manual.
           Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8777/encerrar' | Out-Null
           Start-Sleep -Seconds 3
           if (-not (Test-Path (Join-Path $destino 'sync\fechado.flag'))) { throw 'o Fechar nao deixou a marca' }
@@ -535,15 +484,14 @@ jobs:
         run: |
           notas=".github/releases/${TAG}.md"
           tail -n +3 "$notas" > corpo.md
-          # O instalador do Windows e o aplicativo de Android, o mesmo que o
-          # computador entrega ao celular pela rede de casa.
+          # Instalador do Windows e APK de Android.
           cp dist/app/trackeroao.apk dist/trackeroao.apk
           cp dist/ipa/trackeroao.ipa dist/trackeroao.ipa
           gh release create "$TAG" dist/trackeroao-instalador.exe dist/trackeroao.apk dist/trackeroao.ipa \
             --target "${{ needs.catalogo.outputs.sha }}" --title "Trackeroao ${TAG#v}" --notes-file corpo.md
 
-      # A fonte do AltStore (docs/celular/altstore/fonte.json) passa a apontar para o .ipa
-      # desta release, e e por ela que o aplicativo de iOS se atualiza.
+      # Aponta a fonte do AltStore (docs/celular/altstore/fonte.json) para o .ipa
+      # desta release.
       - name: Fonte do AltStore
         if: steps.versao.outputs.tag != ''
         shell: bash

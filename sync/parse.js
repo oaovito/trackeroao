@@ -1,11 +1,9 @@
 'use strict';
 /*
- * parse.js - turn a Sekiro save into the progress.json the tracker reads.
+ * parse.js - turns a Sekiro save into the progress.json read by the tracker.
  *
- * Everything here is derived from the item table, which is the part of the
- * save we can read with confidence. Anything we cannot read is simply left
- * out of the file rather than guessed, so the page can fall back to whatever
- * the user typed in by hand.
+ * Data comes mainly from the item table and event flags. Anything that cannot
+ * be read reliably is left out instead of guessed.
  */
 
 const fs = require('fs');
@@ -50,12 +48,10 @@ function saveState(state) {
 }
 
 /**
- * Decide which of the ten character slots to read.
+ * Picks which of the ten character slots to read.
  *
- * "auto" prefers the slot the game was last seen writing to - the watcher
- * records that in .state.json by noticing which block's checksum changed.
- * Before we have ever seen a save happen, fall back to the most-progressed
- * non-empty slot and say so, so a wrong guess is visible rather than silent.
+ * "auto" prefers the slot last seen being written (recorded in .state.json);
+ * otherwise falls back to the most-progressed non-empty slot.
  */
 function chooseSlot(save, config, state) {
   const entries = sl2.slotEntries(save);
@@ -86,8 +82,7 @@ function chooseSlot(save, config, state) {
 
 function goodsQuantities(payload, config) {
   const { region, items, error } = inventory.readItemTable(payload, config.itemTable);
-  // Prosthetic tools and combat arts are stored as 'weapon' records, not goods:
-  // owning the record is what marks them unlocked, so only presence matters.
+  // Prosthetic tools and combat arts are 'weapon' records; presence = unlocked.
   const weapons = new Set();
   for (const it of items) if (it.category === 'weapon') weapons.add(it.paramId);
   return {
@@ -100,11 +95,8 @@ function goodsQuantities(payload, config) {
 }
 
 /**
- * Mini-bosses, read from event flags.
- *
- * The boss Memories in the item table give us ground truth for the boss flags,
- * so we use those to verify (and if necessary re-find) the flag block before
- * trusting anything else it says.
+ * Mini-bosses, read from event flags. The flag block is first validated (and
+ * relocated if needed) against the boss Memories in the item table.
  */
 function buildMiniBosses(payload, config, bosses, goods) {
   const cfg = config.eventFlags;
@@ -116,22 +108,20 @@ function buildMiniBosses(payload, config, bosses, goods) {
   const byKey = new Map(bosses.map((b) => [b.key, b]));
   for (const bf of cfg.bossFlags.list) {
     const b = byKey.get(bf.key);
-    // Só serve de referência quem já tem resposta sim/não: os chefes provados
-    // por Memory. Os que dependem de flag (prólogo, Emma) ainda estão nulos
-    // aqui, e usá-los calibraria a base contra ela mesma.
+    // Referência: só chefes confirmados por Memory (os que dependem de flag
+    // ainda são null aqui).
     if (b && typeof b.defeated === 'boolean') expected[bf.flag] = b.defeated;
   }
 
   const cal = flags.calibrate(payload, cfg, expected);
   if (cal.how === 'failed') {
-    // Better to report nothing than to report a bit read from the wrong place.
+    // Unverified block: report nothing.
     return { list: [], calibration: cal };
   }
   const effective = Object.assign({}, cfg, { base: cal.base });
 
-  // Três situações. A maioria tem flag no bloco comum. O Shichimen do
-  // Abandoned Dungeon não tem, mas larga um item exclusivo. Dois não têm nem
-  // um nem outro: aí `detected` é false, e false não é a mesma coisa que vivo.
+  // Flag no bloco comum, item exclusivo (Shichimen do Abandoned Dungeon) ou
+  // nenhum dos dois (`detected: false`, estado desconhecido).
   const list = cfg.miniBosses.map((m) => {
     const base = { key: m.key, label: m.label, area: m.area, drop: m.drop || null, entity: m.entity };
     if (m.flag) {
@@ -152,11 +142,8 @@ function buildMiniBosses(payload, config, bosses, goods) {
 }
 
 /**
- * Headless.
- *
- * Nenhum deles tem flag legível: as recompensas moram em blocos de área. Mas
- * cada um larga um Spiritfall exclusivo e permanente, então o inventário serve
- * de prova — o mesmo truque da Serpent Viscera para a Great Serpent.
+ * Headless: sem flag legível; cada um larga um Spiritfall exclusivo e
+ * permanente, verificado no inventário.
  */
 function buildHeadless(config, goods) {
   const cfg = config.headless;
@@ -177,15 +164,7 @@ function buildHeadless(config, goods) {
 }
 
 /**
- * O Sino Demoníaco: afligido ou não.
- *
- * Tocar o sino põe o item "Bell Demon" no inventário e o deixa lá enquanto o
- * efeito durar; devolvê-lo num Ídolo tira o item. Então possuir é o estado, e
- * o estado é binário — que é exatamente o que um ícone pequeno consegue dizer
- * sem ficar poluído.
- *
- * É o mesmo raciocínio dos Headless e das Rot Essence: o jogo não expõe o
- * estado num campo, expõe o rastro no inventário.
+ * Sino Demoníaco: ativo enquanto o item "Bell Demon" estiver no inventário.
  */
 function buildDemonBell(config, goods) {
   const cfg = config.goods && config.goods.bellDemon;
@@ -199,19 +178,8 @@ function buildDemonBell(config, goods) {
 }
 
 /**
- * Dragonrot: quem adoeceu.
- *
- * Não há contador de podridão legível no save. O que há é consequência: cada
- * NPC adoecido larga uma Rot Essence exclusiva e permanente. Possuir qualquer
- * uma prova que a podridão se espalhou, e o conjunto diz exatamente quem.
- *
- * O que NÃO se sabe, e por isso não se afirma: se a Rot Essence some do
- * inventário quando a pessoa é curada. Nenhuma das fontes consultadas diz, e
- * as duas leituras mudam o sentido do número — "quem está doente agora" e
- * "quem já adoeceu algum dia" não são a mesma coisa. Então a página fala só o
- * que é verificável: quantas Rot Essence estão no inventário neste momento, e
- * de quem são. Se um dia a podridão aparecer neste save, a resposta cai
- * sozinha na observação e o texto pode ficar mais específico.
+ * Dragonrot: cada NPC adoecido larga uma Rot Essence exclusiva. Reporta as
+ * Rot Essence presentes no inventário e de quem são.
  */
 function buildDragonrot(config, goods) {
   const cfg = config.rotEssence;
@@ -227,14 +195,8 @@ function buildDragonrot(config, goods) {
 }
 
 /**
- * Sculptor's Idols.
- *
- * Cada área guarda suas flags num bloco próprio, e a base desses blocos ainda
- * não é conhecida — ao contrário do bloco comum, não dá para deduzir, porque
- * todos os ídolos ocupam as mesmas posições dentro do seu bloco e qualquer
- * base devolveria os mesmos bits. Enquanto a base for nula, devolvemos
- * `detected: false` em vez de dizer que o ídolo está apagado: não saber não é
- * a mesma coisa que não ter.
+ * Sculptor's Idols. As flags ficam em blocos por área, de base ainda
+ * desconhecida; sem base, devolve `detected: false`.
  */
 function buildIdols(payload, config) {
   const cfg = config.idols;
@@ -312,18 +274,15 @@ function buildEssentials(goods, config) {
       held,
       necklaces,
       beadsPerNecklace: prog.beadsPerNecklace,
-      // Beads already spent on necklaces are gone from the inventory, so the
-      // number actually collected is what is held plus what was converted.
+      // Collected = held + beads already converted into necklaces.
       collected: necklaces * prog.beadsPerNecklace + held,
       totalInGame: prog.totalPrayerBeads,
       totalNecklaces: prog.totalNecklaces,
       confidence: config.goods.prayerBead.confidence,
     },
     gourdSeeds: {
-      // Seeds are consumed when Emma upgrades the gourd, so `held` is only the
-      // ones not yet handed in — it is not a progress figure. The gourd's charge
-      // count is, and so are the nine pickup flags; `collected` is filled in by
-      // buildProgress from those flags.
+      // Seeds are consumed when handed to Emma; `collected` is filled in by
+      // buildProgress from the pickup flags.
       held: goods.get(seedId) || 0,
       charges: goods.get(config.goods.healingGourd.id) || 0,
       startingCharges: prog.startingGourdCharges,
@@ -339,8 +298,7 @@ function buildEssentials(goods, config) {
 function buildBosses(goods, config) {
   const { unusedBase, usedBase, list, confidence } = config.bossMemories;
   return list.map((b) => {
-    // Prólogo e Emma não deixam Memory. Ficam com `defeated: null` aqui e são
-    // resolvidos por flag depois da calibração, em resolveFlagOnlyBosses.
+    // Sem Memory (prólogo, Emma): resolvidos por flag em resolveFlagOnlyBosses.
     if (b.flagOnly) {
       return {
         key: b.key, label: b.label, area: b.area || null, drop: null,
@@ -369,14 +327,8 @@ function buildBosses(goods, config) {
 }
 
 /**
- * Itens cuja obtenção tem flag própria no bloco comum: as 40 Prayer Beads e as
- * 9 Gourd Seeds.
- *
- * Isto substitui uma conta indireta que existia antes. As contas eram deduzidas
- * da aritmética dos colares (colares × 4 + as soltas na bolsa), o que dava o
- * total certo mas não dizia quais; e as sementes eram lidas pela quantidade do
- * item, que zera assim que a semente é entregue à Emma — por isso apareciam
- * como 0/9 com o jogo quase terminado. A flag não some depois de usada.
+ * Itens com flag de obtenção no bloco comum: as 40 Prayer Beads e as 9 Gourd
+ * Seeds. A flag permanece depois que o item é usado.
  */
 function buildFlagItems(payload, cfg, calibration, itens) {
   if (!itens || !itens.list || !calibration || calibration.how === 'failed' ||
@@ -396,23 +348,14 @@ function buildFlagItems(payload, cfg, calibration, itens) {
 }
 
 /**
- * Contagem de mortes.
- *
- * Nenhuma fonte documenta um campo de mortes no save do Sekiro, então não há
- * offset para reaproveitar. Em vez de pedir ao usuário que conte as próprias
- * mortes, o módulo deaths.js observa cada gravação do save e deduz o offset das
- * restrições estruturais - ver o comentário de cabeçalho de lá. Aqui só juntamos
- * a observação com a leitura.
- *
- * `observar` é chamado antes de `paraProgresso` para que a gravação atual já
- * conte como evidência.
+ * Contagem de mortes. O offset no save é deduzido por deaths.js a partir das
+ * gravações observadas; `observar` roda antes de `paraProgresso` para que a
+ * gravação atual já conte.
  */
 function buildDeaths(payload, config, goods, weapons, slot, opts) {
   let estado = deaths.load();
-  // Só o processo residente observa, e isso não é detalhe: a busca compara o
-  // save com a leitura ANTERIOR do mesmo processo. Uma execução avulsa teria uma
-  // base velha, o intervalo poderia conter duas mortes, e a regra "sobe 0 ou 1"
-  // eliminaria justamente o contador verdadeiro. Quem só lê, só lê.
+  // Só o processo residente observa: a busca compara com a leitura anterior
+  // do mesmo processo.
   if (opts && opts.observe === true) {
     try {
       estado = deaths.observar({
@@ -420,42 +363,28 @@ function buildDeaths(payload, config, goods, weapons, slot, opts) {
         senOffset: config.deathCount && config.deathCount.senOffset,
       });
     } catch (e) {
-      // A busca é um extra: se ela falhar, o resto do progresso não pode cair.
+      // Falha na busca não afeta o resto do progresso.
       estado = deaths.load();
     }
   }
-  // A memória do jogo manda, quando está calibrada e o jogo aberto: o número
-  // é o do próprio jogo, exato e em tempo real. O save é reserva.
-  //
-  // O `catch` aqui é estreito de propósito. Antes ele envolvia também a
-  // construção do objeto, e `confidence: high` estava escrito sem aspas — um
-  // ReferenceError que o próprio catch engolia. O resultado era o pior tipo de
-  // defeito: a leitura da memória funcionava, devolvia o número certo, e a
-  // página mostrava a contagem do save como se a calibração nunca tivesse
-  // acontecido. Nada falhava; só estava errado. Agora só a chamada que pode
-  // legitimamente falhar — o jogo fechado — fica protegida.
+  // A memória do jogo tem prioridade quando calibrada e com o jogo aberto; o
+  // save é reserva. O try cobre só a leitura da memória.
   let m = null;
   try {
     m = deathsmem.contagem();
-    // Com o jogo fechado não há o que ler, mas a última leitura continua
-    // valendo: morte não desaparece porque o jogo saiu da memória. Sem isto a
-    // página caía para a estimativa do save e o número despencava de 221 para
-    // 6 toda vez que o Sekiro fechava.
+    // Com o jogo fechado, usa a última leitura da memória.
     if (!m) m = deathsmem.ultimaConhecida();
   } catch (e) { /* jogo fechado, ou ainda sem calibração */ }
   if (m) {
-    // `escopo` viaja junto porque muda o que o número significa. "jornada" é a
-    // contagem que o save carrega, desde que aquele arquivo começou; "sessao"
-    // é a reserva, e conta só desde que o jogo abriu. Publicar os dois casos
-    // com a mesma cara faria o segundo parecer o primeiro.
+    // `escopo`: "jornada" conta desde o início do save; "sessao" só desde que
+    // o jogo abriu.
     return {
       known: true,
       count: m.mortes,
       confidence: m.escopo === 'jornada' ? 'high' : 'likely',
       how: 'memoria',
       escopo: m.escopo || 'jornada',
-      // `false` quer dizer "é a última leitura, o jogo está fechado agora".
-      // O número continua certo; o que ele não é, é deste instante.
+      // `false`: última leitura, com o jogo fechado.
       aoVivo: m.aoVivo !== false,
       em: m.em,
     };
@@ -463,7 +392,7 @@ function buildDeaths(payload, config, goods, weapons, slot, opts) {
   return deaths.paraProgresso(estado);
 }
 
-/** Preenche os chefes sem Memory, agora que a base de flags está confirmada. */
+/** Preenche os chefes sem Memory, após a base de flags ser confirmada. */
 function resolveFlagOnlyBosses(bosses, payload, config, calibration) {
   if (!calibration || calibration.how === 'failed' || typeof calibration.base !== 'number') {
     return;
@@ -492,8 +421,7 @@ function buildProgress(options) {
     };
   }
 
-  // The watcher has usually just read and validated the file; reuse that
-  // rather than re-reading 11 MB and recomputing twelve digests.
+  // Reuse the save already read and validated by the watcher.
   const save = opts.save || sl2.readSave(file);
   const chosen = chooseSlot(save, config, state);
   if (!chosen.entry) {
@@ -520,21 +448,14 @@ function buildProgress(options) {
   const seedList = buildFlagItems(payload, config.eventFlags, mini.calibration, config.gourdSeedFlags);
 
   const essentials = buildEssentials(goods, config);
-  // As sementes entregues à Emma não estão mais na bolsa; as flags sabem.
+  // Sementes entregues à Emma são contadas pelas flags.
   if (seedList) essentials.gourdSeeds.collected = seedList.filter((s) => s.collected).length;
 
-  // Calculado aqui, e não lá embaixo no objeto, porque os efeitos precisam da
-  // contagem para saber quantas conquistas caíram nesta sessão. Ler o arquivo
-  // do Steam duas vezes por ciclo seria trabalho repetido para o mesmo número.
+  // Calculado antes do objeto porque os efeitos também usam a contagem.
   const conq = (() => {
     /*
-     * As conquistas vêm do save (conquistasave.js), e a Steam confere.
-     *
-     * Antes era o contrário: sem a Steam na máquina, o bloco inteiro sumia.
-     * A regra do projeto é que nada dependa dela, e as provas estão no save:
-     * flags de chefe e de final, e o inventário. A Steam, quando existe,
-     * acrescenta o que a conta tem de outros saves e marca onde os dois não
-     * concordam.
+     * Conquistas deduzidas do save (conquistasave.js). Quando a Steam existe,
+     * acrescenta as de outros saves e marca divergências.
      */
     let daSteam = null;
     try { daSteam = achievements.conquistas({ conta: tempo.contaDoSave(file) }); } catch (e) { daSteam = null; }
@@ -553,13 +474,8 @@ function buildProgress(options) {
     }
     if (!c || !Array.isArray(c.lista)) return c;
     /*
-     * Ícone e dificuldade entram por NOME, não por posição.
-     *
-     * A tabela vem da página pública de estatísticas do Steam, colhida uma vez
-     * por `npm run conquistas`. A primeira tentativa ligou os dois lados pela
-     * ordem — primeira linha da página com a primeira chave interna — e o
-     * acerto foi zero em 34: teria posto a arte de cada conquista na
-     * conquista errada, sem nada falhar.
+     * Ícone e dificuldade são associados por nome, não por posição. A tabela
+     * vem das estatísticas públicas da Steam (`npm run conquistas`).
      */
     let tabela = null;
     try { tabela = conquistas.carregar(); } catch (e) { tabela = null; }
@@ -570,15 +486,8 @@ function buildProgress(options) {
         ? { icone: t.icone, dificuldade: t.dificuldade, raridade: t.percent }
         : {};
       /*
-       * Toda conquista tem descrição, inclusive as 23 ocultas.
-       *
-       * O jogo esconde o texto delas até você desbloquear, e a Steam também —
-       * "hidden until unlocked" na tela não dizia nada a quem quer saber o que
-       * falta. A reserva vem da lista de troféus do PlayStation, que é o mesmo
-       * conjunto no mesmo jogo, e é copiada, não escrita por mim.
-       *
-       * `descricaoOculta` marca de onde veio, para a página poder dizer que
-       * aquilo não é o texto que o jogo mostraria.
+       * Conquistas ocultas usam a descrição do troféu equivalente do
+       * PlayStation; `descricaoOculta` marca essa origem.
        */
       if (!a.descricao) {
         const r = conquistas.descricaoDeReserva(a.nome);
@@ -588,15 +497,8 @@ function buildProgress(options) {
     });
 
     /*
-     * A mais rara de todas ganha a marca de shinobi.
-     *
-     * Calculada, e não escrita à mão: a porcentagem global muda com o tempo, e
-     * um nome fixo no código continuaria apontando para a conquista errada
-     * depois que outra a ultrapassasse. Hoje é a "Sekiro", que pede todas as
-     * outras — o que faz dela a marca certa por mérito, não por acaso.
-     *
-     * Empate não existe na prática (são porcentagens com uma casa), mas se
-     * houver, a primeira leva: duas marcas diluiriam o sentido de ter uma.
+     * A conquista de menor porcentagem global recebe a marca de shinobi.
+     * Em caso de empate, vale a primeira.
      */
     let maisRara = null;
     for (const a of lista) {
@@ -629,25 +531,14 @@ function buildProgress(options) {
     },
     essentials,
     deaths: buildDeaths(payload, config, goods, weapons, chosen.index, opts),
-    // Tempo de jogo vem do Steam, não do save: ver o cabeçalho de tempo.js.
     /*
-     * Tempo de jogo, em duas medidas que não são a mesma coisa.
-     *
-     * A Steam grava tempo de relógio, e só até o minuto — não existe segundo
-     * na fonte, então a página não pode mostrar um. O tempo interno do jogo
-     * vem da mesma struct que a contagem de mortes, em milissegundos, e esse
-     * tem segundo de verdade. São números diferentes de propósito: o relógio
-     * conta menu e carregamento, o interno não.
+     * Tempo de jogo em duas medidas: o relógio (Steam, em minutos, inclui
+     * menus e carregamentos) e o tempo interno do jogo, em milissegundos.
      */
     playtime: (() => {
       /*
-       * O tempo interno tem duas fontes, e a ordem entre elas importa.
-       *
-       * A memória é a mais fresca — vale o segundo em que se leu. Mas ela só
-       * existe com o jogo aberto, e o que fica guardado envelhece. O save é
-       * gravado a cada Ídolo, então atrasa um pouco, mas nunca fica parado
-       * enquanto a pessoa joga. Fica com o maior dos dois: tempo de jogo só
-       * anda para a frente, então o maior é o mais recente por definição.
+       * Tempo interno: memória ou save, o que for maior (o tempo de jogo
+       * só aumenta, então o maior é o mais recente).
        */
       let interno = null;
       try {
@@ -663,38 +554,19 @@ function buildProgress(options) {
       try { t = tempo.tempoDeJogo({ save: file, internoSegundos: interno }); } catch (e) { return null; }
       return t;
     })(),
-    /*
-     * De quem é este progresso.
-     *
-     * Sem Steam na máquina isto é null, e o cabeçalho perde a linha inteira em
-     * vez de mostrar um nome genérico — ver o comentário em jogador.js.
-     */
-    /*
-     * Quais jogos fazem a aplicacao acender sozinha.
-     *
-     * Vai para a pagina porque e la que se escolhe, e a escolha so vale na
-     * maquina que roda o servico -- pelo link publico a lista aparece como
-     * leitura, sem poder mudar nada, porque la nao ha servidor para escrever.
-     */
+    // Jogos que acendem a aplicação ao abrir; a escolha é feita na página.
     jogosVigiados: (() => {
       try { return jogosCat.paraProgresso(); } catch (e) { return null; }
     })(),
+    // Nome do jogador; null sem Steam (ver jogador.js).
     jogador: (() => {
       try { return jogador.quem({ save: file }); } catch (e) { return null; }
     })(),
-    // Conquistas do Steam, lidas do cache local: sem chave de API, sem depender
-    // de o perfil ser público.
+    // Conquistas do Steam, lidas do cache local (sem chave de API).
     achievements: conq,
     /*
-     * Efeitos temporários, acionados pelo que aconteceu na sessão.
-     *
-     * Sessão é o intervalo entre abrir e fechar o jogo, e a identidade vem do
-     * pid — ele muda a cada abertura, e não depende de gravar marco de tempo
-     * nenhum. Só o processo residente aciona: uma execução avulsa veria a
-     * mesma contagem de novo e acenderia um efeito que já tinha vencido.
-     *
-     * O que sai daqui é o tempo QUE FALTA, nunca a hora em que começou —
-     * hora diria quando a pessoa jogou, que é o que o site não mostra.
+     * Efeitos temporários da sessão (identificada pelo pid do jogo). Só o
+     * processo residente aciona. Publica o tempo restante, não o horário.
      */
     efeitos: (() => {
       try {
@@ -710,8 +582,7 @@ function buildProgress(options) {
     })(),
     bossKills: (() => {
       try {
-        // Só o processo residente acumula: uma execução avulsa veria a mesma
-        // transição de novo e contaria uma morte que não houve.
+        // Só o processo residente acumula, para não contar a mesma transição duas vezes.
         const st = (opts && opts.observe === true) ? bosskills.atualizar(bosses) : bosskills.carregar();
         return bosskills.paraProgresso(bosses, st);
       } catch (e) { return null; }
@@ -736,16 +607,8 @@ function buildProgress(options) {
 }
 
 /**
- * Uma leitura que falhou não pode apagar o progresso já conhecido.
- *
- * O save pode ficar indisponível por motivos banais e temporários - Steam
- * Cloud mexendo no arquivo, o serviço subindo antes do perfil estar pronto,
- * uma leitura partida que esgotou as tentativas. Sobrescrever o progress.json
- * com um objeto de erro nesses casos apagaria tudo que já tínhamos, e como a
- * página não tem entrada manual, o usuário ficaria sem nada.
- *
- * Então, quando a leitura falha e existe um resultado bom no disco, mantemos o
- * bom e apenas marcamos que está velho.
+ * Se a leitura falha e já existe um resultado bom no disco, mantém o resultado
+ * bom e o marca como desatualizado (falhas do save costumam ser temporárias).
  */
 function preserveGood(outFile, progress) {
   if (progress.ok) return progress;
@@ -796,10 +659,7 @@ function contadores(p) {
   return out;
 }
 
-/**
- * O que mudou entre duas leituras boas. Serve para a página conseguir dizer
- * "isto aqui é novo desde a última vez que você olhou".
- */
+/** Diferenças entre duas leituras boas, para destacar novidades na página. */
 function diffProgress(antes, depois) {
   if (!antes || !antes.ok || !depois || !depois.ok) return [];
   const quando = depois.generatedAt;
@@ -852,8 +712,7 @@ function finalizeProgress(outFile, progress) {
   const final = preserveGood(outFile, progress);
   const historico = (anterior && anterior.history) || [];
 
-  // Só compara leitura boa com leitura boa; um preserveGood devolve o anterior
-  // inteiro, e aí não há mudança real a registrar.
+  // Só compara leituras boas; resultado preservado não gera histórico.
   const novas = final.stale ? [] : diffProgress(anterior, final);
   final.history = historico.concat(novas).slice(-HISTORY_MAX);
   return final;

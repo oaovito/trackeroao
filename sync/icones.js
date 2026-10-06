@@ -2,19 +2,10 @@
 /*
  * icones.js - baixa as artes de chefe do wiki para site/icones/<key>.png.
  *
- * A página usa a imagem quando ela existe e cai no emblema em kanji quando não
- * existe. Então este passo é opcional: apagar a pasta devolve o kanji, sem
- * mexer em mais nada.
+ * Opcional: sem a imagem, a página usa o emblema em kanji. As artes são da
+ * FromSoftware; para não publicá-las, adicione `icones/` ao .gitignore de site/.
  *
- * Aviso que fica registrado no próprio arquivo, porque some de uma conversa e
- * não some daqui: as artes são da FromSoftware, hospedadas pelo wiki. Usá-las
- * numa página pessoal é uma coisa; publicá-las num repositório público é
- * redistribuição, e o repositório é do usuário. Ele foi avisado e decidiu
- * seguir. Para tirar do que vai ao ar sem perder no local, basta pôr
- * `icones/` no .gitignore de site/.
- *
- * Alguns chefes compartilham arte de propósito: o Genichiro do prólogo, o da
- * torre e o Inner são o mesmo personagem, e o wiki tem uma imagem só.
+ * Variantes do mesmo personagem (Genichiro, Inner Genichiro) usam a mesma arte.
  */
 
 const fs = require('fs');
@@ -43,23 +34,12 @@ const MAPA = {
   innerGenichiro: '9/97/Genichiro-ashina-sekiro-shadows-die-twice-wiki-guide.png',
   innerFather: 'c/c6/Owl-father-boss-sekiro-wiki-guide-300px.png',
   innerIsshin: '2/2d/Isshin-sword-saint-boss-sekiro-wiki-guide-300px.png',
-  // A arte dela não está na página de chefes: é a de personagem, retrato de
-  // corpo inteiro. Por isso ela tem `enquadre` no config — sem aproximar, o
-  // recorte quadrado pegaria o tronco em vez do rosto.
+  // Retrato de corpo inteiro: `enquadre` no config centraliza o rosto.
   emma: '2/2b/Emma-min.png',
 
   /*
-   * Headless.
-   *
-   * O wiki não tem página por Headless: eles são um inimigo só, com duas
-   * formas — o de terra e o de água. Então a arte se repete de propósito,
-   * como já acontece com o Genichiro, e o que muda é a forma certa para cada
-   * lugar: os dois que se enfrentam submerso levam a foto submersa.
-   *
-   * São capturas da galeria e não retrato de página, porque retrato de página
-   * não existe para eles. O enquadramento sobe no JSON, senão o corte
-   * quadrado pega a barriga e deixa a cabeça (que é o traço do bicho: não ter
-   * uma) fora do quadro.
+   * Headless: duas artes da galeria do wiki (terrestre e submersa), com
+   * enquadramento ajustado no JSON.
    */
   headlessOutskirts: 'c/cd/Headless-gallery-1-sekiro-wiki-guide-300px.png',
   headlessDepths: 'c/cd/Headless-gallery-1-sekiro-wiki-guide-300px.png',
@@ -80,8 +60,7 @@ function baixar(url, alvo) {
       res.on('data', (c) => pedacos.push(c));
       res.on('end', () => {
         const buf = Buffer.concat(pedacos);
-        // Um HTML de erro devolvido com 200 não é imagem. O cabeçalho PNG é o
-        // que separa os dois, e gravar lixo daria um ícone quebrado na página.
+        // Rejeita respostas que não sejam PNG (ex.: página de erro com 200).
         const ehPng = buf.length > 8 && buf[0] === 0x89 && buf[1] === 0x50;
         if (!ehPng) return resolve({ ok: false, status: 'não é PNG' });
         fs.writeFileSync(alvo, buf);

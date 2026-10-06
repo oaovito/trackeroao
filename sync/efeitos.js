@@ -1,22 +1,12 @@
 'use strict';
 /*
- * efeitos.js - efeitos temporários que reagem ao que aconteceu na sessão.
+ * efeitos.js - efeitos temporários acionados por eventos da sessão.
  *
- * Dois pedidos chegaram com a mesma forma: fogo no anel por 6 horas depois de
- * duas conquistas na mesma sessão, e podridão no bloco de mortes por 6 horas
- * depois de cinco mortes na mesma sessão. Em vez de dois mecanismos parecidos
- * vivendo em lugares diferentes, é um só aqui, com os gatilhos declarados numa
- * tabela — um terceiro efeito no futuro é uma linha, não um módulo.
+ * Gatilhos declarados em tabela: fogo no anel por 6 h após duas conquistas
+ * na sessão; podridão no bloco de mortes por 6 h após cinco mortes.
  *
- * O que é uma "sessão": uma execução do jogo. A identidade vem do pid, porque
- * ele muda a cada abertura e não depende de gravar nada. Fechou o jogo, a
- * contagem da sessão volta a zero na próxima; o efeito já acionado, não — ele
- * corre pelo relógio até vencer, e é isso que o pedido quer dizer com "por 6
- * horas depois".
- *
- * O que é publicado é o tempo QUE FALTA, nunca a hora em que começou. A hora
- * diria quando a pessoa estava jogando, que é justamente o que o site público
- * não mostra. Segundos restantes dizem só que o efeito está aceso.
+ * A sessão é identificada pelo pid do jogo. Um efeito aceso continua até
+ * vencer, mesmo com o jogo fechado. Publica-se o tempo restante, não o horário.
  */
 
 const fs = require('fs');
@@ -26,21 +16,17 @@ const ESTADO = path.join(__dirname, '..', 'efeitos.json');
 const SEIS_HORAS = 6 * 60 * 60 * 1000;
 
 /**
- * Os efeitos, declarados.
- *
- * `medir` recebe o que se sabe agora e devolve quanto o gatilho já acumulou
- * NESTA sessão. `limiar` é onde acende. `duracao` é quanto tempo fica aceso
- * depois de acender, contado do momento em que o limiar foi cruzado.
+ * `medir` devolve o acumulado na sessão atual; `limiar` é onde acende;
+ * `duracao` conta a partir do cruzamento do limiar.
  */
 const EFEITOS = {
-  // Cinco mortes numa sessão é o que o jogo chama de "você está espalhando
-  // podridão": no Sekiro, morrer demais contamina os NPCs com 竜咳.
+  // Cinco mortes na sessão: podridão (竜咳).
   podridao: {
     limiar: 5,
     duracao: SEIS_HORAS,
     medir: (agora) => (typeof agora.mortesNaSessao === 'number' ? agora.mortesNaSessao : null),
   },
-  // Duas conquistas na mesma sessão: a sessão rendeu, e o anel pega fogo.
+  // Duas conquistas na sessão: fogo no anel.
   fogo: {
     limiar: 2,
     duracao: SEIS_HORAS,
@@ -63,17 +49,14 @@ function gravar(e) {
 }
 
 /**
- * Atualiza o estado com o que se sabe agora e devolve o que está aceso.
- *
- * `agora` traz `{ pid, mortesNaSessao, conquistas }`. `pid` nulo significa jogo
- * fechado: nada acende, mas o que já estava aceso continua correndo.
+ * Atualiza o estado e devolve os efeitos acesos. `agora` traz
+ * `{ pid, mortesNaSessao, conquistas }`; `pid` nulo = jogo fechado.
  */
 function atualizar(agora, quando) {
   const t = quando || Date.now();
   const e = carregar() || { sessao: null, inicio: {}, ate: {} };
 
-  // Sessão nova: o ponto de partida das medidas é o estado deste instante.
-  // Sem isso, abrir o jogo com 19 conquistas contaria as 19 como ganhas agora.
+  // Sessão nova: as medidas partem do estado atual.
   if (agora.pid && e.sessao !== agora.pid) {
     e.sessao = agora.pid;
     e.inicio = { conquistas: agora.conquistas, em: new Date(t).toISOString() };
@@ -84,12 +67,10 @@ function atualizar(agora, quando) {
   for (const [nome, cfg] of Object.entries(EFEITOS)) {
     const ate = e.ate[nome] ? new Date(e.ate[nome]).getTime() : 0;
 
-    // Acende só com o jogo aberto, porque só aí existe sessão para medir.
+    // Só acende com o jogo aberto.
     if (agora.pid) {
       const quanto = cfg.medir(agora, e.inicio || {});
-      // Re-acender com o efeito já aceso estende a janela, e isso é de
-      // propósito: morrer mais cinco vezes renova as seis horas em vez de
-      // deixar a podridão vencer no meio de uma sessão ruim.
+      // Novo acionamento renova a duração.
       if (typeof quanto === 'number' && quanto >= cfg.limiar) {
         e.ate[nome] = new Date(t + cfg.duracao).toISOString();
       }

@@ -1,10 +1,7 @@
 'use strict';
 /*
- * serve.js - tiny static file server for the tracker page.
- *
- * Binds 0.0.0.0 so a phone on the same Wi-Fi can open it, prints the LAN URL,
- * and draws a QR code in the terminal so the address does not have to be typed
- * by hand.
+ * serve.js - small static file server for the tracker page, plus the local
+ * control routes. Binds 0.0.0.0 so phones on the same network can reach it.
  */
 
 const http = require('http');
@@ -28,13 +25,8 @@ const MIME = {
 };
 
 /**
- * Endereços IPv4 pelos quais outra máquina da rede consegue nos alcançar.
- *
- * Exclui 169.254.0.0/16 (APIPA): o Windows dá esse endereço a todo adaptador
- * sem DHCP - Bluetooth, Ethernet desconectada, adaptadores virtuais de Wi-Fi
- * Direct. Um PC comum tem vários. Eles nunca servem para chegar aqui, e na
- * janela entre o logon e o Wi-Fi associar são os ÚNICOS que existem, então sem
- * este filtro o serviço anunciaria e gravaria um QR com um endereço morto.
+ * Endereços IPv4 alcançáveis pela rede local. Exclui 169.254.0.0/16 (APIPA),
+ * atribuído pelo Windows a adaptadores sem DHCP.
  */
 function isApipa(ip) {
   return ip.startsWith('169.254.');
@@ -76,20 +68,15 @@ function safeJoin(root, urlPath) {
 function createServer(options) {
   const root = options.root;
   const indexFile = options.indexFile || 'trackeroao.html';
-  // Chamado quando alguem desta maquina abre a aplicacao pelo atalho. Fica
-  // como parametro para o serve.js continuar sendo so um servidor de
-  // arquivos: quem sabe o que "abrir" significa e o processo residente.
+  // Callback da rota /abrir, definido pelo processo residente.
   const aoAbrir = typeof options.aoAbrir === 'function' ? options.aoAbrir : null;
   const aoVarrer = typeof options.aoVarrer === 'function' ? options.aoVarrer : null;
   const aoAtualizar = typeof options.aoAtualizar === 'function' ? options.aoAtualizar : null;
   const aoEncerrar = typeof options.aoEncerrar === 'function' ? options.aoEncerrar : null;
 
   /*
-   * A versao da pagina servida, pelo tamanho e pela data do arquivo. Vai num
-   * cabecalho de cada resposta .json que a pagina pede a cada poucos
-   * segundos: quando a atualizacao troca o arquivo, a pagina ja aberta (na
-   * janela, mesmo escondida na bandeja, ou no celular) ve a mudanca e se
-   * recarrega sozinha, em vez de ficar no codigo antigo ate alguem fechar.
+   * Versão da página (tamanho + data do arquivo), enviada no cabeçalho das
+   * respostas .json para a página aberta se recarregar após uma atualização.
    */
   const versaoDaPagina = () => {
     try {
@@ -99,33 +86,11 @@ function createServer(options) {
   };
 
   return http.createServer((req, res) => {
-    // Tirar a query ANTES de decidir se é a raiz: com "/?algo" a comparação
-    // com "/" falhava e a página virava 404.
+    // Remove a query antes de comparar o caminho.
     let urlPath = (req.url || '/').split('?')[0];
 
-    /*
-     * A escolha de quais jogos vigiar é a única coisa que a página escreve.
-     *
-     * O projeto inteiro é somente leitura, e esta é a exceção declarada: não é
-     * progresso, é preferência de quem instalou — e o pedido é que ela seja
-     * feita dentro da aplicação, não editando arquivo.
-     *
-     * Só aceita de quem está NESTA máquina. O servidor responde para a rede
-     * local inteira, e o celular na mesma casa não tem por que reconfigurar o
-     * PC de alguém. Ler a página, sim; mudar como ela se comporta, não. Quem
-     * chega pelo GitHub Pages nem alcança daqui, porque lá não há servidor.
-     */
-    /*
-     * O atalho da area de trabalho bate aqui antes de abrir o navegador.
-     *
-     * E o que faz a aplicacao "abrir" no sentido do pedido: a chama acende na
-     * bandeja. Sem esta rota o atalho abriria so uma aba, e a bandeja ficaria
-     * sendo sinal exclusivo do jogo -- mas o pedido diz que pelo atalho ela
-     * abre livremente tambem.
-     *
-     * So de quem esta nesta maquina, pela mesma razao da rota de selecao: o
-     * celular le a pagina, nao comanda o computador.
-     */
+    // Chamado pelo atalho da área de trabalho: acende o ícone da bandeja.
+    // Rotas de controle só aceitam requisições da própria máquina.
     if (urlPath === '/abrir') {
       const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
       if (!daMaquina) { res.writeHead(403).end('forbidden'); return; }
@@ -134,8 +99,7 @@ function createServer(options) {
       return;
     }
 
-    // "Procurar de novo" na tela de jogos: marca a varredura para a próxima
-    // folga entre rodadas, sem rodar nada aqui dentro. Só da própria máquina.
+    // Agenda uma nova varredura de jogos para a próxima volta do ciclo.
     if (urlPath === '/varrer') {
       const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
       if (!daMaquina || req.method !== 'POST') { res.writeHead(403).end('forbidden'); return; }
@@ -144,18 +108,7 @@ function createServer(options) {
       return;
     }
 
-    /*
-     * O idioma escolhido no globo da página. Guardado aqui, e não só no
-     * navegador, para a bandeja e a janela do Windows falarem a mesma língua.
-     * Vazio (null) volta a seguir o idioma do sistema. GET vale de qualquer
-     * lugar; mudar, só da própria máquina.
-     */
-    /*
-     * A lista de jogos, por conta propria. Ela tambem vai dentro do
-     * progress.json, mas so quando ha save lido: sem save do Sekiro na
-     * maquina, a tela inicial ficaria sem jogos e a janela abriria direto
-     * numa pagina vazia do Sekiro.
-     */
+    // Lista de jogos, disponível mesmo sem save lido.
     if (urlPath === '/jogos.json') {
       let corpo = null;
       try { corpo = require('./jogos').paraProgresso(); } catch (e) { corpo = null; }
@@ -164,10 +117,7 @@ function createServer(options) {
       return;
     }
 
-    /*
-     * O logotipo transparente de um jogo, para o menu da bandeja. Só da
-     * própria máquina, e só de jogo da lista.
-     */
+    // Logotipo transparente de um jogo da lista, para o menu da bandeja.
     if (urlPath === '/logo-bandeja') {
       const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
       if (!daMaquina) { res.writeHead(403).end('forbidden'); return; }
@@ -182,7 +132,7 @@ function createServer(options) {
       return;
     }
 
-    // A busca de jogos pelo nome, em tudo o que o aplicativo conhece.
+    // Busca de jogos pelo nome.
     if (urlPath === '/buscar.json') {
       let achados = [];
       try {
@@ -195,10 +145,9 @@ function createServer(options) {
     }
 
     /*
-     * Os jogos do topo do menu da bandeja: os instalados ou vigiados, do
-     * jogado por ultimo ao mais antigo, cinco no maximo. Uma linha por jogo,
-     * "chave<TAB>nome<TAB>1 se tem pagina de progresso<TAB>executavel", para o icone ler sem
-     * precisar de biblioteca de JSON. So da propria maquina.
+     * Até cinco jogos (instalados ou vigiados) para o menu da bandeja, do mais
+     * recente ao mais antigo. Formato texto, uma linha por jogo:
+     * "chave<TAB>nome<TAB>1 se tem pagina de progresso<TAB>executavel".
      */
     if (urlPath === '/bandeja.txt') {
       const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
@@ -211,7 +160,7 @@ function createServer(options) {
         .sort((a, b) => ordem(a) - ordem(b) || String(a.nome).localeCompare(String(b.nome)))
         .slice(0, 5)
         .map((g) => {
-          // A quarta coluna é o executável do jogo, de onde a bandeja tira o ícone oficial.
+          // Executável do jogo, de onde a bandeja extrai o ícone.
           let exe = '';
           try { exe = require('./biblioteca').executavelDoJogo(g) || ''; } catch (e) { exe = ''; }
           return [g.chave, g.nome, g.leitura === 'completa' ? '1' : '0', exe].map((v) => String(v).replace(/[\t\r\n]/g, ' ')).join('\t');
@@ -221,7 +170,7 @@ function createServer(options) {
       return;
     }
 
-    // O IP desta maquina na rede de casa, para o passo a passo do celular.
+    // IP desta máquina na rede local, para o passo a passo do celular.
     if (urlPath === '/rede') {
       const addrs = localAddresses();
       const corpo = { ip: addrs.length ? addrs[0].address : null, porta: req.socket.localPort || null };
@@ -230,11 +179,7 @@ function createServer(options) {
       return;
     }
 
-    /*
-     * O código QR do celular, montado na hora com o endereço desta máquina na
-     * rede em que ela está agora. Só para a própria máquina: é ela que mostra
-     * o código ao celular.
-     */
+    // Código QR com o endereço atual desta máquina na rede local.
     if (urlPath === '/qr.svg') {
       const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
       if (!daMaquina) { res.writeHead(403).end('forbidden'); return; }
@@ -242,14 +187,14 @@ function createServer(options) {
       const host = addrs.length ? addrs[0].address : 'trackeroao.local';
       const base = 'http://' + host + ':' + (req.socket.localPort || 8777);
       const para = new URL(req.url, 'http://x').searchParams.get('para');
-      // O iPhone vai para o passo a passo do aplicativo pelo SideStore (/ios).
-      const alvo = para === 'android' ? base + '/android.apk' : base + '/ios';
+      // iPhone: passo a passo de instalação pelo SideStore (/ios).
+      const alvo = para === 'android' ? base + '/android.apk' : para === 'web' ? base + '/' : base + '/ios';
       res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'no-store' });
       res.end(require('./qr').svg(alvo));
       return;
     }
 
-    // O passo a passo do aplicativo de iOS, que o código QR do iPhone abre.
+    // Passo a passo do aplicativo de iOS.
     if (urlPath === '/ios') {
       fs.readFile(path.join(__dirname, 'ios.html'), (err, corpo) => {
         if (err) { res.writeHead(404).end('404'); return; }
@@ -259,6 +204,8 @@ function createServer(options) {
       return;
     }
 
+    // Idioma escolhido na página, compartilhado com a bandeja e a janela.
+    // null segue o idioma do sistema. Gravar só da própria máquina.
     if (urlPath === '/idioma') {
       const idioma = require('./idioma');
       if (req.method === 'GET') {
@@ -280,16 +227,12 @@ function createServer(options) {
       return;
     }
 
-    // "Forçar atualização", no menu da bandeja: confere a release agora, sem
-    // esperar a próxima rodada. Só da própria máquina.
+    // "Forçar atualização" do menu da bandeja: verifica a release na próxima volta.
     if (urlPath === '/atualizar') {
       const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
       if (!daMaquina || req.method !== 'POST') { res.writeHead(403).end('forbidden'); return; }
-      /*
-       * Responde o que achou: já na última versão ({atual: true}), ou com a
-       * versão nova a caminho ({atual: false}), que o serviço aplica na
-       * próxima folga e se reinicia. A bandeja só avisa no primeiro caso.
-       */
+      // {atual: true} se já está na última versão; {atual: false} se há
+      // versão nova, aplicada na próxima volta.
       require('./atualizar').situacao().then((s) => {
         if (!s.atual && aoAtualizar) { try { aoAtualizar(); } catch (e) { /* não derruba o servidor */ } }
         res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(s));
@@ -299,8 +242,7 @@ function createServer(options) {
       return;
     }
 
-    // "Fechar", no menu da bandeja: encerra o serviço de verdade, e ele não
-    // volta sozinho (nem no logon) até a pessoa abrir o Trackeroao à mão.
+    // "Fechar" do menu da bandeja: encerra o serviço até a próxima abertura manual.
     if (urlPath === '/encerrar') {
       const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
       if (!daMaquina || req.method !== 'POST') { res.writeHead(403).end('forbidden'); return; }
@@ -309,7 +251,7 @@ function createServer(options) {
       return;
     }
 
-    // O nome do cabeçalho, escolhido na página: o caminho sem Steam.
+    // Nome exibido no cabeçalho, definido na página (alternativa à Steam).
     if (urlPath === '/jogador') {
       const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
       if (!daMaquina || req.method !== 'POST') { res.writeHead(403).end('forbidden'); return; }
@@ -327,6 +269,8 @@ function createServer(options) {
       return;
     }
 
+    // Seleção de jogos vigiados: única preferência gravada pela página, e só
+    // aceita da própria máquina.
     if (urlPath === '/selecao') {
       const daMaquina = /^(::1|::ffff:127\.|127\.)/.test(req.socket.remoteAddress || '');
       if (!daMaquina) {
@@ -344,8 +288,7 @@ function createServer(options) {
         let corpo = '';
         req.on('data', (c) => {
           corpo += c;
-          // Um corpo grande aqui só pode ser engano ou abuso: a lista tem o
-          // tamanho do catálogo, que cabe em algumas centenas de bytes.
+          // Limita o tamanho do corpo.
           if (corpo.length > 65536) { req.destroy(); }
         });
         req.on('end', () => {
@@ -367,10 +310,8 @@ function createServer(options) {
     if (urlPath === '/' || urlPath === '') urlPath = '/' + indexFile;
 
     /*
-     * O aplicativo de Android. Ele chega dentro do instalador, em
-     * <instalacao>/app, e o celular o baixa daqui, pela rede de casa: sem loja
-     * e sem link na internet. O resto de app/ (a janela do Windows) nao e
-     * servido; os icones da pagina em app/ continuam vindo de docs/app.
+     * APK do Android, instalado em <instalacao>/app e baixado pelo celular
+     * pela rede local. O restante de app/ não é servido.
      */
     if (urlPath === '/android.apk') urlPath = '/app/trackeroao.apk';
 
@@ -380,12 +321,8 @@ function createServer(options) {
       return;
     }
 
-    // As artes dos chefes moram em site/icones/, que é a raiz do que vai para
-    // o Pages. A página pede "icones/<chave>.png" relativo a si mesma, e aqui
-    // ela é servida da raiz do projeto — então, sem esta ponte, na rede local
-    // todo chefe caía no kanji de reserva enquanto no site público aparecia a
-    // ilustração. Duas páginas iguais mostrando coisas diferentes.
-    // O mesmo vale para o que faz a página virar aplicativo no celular.
+    // Caminhos relativos da página (icones/, arquivos do app) são servidos a
+    // partir de docs/, pois aqui a página vem da raiz do projeto.
     const daJanela = /^\/app\//.test(urlPath) && urlPath !== '/app/trackeroao.apk';
     if (/^\/(icones\/|app\/|sw\.js$|manifest\.webmanifest$)/.test(urlPath) && (daJanela || !fs.existsSync(file))) {
       const noSite = safeJoin(path.join(root, 'docs'), urlPath);
@@ -395,8 +332,7 @@ function createServer(options) {
 
     fs.stat(file, (err, st) => {
       if (err || !st.isFile()) {
-        // progress.json simply may not exist yet; say so in a way the page
-        // can handle rather than looking like a server error.
+        // progress.json may not exist yet; answer in a form the page handles.
         if (path.basename(file) === 'progress.json') {
           res.writeHead(404, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
           res.end(JSON.stringify({ ok: false, error: 'not-generated-yet' }));
@@ -418,16 +354,8 @@ function createServer(options) {
 }
 
 /**
- * Start listening on every interface and print how to reach it.
- * Resolves with { server, port, urls }.
- */
-/**
- * Sobe uma escuta extra numa porta, sem deixar a falha derrubar nada.
- *
- * Serve para a porta 80: com ela o link fica sem `:8777`, que é a diferença
- * entre um endereço que dá para ditar e um que não dá. Mas 80 é porta
- * concorrida - IIS, Docker, outro servidor - e não ter conseguido não é
- * problema nenhum, porque a porta principal continua valendo.
+ * Escuta extra numa porta (usada para a 80). Falha não é erro: resolve com
+ * { ok: false } e a porta principal continua valendo.
  */
 function listenExtra(options) {
   const server = createServer({ root: options.root, indexFile: options.indexFile, aoAbrir: options.aoAbrir, aoVarrer: options.aoVarrer, aoAtualizar: options.aoAtualizar, aoEncerrar: options.aoEncerrar });
@@ -442,15 +370,17 @@ function listenExtra(options) {
   });
 }
 
+/**
+ * Start listening on every interface and print how to reach it.
+ * Resolves with { server, port, urls }.
+ */
 function start(options) {
   const root = options.root;
   const port = options.port || 8777;
   const indexFile = options.indexFile || 'trackeroao.html';
   const server = createServer({ root, indexFile, aoAbrir: options.aoAbrir, aoVarrer: options.aoVarrer, aoAtualizar: options.aoAtualizar, aoEncerrar: options.aoEncerrar });
 
-  // Rodando como serviço, o processo sobe antes do Wi-Fi associar: não existe
-  // IP de LAN ainda, e anunciar isso como "sem rede" seria mentira. Nesse caso
-  // quem chama assume o anúncio, quando o endereço aparecer.
+  // Sem IP de LAN ainda: o anúncio fica a cargo de quem chama.
   const quiet = options.quiet === true;
 
   return new Promise((resolve, reject) => {
@@ -494,15 +424,7 @@ function start(options) {
   });
 }
 
-/**
- * O endereço desta máquina na rede local, ou null enquanto não houver IP.
- *
- * Morava no gerador de QR, que saiu do projeto: a página é acessada pelo link
- * público, e um QR que ninguém aponta a câmera para é 536 linhas de código
- * para manter à toa. A função em si continua útil — o serviço avisa no log
- * quando o IP muda — então desceu para cá, que é onde o servidor já sabe
- * quais são os endereços.
- */
+/** Endereço desta máquina na rede local, ou null enquanto não houver IP. */
 function lanUrl(porta, indice) {
   const addrs = localAddresses();
   if (!addrs.length) return null;

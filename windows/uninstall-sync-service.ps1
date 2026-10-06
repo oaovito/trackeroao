@@ -2,9 +2,7 @@
 Remove a tarefa agendada do sincronizador e encerra qualquer instancia em
 execucao. Nao apaga progress.json nem o offsets.json.
 
-Sao dois nomes porque o projeto mudou de nome: uma maquina onde o servico foi
-instalado antes disso ainda tem a tarefa registrada como 'SekiroProgressSync'.
-Remover so o nome novo deixaria a antiga de pe, voltando no proximo logon.
+Remove tambem a tarefa com o nome legado 'SekiroProgressSync'.
 #>
 
 $taskNames = @('TrackeroaoSync', 'SekiroProgressSync')

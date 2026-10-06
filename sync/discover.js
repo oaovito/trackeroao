@@ -1,19 +1,13 @@
 'use strict';
 /*
- * discover.js - find out what a save byte means, by changing one thing in
- * game and diffing before/after.
+ * discover.js - maps save bytes by diffing snapshots taken before and after
+ * a change in game.
  *
- * Two levels, because they answer different questions:
+ *   Semantic diff (items)  - which item id changed quantity, e.g.
+ *     "goods 6000: 4 -> 5". Used for beads, seeds and materials.
  *
- *   Semantic diff (items)  - "which item id changed quantity?". This is the
- *     one to use for beads, seeds and prosthetic materials. It reads the item
- *     table we already understand, so the answer is a clean one-liner like
- *     "goods 6000: 4 -> 5" instead of a wall of byte offsets.
- *
- *   Raw byte diff (flags)  - "which byte changed?". This is for the things we
- *     do NOT understand yet, mainly event flags for mini-bosses and idols.
- *     Boss defeats are usually a single bit flipping somewhere in a bitfield,
- *     so single-bit changes are listed first.
+ *   Raw byte diff (flags)  - which bytes changed; used for event flags.
+ *     Single-bit changes are listed first.
  *
  * Usage:
  *     node discover.js before          # snapshot, then go do the thing
@@ -78,7 +72,7 @@ function loadSnapshot(name) {
   };
 }
 
-/** id -> friendly label, built from everything we have already named. */
+/** id -> friendly label, from the known names. */
 function labelIndex(config) {
   const map = new Map();
   map.set(config.goods.prayerBead.id, 'Prayer Bead');
@@ -249,14 +243,10 @@ function printDiff(aName, bName) {
 
 
 /**
- * Calibra a base do bloco de flags de uma área a partir de um Ídolo novo.
- *
- * Descansar num Ídolo inédito liga exatamente uma flag. Como sabemos a
- * posição relativa dessa flag dentro do bloco (zona, word, bit), o offset em
- * que o bit acendeu revela a base do bloco:
+ * Calibra a base do bloco de flags de uma área a partir de um Ídolo novo,
+ * que liga exatamente uma flag de posição conhecida (zona, word, bit):
  *     base = offset - zona*128 - word*4
- * Só aceitamos quando um único bit acendeu e ele casa com exatamente um
- * ídolo ainda não calibrado - do contrário não dá para saber qual foi.
+ * Só aceita quando um único bit ligou e casa com um único ídolo não calibrado.
  */
 function calibrarIdolo(aName, bName) {
   const config = parse.loadConfig();
@@ -272,7 +262,7 @@ function calibrarIdolo(aName, bName) {
   for (const r of runs) {
     if (!r.singleBit) continue;
     const by = r.bytes[0];
-    if (by.after <= by.before) continue; // so nos interessa bit que LIGOU
+    if (by.after <= by.before) continue; // só bits que ligaram
     acesos.push({ offset: r.start, bit: Math.log2(by.after ^ by.before) | 0 });
   }
 
@@ -283,7 +273,7 @@ function calibrarIdolo(aName, bName) {
     return;
   }
 
-  // Um bit dentro de uma word de 32 bits: o offset do byte nos da a word.
+  // Word de 32 bits que contém o byte.
   const candidatos = [];
   for (const ac of acesos) {
     const wordOff = ac.offset - (ac.offset % 4);
@@ -327,20 +317,9 @@ function calibrarIdolo(aName, bName) {
 }
 // ----------------------------------------------------------------------- CLI
 /**
- * Procura a contagem de mortes no bloco de stats do jogador.
- *
- * Sekiro não mostra mortes em lugar nenhum, e a comunidade que mapeou este
- * bloco (SteamID, HP, Guard, Attack Power, Sen, Emblems) nunca documentou um
- * contador — é por isso que as ferramentas de contagem existentes leem a tela
- * ou a memória do processo em vez do save. Então aqui não há offset para
- * reaproveitar: só dá para achar por diferença.
- *
- * O método: dois snapshots com um número conhecido de mortes entre eles. Um
- * offset só é candidato se subiu exatamente esse número. Rodar duas vezes com
- * números diferentes de mortes elimina quase tudo, porque um contador de saves
- * ou de inimigos mortos não sobe pelo mesmo tanto nas duas vezes.
- *
- * Se nenhum candidato sobreviver, a conclusão é útil: o save não guarda isso.
+ * Procura a contagem de mortes no bloco de stats do jogador, por diferença
+ * entre dois snapshots com um número conhecido de mortes. Duas rodadas com
+ * números diferentes eliminam os demais contadores.
  */
 function acharMortes(aName, bName, mortes, config) {
   const a = loadSnapshot(aName);
@@ -378,7 +357,7 @@ function acharMortes(aName, bName, mortes, config) {
     console.log(`    0x${c.offset.toString(16).padStart(6, '0')}   ${c.de} -> ${c.para}`);
   }
 
-  // Interseção com uma rodada anterior, se existir: é o que realmente decide.
+  // Interseção com a rodada anterior, se existir.
   const anterior = path.join(SNAP_DIR, 'mortes-candidatos.json');
   let antes = null;
   try { antes = JSON.parse(fs.readFileSync(anterior, 'utf8')); } catch (e) { antes = null; }

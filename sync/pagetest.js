@@ -1,8 +1,6 @@
 /**
- * Roda os renderizadores da própria página contra um progress.json, num DOM de
- * brinquedo. Serve para pegar o erro clássico deste tracker: a config muda de
- * chave ou de campo, a página continua "funcionando" e simplesmente deixa de
- * marcar as linhas.
+ * Roda os renderizadores da página contra um progress.json, no DOM mínimo,
+ * para detectar campos renomeados que deixam linhas sem marcação.
  */
 'use strict';
 const fs = require('fs');
@@ -17,31 +15,22 @@ const IDS = ['categories', 'topics', 'essentials', 'beads', 'seeds', 'bosses', '
   'deaths', 'deathsCount', 'deathsNote', 'syncDot', 'syncText', 'anelFio', 'overallPct', 'overallCount', 'tempoNum', 'skillEmote', 'marcos', 'bossPanel', 'bossHead', 'bossNum', 'bossLista', 'bossNota', 'quadroTempo', 'tempoRot', 'therm', 'thermFill', 'thermPin',
   'idols', 'novidades', 'syncDot', 'syncText', 'overallCount', 'overallLabel', 'overallBar',
   'themeBtn',
-  // As listas passaram a morar dentro de janelas nativas.
+  // As listas ficam dentro de janelas nativas.
   'bossJanela', 'headlessJanela', 'conqJanela', 'headlessPanel', 'headlessHead',
   'headlessNum', 'headlessLista', 'anelPanel', 'anelHead', 'conqLista'];
 
-/**
- * Carrega o <script> da página num contexto com `sync` já preenchido.
- * A página busca o progress.json sozinha no boot; aqui trocamos isso por uma
- * injeção direta, porque o que queremos testar é o render, não o fetch.
- */
+/** Carrega o <script> da página num contexto com o progress.json fornecido. */
 async function carregar(progress, opts) {
   const html = fs.readFileSync(PAGINA, 'utf8');
   const blocos = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
   if (blocos.length !== 1) throw new Error('esperava um único <script>, achei ' + blocos.length);
 
   const nodes = install(IDS, opts);
-  // O progresso entra pelo mesmo caminho do navegador — fetch e pollProgress —
-  // em vez de ser enfiado numa variável. Assim o teste cobre também a leitura
-  // da resposta, e não só o render.
+  // O progresso entra por fetch e pollProgress, como no navegador.
   let atual = progress;
   global.fetch = () => Promise.resolve({ ok: true, json: () => Promise.resolve(atual) });
 
-  // Contexto novo a cada carga, e não o global do processo: o script declara
-  // `const DATA` no topo, então rodá-lo duas vezes no mesmo contexto estoura
-  // com "já declarado". `createContext({})` dá um ambiente com os embutidos
-  // próprios, e por cima entram os nossos remendos.
+  // Contexto novo a cada carga: o script declara `const DATA` no topo.
   const ctx = vm.createContext({});
   Object.assign(ctx, {
     document: global.document,
@@ -59,16 +48,9 @@ async function carregar(progress, opts) {
   await ctx.pollProgress();
 
   /**
-   * Troca o progresso e redesenha.
-   *
-   * Não dá para mexer em `sync` de fora: é uma `let` de topo do script, invisível
-   * do contexto. Então o caminho é o mesmo do navegador — mudar o que o fetch
-   * devolve e chamar pollProgress. O generatedAt tem de mudar junto, senão a
-   * página vê o mesmo carimbo e não redesenha, de propósito.
+   * Troca o progresso e redesenha, via fetch + pollProgress. O generatedAt
+   * muda a cada troca (por contador), senão a página não redesenha.
    */
-  // Contador, não relógio: duas trocas no mesmo milissegundo dariam o mesmo
-  // carimbo, a página não redesenharia — corretamente — e o teste falharia sem
-  // haver defeito nenhum na página.
   let seq = 0;
   const trocar = async (mudancas) => {
     seq += 1;
@@ -82,19 +64,14 @@ async function carregar(progress, opts) {
 }
 
 async function rodar(log) {
-  // Num clone recém-feito ainda não houve leitura do save, então a versão
-  // publicada é o que existe de progresso. Ela é menor — não traz os despejos
-  // crus nem a data da última partida —, mas tem todos os campos que a página
-  // desenha, que é o que estes testes verificam. Sem esta reserva, clonar e
-  // rodar a suíte dava um erro de arquivo faltando, que parece defeito do
-  // projeto quando é só a primeira execução.
+  // Sem leitura local do save, usa a versão publicada (tem os campos que a
+  // página desenha).
   const cru = path.join(RAIZ, 'progress.json');
   const publicado = path.join(RAIZ, 'docs', 'progress.json');
   const de = fs.existsSync(cru) ? cru : publicado;
   const progress = JSON.parse(fs.readFileSync(de, 'utf8'));
   const { nodes, ctx, trocar, original } = await carregar(progress);
-  // `sync` é uma `let` de topo do script, invisível de fora do contexto; a
-  // prova de que a resposta foi consumida é a página ter desenhado algo.
+  // `sync` não é visível daqui; confere que a página desenhou algo.
   const desenhou = nodes.bosses.outerHTML.length > 100;
   log(desenhou, 'a página consome o progress.json que o servidor devolve',
     desenhou ? 'fetch -> pollProgress -> render' : 'nada foi desenhado');
@@ -127,8 +104,7 @@ async function rodar(log) {
     log(contador && html.includes(esperado), titulo + ': contador do cabeçalho',
       'esperava ' + esperado);
 
-    // Nenhum rótulo pode sair vazio ou como "undefined": é o sintoma de campo
-    // renomeado na config.
+    // Rótulo vazio ou "undefined" indica campo renomeado na config.
     const texto = stripTags(html);
     log(!/undefined|\[object/.test(texto), titulo + ': nenhum rótulo quebrado',
       /undefined/.test(texto) ? 'achei "undefined" no texto' : 'todos com nome');
@@ -139,8 +115,7 @@ async function rodar(log) {
       faltando.length ? 'faltou: ' + faltando.join(', ') : lista.length + ' nomes');
   }
 
-  // As duas checklists de item: cada unidade é nominal agora, então a lista tem
-  // de ter uma linha por unidade e o contador tem de bater com as flags.
+  // Checklists de item: uma linha por unidade, contador igual às flags.
   for (const [id, campo, titulo] of [['beads', 'prayerBeadList', 'Prayer Beads'],
     ['seeds', 'gourdSeedList', 'Gourd Seeds']]) {
     const html = nodes[id].outerHTML;
@@ -159,8 +134,7 @@ async function rodar(log) {
       faltando.length ? 'faltou: ' + faltando.map((x) => x.label).join(', ') : lista.length + ' nomes');
   }
 
-  // O contador de mortes: enquanto o offset não existe o cabeçalho tem de
-  // mostrar um traço, nunca zero — zero afirmaria que você não morreu.
+  // Sem offset, o contador de mortes mostra um traço, não zero.
   const d = progress.deaths || {};
   const mostrado = nodes.deathsCount.textContent;
   log(d.known ? mostrado === String(d.count) : mostrado === '—',
@@ -170,12 +144,7 @@ async function rodar(log) {
   log(!/hunting log/i.test(nodes.deaths.outerHTML), 'o texto antigo do cabeçalho saiu',
     'subtítulo removido');
 
-  // O rótulo "deaths" voltou, ao lado do número — decisão revertida, e o teste
-  // reverte junto em vez de ficar afirmando o contrário do que a página faz.
-  //
-  // Ele é marcação estática, então não aparece no DOM de brinquedo, que só
-  // conhece os ids: procurar aqui dava sempre "passou", por não haver o que
-  // achar. Teste que não pode falhar não é teste, então este olha o arquivo.
+  // O rótulo "deaths" ao lado do número é marcação estática; confere no arquivo.
   const marcacao = fs.readFileSync(PAGINA, 'utf8');
   const linhaMortes = /<div class="deaths-head"[\s\S]*?<\/div>/.exec(marcacao);
   const dentro = linhaMortes ? linhaMortes[0] : '';
@@ -184,8 +153,7 @@ async function rodar(log) {
   const rotuloDepois = dentro.indexOf('deathsCount') < dentro.indexOf('deaths-rot');
   log(rotuloDepois, 'e vem depois do número, não antes', '死 <número> deaths');
 
-  // Geometria do termômetro: o pino e o preenchimento têm de sair da contagem,
-  // e a escala para em 1000 sem esticar sozinha.
+  // Termômetro: pino e preenchimento seguem a contagem; escala até 1000.
   for (const caso of [
     { count: 0, pct: '0%' }, { count: 250, pct: '25%' }, { count: 1000, pct: '100%' },
     { count: 2500, pct: '100%', over: true },
@@ -201,8 +169,7 @@ async function rodar(log) {
         'classe "' + nodes.deaths.className + '", mostra ' + nodes.deathsCount.textContent);
     }
   }
-  // Enquanto procura, o painel não carrega parágrafo de explicação: o traço já
-  // diz que não se sabe.
+  // Durante a busca, o painel não mostra texto explicativo.
   await trocar({ deaths: { known: false, count: null, how: 'learning', progresso: { fase: 'baseline', gravacoes: 0, mortes: 0 } } });
   const limpo = nodes.deathsNote.textContent.trim() === '';
   log(limpo, 'painel sem texto enquanto a busca corre',
@@ -211,8 +178,7 @@ async function rodar(log) {
   // --- menu de tópicos ---
   await original();
 
-  // Estado inicial (nada guardado): o menu aparece e mais nada. Nenhuma seção
-  // no lugar onde elas ficavam, e nenhum botão marcado.
+  // Estado inicial: só o menu, sem seção aberta nem botão marcado.
   const secInicial = (id) => nodes[id].children[0];
   const limpoNoInicio =
     ['essentials', 'beads', 'seeds', 'bosses', 'minibosses', 'headless', 'idols']
@@ -224,13 +190,12 @@ async function rodar(log) {
   const menu = nodes.topics.outerHTML;
   const esperados = ['Bosses', 'Mini-bosses', 'Items'];
   const ausentes = esperados.filter((t) => !menu.includes(t));
-  log(ausentes.length === 0, 'menu tem os três tópicos pedidos',
+  log(ausentes.length === 0, 'menu tem os três tópicos',
     ausentes.length ? 'faltou: ' + ausentes.join(', ') : esperados.join(', '));
   log(!/>All</.test(menu), 'o tópico "All" saiu do menu',
     /All</.test(menu) ? 'All ainda está lá' : 'nenhum atalho de ver tudo');
 
-  // Três tópicos e a gaveta, nessa ordem. O menu é atalho, não índice: se uma
-  // seção nova entrar sozinha aqui, ele volta a crescer sem ninguém pedir.
+  // Três tópicos e a gaveta, nessa ordem.
   const naBarra = nodes.topics.children;
   const topicosFixos = naBarra.filter((c) => c.tagName === 'BUTTON');
   log(topicosFixos.length === 3, 'menu tem exatamente três tópicos fixos',
@@ -265,11 +230,8 @@ async function rodar(log) {
   log(fechou, 'fechar a seção volta ao estado limpo',
     fechou ? 'nada mostrado, nenhum botão marcado' : 'a seção ou o botão continuaram');
 
-  // Clicar de novo no tópico já marcado faz a mesma coisa. O clique tem de ser
-  // no botão de verdade: `abaAtual` é uma `let` do script, invisível daqui, e
-  // reimplementar a decisão no teste testaria o teste, não a página.
-  // `outerHTML`, não `innerHTML`: o botão é montado com appendChild, então o
-  // innerHTML dele está vazio e a busca por nome não achava nada.
+  // Clicar de novo no tópico marcado também fecha. Busca por `outerHTML`
+  // porque o botão é montado com appendChild.
   const clicar = (el) => el.listeners.click[0]({ stopPropagation() {} });
   const nomeDe = (b) => stripTags(b.outerHTML).replace(/\d+\/\d+$/, '').trim();
   const botao = (nome) => nodes.topics.children.find((b) => nomeDe(b) === nome);
@@ -309,8 +271,7 @@ async function rodar(log) {
   log(aberta && semBeco, 'desalfinetar a aba aberta volta ao estado limpo',
     'abriu=' + aberta + ', fechou=' + semBeco);
 
-  // "Items" é um tópico que reúne seis seções: escolher ele traz todas de uma
-  // vez, e as de item vêm antes das outras.
+  // "Items" reúne seis seções, com as de item primeiro.
   ctx.selecionarAba('Items');
   const grupo = !secao('beads').hidden && !secao('seeds').hidden && !secao('essentials').hidden;
   log(grupo, 'o tópico "Items" abre todas as seções de item',
@@ -321,15 +282,14 @@ async function rodar(log) {
   log(ordemCerta, 'dentro do grupo as contas vêm antes dos essenciais',
     'beads order=' + secao('beads').style.order + ', essentials order=' + secao('essentials').style.order);
 
-  // Recolher uma seção do grupo não pode derrubar a aba inteira: só a última.
+  // Recolher uma seção do grupo só fecha a aba quando é a última.
   ctx.setOpen(secao('beads'), 'beads');
   const grupoIntacto = !secao('essentials').hidden && !secao('seeds').hidden;
   log(grupoIntacto, 'fechar uma seção do grupo não fecha as irmãs',
     grupoIntacto ? 'as demais seguem visíveis' : 'a aba caiu inteira');
   ctx.selecionarAba(null);
 
-  // Aba salva que não existe mais volta ao estado inicial, em vez de abrir numa
-  // seção que ninguém pediu.
+  // Aba salva inexistente volta ao estado inicial.
   ctx.selecionarAba('Uma Aba Que Sumiu');
   await original();
   const voltou = secao('essentials').hidden && secao('bosses').hidden &&
@@ -339,9 +299,7 @@ async function rodar(log) {
   ctx.selecionarAba('*');
 
   // --- ritmo do poll conforme onde a página está servida ---
-  // Na rede local o arquivo muda em segundos; no GitHub Pages só muda quando o
-  // serviço publica, e vem de CDN. Perguntar no mesmo ritmo gastaria rede de
-  // quem abriu o link à toa.
+  // Rede local: poll rápido; GitHub Pages: poll mais espaçado.
   for (const caso of [
     { hostname: 'localhost', esperado: 5000, onde: 'nesta máquina' },
     { hostname: '192.168.1.10', esperado: 5000, onde: 'na rede local' },
@@ -355,8 +313,7 @@ async function rodar(log) {
   }
 
   // --- tema e assinatura ---
-  // Escuro é o padrão, e não o do sistema: quem abre pela primeira vez tem de
-  // ver o escuro mesmo com o sistema no claro.
+  // O tema padrão é o escuro, independentemente do sistema.
   await carregar(progress, { hostname: 'localhost' });
   const temaInicial = global.document.documentElement.getAttribute('data-theme');
   log(temaInicial === 'dark', 'sem escolha salva, o site abre escuro',
@@ -367,22 +324,14 @@ async function rodar(log) {
     'nenhuma regra de CSS segue o tema do sistema',
     'o escuro vale mesmo se o script não rodar');
 
-  /*
-   * A assinatura não está mais escrita no HTML.
-   *
-   * Ela era a palavra "oaovito", e o teste cobrava essa palavra. Os dois
-   * estavam errados pelo mesmo motivo: numa máquina que não a de quem
-   * escreveu a página, o nome era mentira. Agora sai do apelido do Steam, e
-   * o que se cobra é o contrário — que o nome de ninguém esteja fixo aqui.
-   */
+  // O nome do cabeçalho vem dos dados; nenhum nome fixo no HTML.
   log(!/oaovito game progress/.test(fonte), 'nenhum nome de pessoa escrito no cabeçalho',
     'a assinatura vem do apelido do Steam da máquina');
   log(/id="assinatura"[^>]*hidden/.test(fonte), 'e ela nasce escondida',
     'sem Steam identificado a linha some e o cabeçalho fecha');
   log(/game progress"/.test(fonte) || /\+ " game progress"/.test(fonte),
     'o sufixo continua sendo "game progress"', 'só o nome é que varia');
-  // A janela cresceu porque o ponto de sync e, depois, os botões de voltar,
-  // avançar e início passaram a ficar entre os dois.
+  // Inclui o ponto de sync e os botões de voltar, avançar e início.
   log(/class="topbar"[\s\S]{0,2000}themeToggle/.test(fonte),
     'o botão de tema fica na faixa do topo', 'fora do cabeçalho, à direita');
 
@@ -391,9 +340,7 @@ async function rodar(log) {
   const ponto = nodes.syncDot;
   const texto = nodes.syncText;
 
-  // O estado inicial vem do atributo na marcação, e o DOM de brinquedo não lê
-  // marcação. Então o começo escondido é conferido no arquivo, e o resto do
-  // teste parte do mesmo ponto que o navegador.
+  // O DOM mínimo não lê a marcação; o estado inicial é conferido no arquivo.
   log(/id="syncText" hidden/.test(fs.readFileSync(PAGINA, 'utf8')),
     'o texto do sync começa escondido na marcação', 'atributo hidden presente');
   texto.hidden = true;
@@ -408,8 +355,7 @@ async function rodar(log) {
     'clicar no ponto revela o texto',
     'hidden=' + texto.hidden + ', aria-expanded=' + ponto.getAttribute('aria-expanded'));
 
-  // Uma nova leitura não pode reabrir nem fechar sozinha o que a pessoa
-  // escolheu: só o clique manda nisso.
+  // Uma nova leitura não altera o estado aberto/fechado.
   await trocar({});
   log(texto.hidden === false, 'a leitura seguinte não fecha o que foi aberto',
     'continua visível');
@@ -421,8 +367,7 @@ async function rodar(log) {
   await carregar(progress, { hostname: 'localhost' });
   const src = fs.readFileSync(PAGINA, 'utf8');
 
-  // A ordem pedida: as duas contagens de combate logo abaixo do menu, depois
-  // as mortes, e por último conquistas e tempo de jogo.
+  // Ordem: contagens de combate, mortes, conquistas e tempo de jogo.
   const iMenu = src.indexOf('class="topics"');
   const iCombate = src.indexOf('id="bossPanel"');
   const iCabeca = src.indexOf('id="headlessPanel"');
@@ -436,8 +381,7 @@ async function rodar(log) {
   // Os quadrados de combate e os de medida são duas fileiras, não uma grade só.
   const fileiras = (src.match(/class="dois-quadrados"/g) || []).length;
   log(fileiras === 2, 'são duas fileiras de quadrados', fileiras + ' fileiras');
-  // A lista tem de nascer entre as duas fileiras: é o que faz abrir empurrar o
-  // resto da página para baixo e fechar devolver tudo ao lugar.
+  // A lista fica entre as duas fileiras.
   const iLista = src.indexOf('id="bossLista"');
   log(iLista > iCabeca && iLista < iMortes,
     'a lista dos chefes fica entre as contagens e o resto',
@@ -453,8 +397,7 @@ async function rodar(log) {
   log(!/skillEmote/.test(src), 'o emote saiu do quadrado de tempo',
     'nenhum resto de skillEmote');
 
-  // A escada agora é de metal. Tem de subir com as horas, sem repetir metal, e
-  // cada degrau precisa das três cores que o gradiente do número consome.
+  // Escala de metais: sobe com as horas, sem repetir, com três cores por degrau.
   const degraus = [...src.matchAll(/\[(\d+),\s+"([^"]+)",\s+\["([^"]+)", "([^"]+)", "([^"]+)"\]\]/g)]
     .map((m) => ({ h: Number(m[1]), metal: m[2], cores: [m[3], m[4], m[5]] }));
   const emOrdem = degraus.every((d, i) => i === 0 || d.h > degraus[i - 1].h);
@@ -464,8 +407,7 @@ async function rodar(log) {
     'a escada de metal vai de 0 a 200 h sem repetir material',
     degraus.length + ' degraus: ' + degraus.map((d) => d.metal).join(', '));
 
-  // O metal do momento tem de chegar ao quadrado como variável de cor, senão o
-  // número fica no metal de partida qualquer que seja o tempo de jogo.
+  // O metal atual é aplicado ao quadrado como variável de cor.
   const m1 = nodes.quadroTempo.style['--m1'];
   log(!!m1 && /^#/.test(m1), 'o metal do momento chega ao número',
     m1 ? 'a ' + (progress.playtime ? progress.playtime.horas.toFixed(0) : '?') + ' h: ' + m1 : 'sem --m1');
@@ -475,21 +417,14 @@ async function rodar(log) {
   log(nodes.bossNum.textContent === String(somaKills),
     'o contador de chefes soma as mortes',
     nodes.bossNum.textContent + ' para ' + somaKills);
-  // O regex precisa fechar a aspa: "boss-card-n", "-nome" e "-area" também
-  // começam com "boss-card" e contavam quatro por bloco.
+  // Fecha a aspa para não casar "boss-card-n", "-nome" e "-area".
   const cartoes = (nodes.bossLista.outerHTML.match(/class="boss-card[ "]/g) || []).length;
   log(cartoes === kills.length, 'um bloco por chefe na lista',
     cartoes + ' blocos para ' + kills.length + ' chefes');
   log(/boss-card-n/.test(nodes.bossLista.outerHTML), 'cada bloco traz a contagem no topo',
     'contagem por chefe presente');
 
-  /*
-   * A lista abre em JANELA, não empurrando a página.
-   *
-   * Antes ela entrava no fluxo do documento e jogava tudo que vinha abaixo
-   * para longe — clicar num contador obrigava a rolar de volta. Os testes
-   * mediam esse comportamento; agora medem o contrário, que é o pedido.
-   */
+  // A lista abre em janela, fora do fluxo da página.
   log(nodes.bossJanela && nodes.bossJanela.open === false,
     'a janela dos chefes começa fechada',
     'open=' + (nodes.bossJanela && nodes.bossJanela.open));
@@ -508,7 +443,7 @@ async function rodar(log) {
       && !/com-janela/.test(ctx.document.body.className),
     'fechar devolve tudo ao lugar',
     'open=' + nodes.bossJanela.open + ', body="' + ctx.document.body.className + '"');
-  // A lista não pode mais estar no fluxo: se estivesse, continuaria empurrando.
+  // A lista não pode estar no fluxo do documento.
   log(/<dialog class="janela" id="bossJanela"/.test(src),
     'a lista mora dentro de um dialog', 'backdrop, foco preso e Esc sem script');
 
@@ -519,8 +454,7 @@ async function rodar(log) {
   const emblemasUnicos = new Set(kills.map((b) => b.emblema)).size;
   log(emblemasUnicos >= kills.length - 2, "os emblemas distinguem os chefes",
     emblemasUnicos + " distintos para " + kills.length + " chefes");
-  // A arte é servida do próprio site, e não puxada do servidor do wiki a cada
-  // visita: hotlink quebra assim que o outro lado muda de caminho ou bloqueia.
+  // A arte é servida pelo próprio site (sem hotlink).
   log(!/fextralifeimages\.com/i.test(src), 'a página não faz hotlink de imagem',
     'as artes são arquivos locais em icones/');
   const dirIcones = path.join(RAIZ, 'docs', 'icones');
@@ -531,8 +465,7 @@ async function rodar(log) {
   log(semArte.every((b) => b.emblema), 'quem não tem arte cai no emblema',
     semArte.length ? semArte.map((b) => b.emblema + ' ' + b.key).join(', ') : 'todos têm arte');
 
-  // O quadrado de progresso é um anel, e o anel tem de mover de verdade: o
-  // offset é o que falta da volta, então progresso maior = offset menor.
+  // Anel de progresso: progresso maior = offset menor.
   const VOLTA = 263.89;
   const off = Number(nodes.anelFio.style.strokeDashoffset);
   const alvo = VOLTA - VOLTA * (Number(nodes.overallPct.textContent.replace("%", "")) / 100);
@@ -543,35 +476,29 @@ async function rodar(log) {
   log(!/id="overallBar"/.test(src), "a barra fina saiu do quadrado",
     "substituída pelo anel");
 
-  // O botão saiu; o cabeçalho inteiro continua abrindo.
+  // O cabeçalho inteiro abre a seção.
   log(!/see each boss|boss-abre/.test(src), "o botão de abrir saiu do bloco de chefes",
     "só a seta, e o cabeçalho inteiro é o alvo");
   log(!/.boss-icone {[^}]*border-radius/.test(src), "o anel em volta de cada chefe saiu",
     "sem borda circular no ícone");
 
-  // Cabeçalho: título centralizado e maior que antes.
+  // Cabeçalho: título centralizado e em destaque.
   log(/.top-centro {[^}]*align-items: center/.test(src), "o cabeçalho é uma coluna centrada",
     "título, sync e assinatura empilhados");
-  // O corpo caiu de 3.1rem para 2.7rem quando o título passou a ser caixa alta
-  // com entreletra larga: a mesma medida em versal ocupa muito mais linha, e
-  // 3.1 quebrava em duas no celular. O que o teste quer garantir é presença, e
-  // presença aqui é a largura que o título ocupa, não o corpo da fonte.
+  // Confere a presença do título pela largura ocupada, não pelo corpo da fonte.
   const tam = /h1 \{[^}]*font-size: ([\d.]+)rem/.exec(src);
   const entre = /h1 \{[^}]*letter-spacing: ([\d.]+)em/.exec(src);
   log(tam && Number(tam[1]) >= 2.5, "o título tem porte de cabeçalho",
     tam ? tam[1] + "rem" : "não achei");
 
-  // A tipografia do logo do jogo: o logo do Sekiro é feito sobre a Athelas,
-  // que é comercial; a Libre Baskerville é a substituta livre dela, e vem da
-  // mesma tradição de impressão de livro. Caixa alta e entreletra larga são o
-  // arranjo do logo, e metade do reconhecimento.
+  // Tipografia do logo: Libre Baskerville (alternativa livre à Athelas), em
+  // caixa alta e com entreletra larga.
   log(/h1 \{[^}]*font-family: "Libre Baskerville"/.test(src),
     "o título usa a serifada do logo do jogo", "Libre Baskerville");
   log(/h1 \{[^}]*text-transform: uppercase/.test(src) && entre && Number(entre[1]) >= 0.1,
     "em caixa alta e com entreletra larga, como o logo",
     entre ? "letter-spacing " + entre[1] + "em" : "sem entreletra");
-  // O kanji não pode ir junto: a Baskerville não tem ideograma, e esticar o
-  // espaçamento de dois deles quebraria o par.
+  // O kanji fica fora da Baskerville e do espaçamento largo.
   log(/h1 span \{[^}]*font-family: var\(--font-display\)/.test(src),
     "e o 進捗 continua na Mincho", "caixa alta e entreletra não valem para ele");
 
@@ -583,19 +510,12 @@ async function rodar(log) {
   };
   log(!/border-bottom/.test(cssDe(".topics")), "o menu perdeu a linha embaixo",
     "o espaçamento faz o trabalho dela");
-  /*
-   * O menu é tinta, não caixa.
-   *
-   * Os testes antigos cobravam borda de 1px e fundo cheio no ativo — a
-   * estética de formulário que o pedido chamou de grosseira, e com razão: o
-   * Sekiro não tem moldura em lugar nenhum, a interface dele é traço sobre
-   * papel. Cobrar o contrário é o que impede a caixa de voltar.
-   */
+  // Menu sem borda nem fundo cheio no item ativo: só o traço.
   const cssTopic = cssDe(".topic");
   log(/border: 0/.test(cssTopic) && /background: none/.test(cssTopic),
     "o tópico não tem caixa: nem borda, nem fundo",
     "a interface do jogo é traço sobre papel");
-  // A pincelada: paradas de opacidade desiguais é o que separa pincel de régua.
+  // Pincelada: paradas de opacidade desiguais.
   const paradas = cssDe(".topic::after");
   const stops = (paradas.match(/rgba\(214, 210, 200,/g) || []).length;
   log(stops >= 4, "o traço afina nas pontas, como pincelada",
@@ -607,18 +527,14 @@ async function rodar(log) {
   // O nome manda no bloco do chefe.
   log(/\.boss-card-nome \{[^}]*font-family: var\(--font-display\)/.test(src),
     "o título do bloco de chefe ganhou destaque", "fonte de display, maior");
-  // Fechado, o bloco é só contagem: kanji, número e o rótulo do bloco. O que
-  // saiu foi o parágrafo de explicação que morava no cabeçalho — a ressalva
-  // sobre o jogo não guardar contagem por chefe vive no title, no hover.
+  // Fechado, o bloco mostra só kanji, número e rótulo; a ressalva fica no title.
   const dentroDoQuadro = stripTags(nodes.bossPanel.outerHTML).replace(/\s+/g, ' ').trim();
   log(dentroDoQuadro.length < 40, 'o bloco de chefes fechado é só a contagem',
     '"' + dentroDoQuadro + '"');
   log(!/no readable flag|goes from undone/.test(src.slice(src.indexOf('id="bossPanel"'), src.indexOf('id="bossLista"'))),
     'nenhum parágrafo de explicação na marcação do bloco', 'só kanji, número e rótulo');
 
-  // O bloco tem de recolher de verdade. O atributo `hidden` sozinho não basta
-  // quando a classe declara display: a regra do autor vence a do navegador, e
-  // a lista ficava aberta mesmo marcada como escondida.
+  // `hidden` deve recolher o bloco mesmo com display declarado na classe.
   log(/\.boss-lista\[hidden\] \{[^}]*display: none/.test(src),
     'o hidden da lista vence o display da classe',
     'regra explícita para .boss-lista[hidden]');
@@ -630,8 +546,7 @@ async function rodar(log) {
     'a ressalva dos chefes foi para o hover',
     nodes.bossHead.title ? 'title com ' + nodes.bossHead.title.length + ' caracteres' : 'title vazio');
 
-  // O número de chefes agora é o maior da página, e não mais do mesmo porte
-  // que o de mortes.
+  // O número de chefes é o maior da página.
   const numMortes = /\.deaths-count \{[^}]*font-size: ([\d.]+)rem/.exec(src);
   const numChefes = /\.quadro-botao \.quadro-num \{[^}]*font-size: clamp\([\d.]+rem, [\d.]+vw, ([\d.]+)rem\)/.exec(src);
   log(numMortes && numChefes && Number(numChefes[1]) > Number(numMortes[1]),
@@ -641,16 +556,14 @@ async function rodar(log) {
     'o número fica centralizado no bloco', 'conteúdo do quadrado centrado');
   log(/\.quadro-botao::after \{[^}]*position: absolute/.test(src),
     "a seta sai do fluxo para não desequilibrar o centro", "posicionada no canto");
-  // A moldura viva: sangue no de chefes, roxo no de Headless, cada uma com a
-  // sua animação.
+  // Moldura animada: vermelha em chefes, roxa em Headless.
   log(/\.boss-quadro::before \{[^}]*animation: sangue-borda/.test(src),
     "a moldura do bloco de chefes sangra", "border-image animado");
   log(/\.headless-quadro::before \{[^}]*animation: medo-borda/.test(src),
     "a moldura do bloco de Headless é roxa e pulsa", "border-image animado em roxo");
 
-  // O susto do bloco de Headless: mais forte, mas na mesma cadência. O que
-  // define a cadência é onde a janela do tremor começa dentro do ciclo — se
-  // ela crescer, os sustos ficam mais frequentes, que não é o que se pediu.
+  // Tremor do bloco de Headless: mais forte, com a mesma cadência (início da
+  // janela do tremor dentro do ciclo).
   const tremorCss = /@keyframes tremor \{([\s\S]*?)\n  \}/.exec(src);
   const saltos = tremorCss
     ? [...tremorCss[1].matchAll(/translate\((-?[\d.]+)px, (-?[\d.]+)px\)/g)]
@@ -659,9 +572,8 @@ async function rodar(log) {
   const pico = saltos.length ? Math.max(...saltos) : 0;
   log(pico >= 5, 'o tremor do Headless é violento', 'pico de ' + pico + 'px');
 
-  // Medo, e não agitação: todo vetor aponta para o sul, alternando entre
-  // sudoeste e sudeste, e a escala só encolhe. Um salto para cima leria como
-  // energia — como algo batendo na caixa por dentro, que é o oposto.
+  // Todos os deslocamentos apontam para baixo (sudoeste/sudeste) e a escala
+  // só diminui.
   const vetores = tremorCss
     ? [...tremorCss[1].matchAll(/translate\((-?[\d.]+)px, (-?[\d.]+)px\)/g)]
       .map((m) => ({ x: Number(m[1]), y: Number(m[2]) }))
@@ -688,9 +600,7 @@ async function rodar(log) {
   log(saltos.length >= 8, 'o susto tem mais solavancos dentro da mesma janela',
     saltos.length + ' solavancos');
 
-  // O número do Headless precisa contrastar com o fundo roxo do próprio bloco:
-  // roxo sobre roxo sumia. O topo do gradiente é claro e frio, a raiz segue
-  // roxa para não sair do tema.
+  // Número do Headless com contraste sobre o fundo roxo: topo claro, base roxa.
   const gradHeadless = /\.headless-num \{[^}]*background-image: linear-gradient\(180deg,\s*(#[0-9a-f]{6})/i.exec(src);
   const claro = gradHeadless ? gradHeadless[1] : '';
   const brilho = claro
@@ -704,17 +614,10 @@ async function rodar(log) {
     'o número resolve na cor do bloco, então segue no tema');
 
   /*
-   * --- o luto sem listra nenhuma ---
+   * --- o luto sem listras ---
    *
-   * A cortina 鯨幕 era a referência certa e falhou três vezes: fita fina virou
-   * faixa de pedestre, mais alta virou tecla de piano, apagada virou sujeira
-   * na borda. Claro e escuro alternando numa faixa horizontal é sinal de
-   * trânsito antes de ser qualquer outra coisa, e nenhuma dose conserta isso.
-   *
-   * O teste agora guarda a decisão de abandoná-la: padrão repetido em faixa
-   * está proibido no bloco, e o luto vem do 白菊, o crisântemo branco que o
-   * Japão põe no altar e na sepultura. Mesma referência cultural, em desenho
-   * em vez de padrão — e desenho não se confunde com pavimentação.
+   * Sem padrão listrado repetido no bloco; o luto é representado pelo 白菊
+   * (crisântemo branco).
    */
   const painelMortes = /\.deaths-panel\b[\s\S]*?\.deaths-head \{/.exec(src);
   const cssPainel = painelMortes ? painelMortes[0] : '';
@@ -732,24 +635,13 @@ async function rodar(log) {
   log(opKiku && Number(opKiku[1]) <= 0.12,
     'quase apagado, como marca d\'água de lápide',
     opKiku ? 'opacidade ' + opKiku[1] : 'sem opacidade');
-  // Dezesseis pétalas em duas coroas: uma coroa só lê como estrela.
+  // Dezesseis pétalas em duas coroas.
   const petalas = (src.match(/<use href="#kikuCoroa"/g) || []).length * 2 + 2;
   log(petalas >= 16, 'com pétalas bastantes para ler como crisântemo',
     petalas + ' pétalas em duas coroas');
 
   /*
-   * A chama do Ídolo, à esquerda do número.
-   *
-   * Aqui havia cinco fantasmas subindo, e antes deles um 死. Os fantasmas
-   * saíram inteiros; o kanji deu lugar à chama. O motivo do segundo vale
-   * guardar: os outros dois blocos já abrem com ideograma, 討 e 首, e um
-   * terceiro na mesma posição vira padrão em vez de significado. A chama diz
-   * a mesma coisa por outro caminho, e diz mais — é o fogo que arde no alto
-   * de todo Ídolo do Escultor, onde se ressuscita.
-   *
-   * O que se testa é o tom, porque é nele que está a referência: turquesa é a
-   * única cor dessa família no jogo, e uma chama laranja aqui seria fogo
-   * genérico.
+   * A chama do Ídolo do Escultor, à esquerda do número, em turquesa.
    */
   log(!/class=\"alma/.test(src), 'os fantasmas saíram do bloco',
     'o bloco ficou com o 白菊, a névoa e a chama');
@@ -757,17 +649,12 @@ async function rodar(log) {
   const svgChama = chama ? chama[0] : '';
   log(!!svgChama && !/死/.test(svgChama), 'e o 死 deu lugar a uma chama desenhada',
     'emoji traria a paleta de outra pessoa, e o tom aqui é o ponto');
-  /*
-   * O turquesa do 鬼仏. Conferido pelo canal: num azul de verdade o verde e o
-   * azul dominam e o vermelho fica para trás. Se alguém trocar por um laranja
-   * de fogo comum, esta conta reprova.
-   */
+  // Turquesa do 鬼仏: verde e azul acima do vermelho.
   const tonsChama = (svgChama.match(/#[0-9a-f]{6}/gi) || []);
   const quentes = tonsChama.filter((h) => {
     const r = parseInt(h.slice(1, 3), 16);
     const b = parseInt(h.slice(5, 7), 16);
-    // Branco puro (r === b) e o nucleo da chama e passa; o que nao pode e
-    // puxar para o quente, que e o fogo comum e nao o do Idolo.
+    // Branco puro (r === b) é permitido; tons quentes, não.
     return r > b;
   });
   log(tonsChama.length > 0 && quentes.length === 0,
@@ -784,22 +671,8 @@ async function rodar(log) {
     fagulhas + ' delas, em períodos que não são múltiplos entre si');
 
   /*
-   * `hidden` tem de vencer qualquer `display` de classe.
-   *
-   * A regra do navegador para `[hidden]` é `display: none` com a
-   * especificidade mais baixa que existe, então qualquer classe que declare um
-   * display a atropela. O elemento continua com o atributo, o JavaScript
-   * continua achando que o escondeu, e ele aparece na tela.
-   *
-   * O defeito é invisível em revisão, porque o código que esconde parece
-   * correto — e apareceu duas vezes no mesmo dia: o selo de 100% visível com
-   * as conquistas em 20 de 34, e a assinatura do cabeçalho ocupando lugar numa
-   * máquina sem Steam.
-   *
-   * Este teste tem duas metades. A primeira exige a regra global. A segunda
-   * varre a página atrás de qualquer classe que nasça com `hidden` e declare
-   * display próprio, e existe porque a regra global pode ser removida por
-   * alguém que a ache agressiva sem saber o que ela segura.
+   * `hidden` deve prevalecer sobre `display` de classe. Exige a regra global
+   * e lista as classes usadas com `hidden` que declaram display próprio.
    */
   log(/\[hidden\]\s*{\s*display:\s*none\s*!important/.test(src),
     'o atributo hidden vence o display de qualquer classe',
@@ -819,33 +692,20 @@ async function rodar(log) {
       if (d && d[1].trim() !== 'none') { semGuarda.push(c); break; }
     }
   }
-  // Com a regra global elas são inofensivas; o número existe para dizer o
-  // tamanho do que ela segura, e para a falha da linha de cima ter contexto.
+  // Com a regra global elas são inofensivas; a contagem é informativa.
   log(true, 'e há ' + semGuarda.length + ' classes que dependem disso',
     semGuarda.length ? semGuarda.slice(0, 6).join(', ') + (semGuarda.length > 6 ? '…' : '')
       : 'nenhuma declara display próprio');
 
-  /*
-   * A prova no DOM, e não só no fonte: com a contagem longe dos 100%, o selo
-   * não pode estar visível. É o caso concreto que originou tudo isto.
-   */
+  // No DOM: abaixo de 100%, o selo não fica visível.
   const seloEl = document.getElementById('selo');
   log(!!seloEl && seloEl.hidden, 'e o selo de 100% não aparece antes dos 100%',
     'com 20 de 34, ele fica fora — foi assim que o defeito apareceu');
 
   /*
-   * Os dois estados do bloco de mortes: sino e podridão.
-   *
-   * Duas regras se cobram aqui, e as duas vieram de correção.
-   *
-   * A primeira é de hierarquia: o sino é pequeno e só confirma; a podridão é
-   * maior, tem contagem dentro e é a única que abre. Dois ícones do mesmo
-   * tamanho diriam que as duas coisas pesam igual.
-   *
-   * A segunda é que ligado e desligado têm de ser duas FIGURAS, e não a mesma
-   * figura em dois tons. A primeira versão mudava só cor e opacidade, e de
-   * relance não se lia diferença nenhuma — quem olha rápido vê o desenho, não
-   * a saturação.
+   * Estados do bloco de mortes: sino e podridão. O sino é menor; a podridão
+   * é maior, tem contagem e abre a lista. Ligado e desligado são figuras
+   * diferentes, não só cores diferentes.
    */
   const cssSinoSvg = cssDe('.estado-sino svg');
   const cssRotN = cssDe('.rot-n');
@@ -858,23 +718,16 @@ async function rodar(log) {
   log(tamSino > 0 && tamRot > 0, 'os dois ícones têm medida declarada',
     'sino ' + tamSino + 'rem, número da podridão ' + tamRot + 'rem');
 
-  /*
-   * O número de atingidos é a peça do ícone da podridão, e não um sufixo do
-   * rótulo: o pedido fala em contagem bem destacada. Concretamente, o número
-   * tem de ser bem maior que o nome embaixo dele.
-   */
+  // O número de atingidos faz parte do ícone e é bem maior que o rótulo.
   log(tamRot > tamRotulo * 1.8, 'a contagem de atingidos é o que se lê primeiro',
     tamRot + 'rem contra ' + tamRotulo + 'rem do nome — o número manda no ícone');
   log(/id=\"rotN\"/.test(src), 'e ela tem elemento próprio',
     'separada do rótulo, para poder ter corpo e cor diferentes');
   log(/>dragon rot</.test(src), 'e o nome dragon rot aparece no ícone',
-    'em duas palavras, como foi pedido');
+    'em duas palavras');
 
-  /*
-   * As duas figuras de cada um. O que se cobra é que o estado aceso
-   * acrescente ELEMENTOS, e não só troque cor: badalo e ondas no sino, número
-   * e mancha na podridão. Nenhum dos quatro existe no estado apagado.
-   */
+  // O estado aceso acrescenta elementos: badalo e ondas no sino, número e
+  // mancha na podridão.
   log(/\.estado-sino\.on \.sino-badalo/.test(src)
       && /\.estado-sino\.on \.sino-ondas/.test(src),
     'o sino aceso ganha badalo e ondas, que o apagado não tem',
@@ -886,18 +739,10 @@ async function rodar(log) {
     'enquanto a suja ganha a mancha atrás do kanji',
     'ela cresce com a contagem, via --rot');
 
-  /*
-   * O nome do estado do sino é o que o jogo usa. "Bell rung" era descrição do
-   * que aconteceu; SINISTER BURDEN é o nome do que se está carregando, e é
-   * assim que a interface do Sekiro chama.
-   */
+  // Nome do estado do sino conforme o jogo: SINISTER BURDEN.
   log(/sinister burden/i.test(src), 'o sino aceso diz sinister burden',
     'é o nome que a interface do jogo dá ao estado de quem tocou o sino');
-  /*
-   * O que se cobra é o RÓTULO, e não o arquivo: o comentário acima da
-   * marcação cita a frase antiga para explicar por que ela saiu, e varrer o
-   * fonte inteiro faria o teste se acusar pela própria justificativa.
-   */
+  // Confere o rótulo renderizado, não o fonte.
   const trechoRotulo = /rotulo.textContent = b.ativo[^;]*;/.exec(src);
   log(!!trechoRotulo && !/bell rung/i.test(trechoRotulo[0]),
     'e o rótulo antigo saiu',
@@ -909,21 +754,13 @@ async function rodar(log) {
     'o sino é liga-desliga: não há o que abrir nele');
   log(/Rot Essence/.test(src) || /rot-item/.test(src),
     'e a janela traz Rot Essence: <NPC>', 'item em cima, nome de quem embaixo');
-  // Poluir aqui seria escrever a lista e a ressalva no próprio ícone. O
-  // desenho leva kanji, número e nome; o resto vive na janela e no hover.
+  // O ícone leva só kanji, número e nome; o resto fica na janela e no hover.
   const marcaRot = /<button class=\"estado estado-rot-bt\"[\s\S]*?<\/button>/.exec(src);
   const textoDoIcone = stripTags(marcaRot ? marcaRot[0] : '').replace(/\s+/g, ' ').trim();
   log(textoDoIcone.length <= 16, 'o ícone da podridão não vira parágrafo',
     '"' + textoDoIcone + '"');
 
-  /*
-   * 皆伝: o estado de 100% nas conquistas.
-   *
-   * O selo não pode empurrar nada. É o ponto mais fácil de errar: qualquer
-   * elemento novo no fluxo do quadrado reorganizaria a fileira inteira no dia
-   * em que a última conquista cair, e a página mudaria de forma justamente na
-   * hora em que a pessoa está olhando para ela.
-   */
+  // 皆伝: selo de 100% nas conquistas, fora do fluxo (não desloca o layout).
   const cssSelo = cssDe('.selo');
   log(/position: absolute/.test(cssSelo),
     'o selo não ocupa lugar no fluxo', 'aos 100% ele aparece sem mover nada na página');
@@ -938,24 +775,12 @@ async function rodar(log) {
     'sem o "todas > 0", zero de zero seria 100% e a página se parabenizaria sozinha');
   log(/id="kaidenCena"/.test(src) && /pointer-events: none/.test(cssDe('.kaiden-cena')),
     'a cena do selo é a página inteira, e não engole o clique',
-    'o pedido é contemplar; uma cena que trava a página vira espera');
+    'a cena é para contemplar; uma cena que trava a página vira espera');
   log(/selo\.addEventListener\("click", tocarKaiden\)/.test(src),
     'e ela responde à interação com o selo', 'clicar recomeça a cena');
 
-  /*
-   * Toda animação da página declara de onde no jogo ela vem.
-   *
-   * A regra é do dono do projeto e é fácil de furar sem perceber: um
-   * movimento genérico — algo pulsando, algo deslizando — resolve o problema
-   * visual do dia e some no meio das outras. Depois de trinta e poucas
-   * animações ninguém lembra quais nasceram do jogo e quais nasceram de
-   * conveniência.
-   *
-   * Por isso cada `@keyframes` leva acima dele uma linha `no jogo: ...`
-   * nomeando o referente. Não é decoração de comentário: é o teste abaixo que
-   * a cobra, então animação nova sem origem declarada falha a suíte, e
-   * declarar obriga a procurar o referente antes de escrever o movimento.
-   */
+  // Cada `@keyframes` deve ter acima uma linha `no jogo: ...` com a referência
+  // da animação no jogo.
   const linhas = src.split(String.fromCharCode(10));
   const semOrigem = [];
   const nomes = [];
@@ -969,11 +794,7 @@ async function rodar(log) {
     'toda animação declara de onde no jogo ela vem',
     semOrigem.length ? 'sem origem: ' + semOrigem.join(', ')
       : nomes.length + ' animações, cada uma com o referente escrito acima dela');
-  /*
-   * E a origem tem de dizer alguma coisa. "no jogo: animação" passaria no
-   * teste de cima e não serviria para nada — o que se quer é a frase que
-   * permite conferir a escolha depois, e frase curta demais não é frase.
-   */
+  // A referência precisa ter um tamanho mínimo.
   const origens = (src.match(/no jogo: ([^*]+)\*\//g) || [])
     .map((t) => t.replace(/^no jogo: /, '').replace(/\s*\*\/$/, '').trim());
   const curtas = origens.filter((t) => t.length < 25);
@@ -981,8 +802,7 @@ async function rodar(log) {
     curtas.length ? 'curta demais: ' + curtas.join(' | ')
       : 'a mais curta tem ' + Math.min.apply(null, origens.map((t) => t.length)) + ' caracteres');
 
-  // O fio embaixo do cabeçalho saiu: a página já tem a pincelada do menu logo
-  // abaixo, e duas horizontais a poucos pixels uma da outra são uma a mais.
+  // Sem linha embaixo do cabeçalho (a pincelada do menu já separa).
   log(!/border-bottom/.test(cssDe("header.top")),
     'não há linha entre o título e o corpo',
     'o espaço e a diferença de corpo já separam os dois');
@@ -995,9 +815,8 @@ async function rodar(log) {
   log(rot && !/bronze|iron|steel|silver|gold|lazulite|magnetite|adamantite/i.test(rot[1]),
     'e o rótulo do bloco não é um material', '"' + (rot ? rot[1] : '?') + '"');
 
-  // O hover abre o número exato. Duas medidas, cada uma na precisão da fonte:
-  // a Steam grava minutos inteiros, então não pode inventar segundo; o tempo
-  // interno vem em milissegundos e pode.
+  // O hover mostra o valor exato, na precisão de cada fonte (Steam em minutos,
+  // tempo interno com segundos).
   const t2 = nodes.quadroTempo.title || '';
   log(/\d+h \d{2}m on the Steam clock/.test(t2), 'o hover dá o relógio em hora e minuto',
     (t2.split('\n')[0] || '').slice(0, 60));
@@ -1011,20 +830,17 @@ async function rodar(log) {
     log(!/in-game time/.test(t2), 'sem tempo interno, o hover não o menciona',
       'nada de linha vazia');
   }
-  // Uma segunda atribuição do title apagava a primeira sem deixar rastro.
+  // O title é atribuído uma única vez.
   log((src.match(/quadro\.title =/g) || []).length === 2,
     'o título do bloco de tempo é escrito num lugar só',
     (src.match(/quadro\.title =/g) || []).length + ' atribuições (a outra é o caso sem dado)');
 
-  // --- o bloco de mortes é um velório, não um ferimento ---
-  // Os dois contadores dizem coisas diferentes e precisam parecer diferentes:
-  // o de chefes é violência e sangra, este é luto e guarda. Sem isto os dois
-  // viram o mesmo bloco vermelho com números distintos.
+  // --- estilo do bloco de mortes (luto), distinto do de chefes (sangue) ---
   log(!/repeating-linear-gradient/.test(cssPainel),
     'o bloco de mortes guarda luto sem imitar pavimentação',
     'a cortina listrada saiu; o 白菊 ficou no lugar dela');
 
-  // O número não pode ter gradiente de sangue: a cor tem de ser de osso.
+  // Número em tom de osso, sem gradiente vermelho.
   const numMorte = /\.deaths-count \{[\s\S]*?background-image: linear-gradient\(\s*180deg,\s*(#[0-9a-f]{6})/i.exec(src);
   const topoMorte = numMorte ? numMorte[1] : '';
   const r = topoMorte ? parseInt(topoMorte.slice(1, 3), 16) : 0;
@@ -1039,7 +855,7 @@ async function rodar(log) {
     'nada sobe do número', 'a fumaça que parecia fantasma saiu');
   log(/\.deaths-chama \{[^}]*animation: vela/.test(src),
     'e a chama do Ídolo oscila como vela', 'animação "vela"');
-  // A escala também: morrer mais apaga, não esquenta.
+  // A escala esfria com mais mortes.
   const fim = /\.therm-fill \{[\s\S]*?linear-gradient\(90deg,[^)]*?(#[0-9a-f]{6})\);/i.exec(src);
   const fimCor = fim ? fim[1] : '';
   const fr = fimCor ? parseInt(fimCor.slice(1, 3), 16) : 0;
@@ -1047,10 +863,7 @@ async function rodar(log) {
   log(fimCor && fr - fb < 30, 'o fim da escala é cinza, não sangue',
     fimCor + ' no extremo de 1000');
 
-  // --- a moldura reage, o conteúdo não espera ---
-  // A divisão é a regra toda: o que é do bloco (moldura, tremor, gotas) fica
-  // parado até alguém olhar; o que é informação (número, kanji) anima sempre,
-  // senão seria preciso passar o mouse para ler o que está escrito.
+  // --- moldura anima no hover; conteúdo (número, kanji) anima sempre ---
   const temGatilho = (re) => re.test(src);
   log(/\.boss-quadro, \.headless-quadro \{ --anim: paused; \}/.test(src),
     'os dois blocos nascem com a moldura parada', '--anim: paused');
@@ -1059,10 +872,8 @@ async function rodar(log) {
     'e ligam no hover ou por toque', ':hover para mouse, .animando para celular');
 
   const gatilhada = (nome) => {
-    // Dentro da MESMA regra, e não numa janela de tantos caracteres: o atalho
-    // `animation` zera os longhands dele, então um play-state posto em outra
-    // regra acima não valeria — e uma janela larga o bastante para alcançar a
-    // regra seguinte daria positivo para a animação errada.
+    // O play-state deve estar na mesma regra (o atalho `animation` redefine
+    // os longhands).
     const i = src.indexOf('animation: ' + nome);
     if (i < 0) return null;
     const fim = src.indexOf('}', i);
@@ -1081,9 +892,7 @@ async function rodar(log) {
   log(/const BLOCOS_ANIMADOS = "\.boss-quadro, \.headless-quadro"/.test(src),
     'o toque alcança os mesmos dois blocos', 'e nenhum outro');
 
-  // O bloco de menos movimento precisa vir depois das animações que desliga:
-  // com a mesma especificidade, quem vem antes perde. Declarado lá em cima,
-  // ele parava o número mas deixava a borda sangrando e o Headless tremendo.
+  // O bloco de prefers-reduced-motion vem depois das animações que desliga.
   const iReduz = src.indexOf('@media (prefers-reduced-motion: reduce)');
   const iUltima = Math.max(
     src.indexOf('animation: tremor'), src.indexOf('animation: medo-borda'),
@@ -1115,12 +924,7 @@ async function rodar(log) {
   log(faixas.size === 3, 'separadas em três faixas de dificuldade',
     [...faixas].join(', '));
 
-  /*
-   * A dificuldade sai da raridade, e a raridade é dado da Steam — não opinião.
-   * O teste confere a consequência disso: dentro de cada faixa as
-   * porcentagens têm de ficar nos intervalos declarados, senão alguém mexeu na
-   * classificação à mão em algum lugar.
-   */
+  // A dificuldade deriva da raridade da Steam: cada faixa respeita seus limites.
   const dentroDaFaixa = conqs.every((c) => {
     if (typeof c.raridade !== 'number') return true;
     if (c.dificuldade === 'facil') return c.raridade >= 50;
@@ -1130,7 +934,7 @@ async function rodar(log) {
   log(dentroDaFaixa, 'e a faixa concorda com a porcentagem de jogadores',
     'fácil ≥50%, média 20–50%, difícil <20%');
 
-  // A marca de shinobi: uma só, e na mais rara de todas.
+  // Uma única marca de shinobi, na mais rara.
   const comTag = conqs.filter((c) => c.shinobi);
   const maisRara = conqs.slice().sort((a, b) => (a.raridade || 100) - (b.raridade || 100))[0];
   log(comTag.length === 1, 'existe uma marca de shinobi, e uma só',
@@ -1145,11 +949,8 @@ async function rodar(log) {
     'e a cena não rouba o clique de nada', 'pointer-events: none');
 
   /*
-   * Os três marcos de tela inteira, e a coerência de cada um com o seu bloco.
-   *
-   * Os kanji não são escolha de gosto e por isso viram teste: o 忍殺 é o que o
-   * jogo estampa no golpe mortal, o 怖 é o kanji que o Sekiro usa para o
-   * Terror (não o 恐怖 mais formal), e o 討 é o que o bloco de chefes já usa.
+   * Os três marcos de tela inteira. Kanji: 忍殺 (golpe mortal), 怖 (Terror,
+   * como no jogo) e 討 (o mesmo do bloco de chefes).
    */
   const blocoMarcos = /const MARCOS_CENA = \[[\s\S]*?\n\];/.exec(src);
   const cenas = blocoMarcos ? blocoMarcos[0] : '';
@@ -1160,8 +961,7 @@ async function rodar(log) {
     'o dos chefes espera todos derrotados', 'every, não some');
   log(/s\.headless\.every\(\(h\) => h\.defeated\)/.test(cenas),
     'e o dos Headless também', 'every, não some');
-  // Lista vazia não é conquista: sem save lido, `every` de lista vazia é true
-  // e as três cenas disparariam juntas na primeira leitura ruim.
+  // Lista vazia não dispara as cenas (`every` de lista vazia é true).
   log(/\.length > 0\s*\n?\s*&& s\.bosses\.every/.test(cenas) || /s\.bosses\.length > 0/.test(cenas),
     'lista vazia não conta como tudo derrotado',
     'every de lista vazia é true, e isso dispararia a cena sem save');
@@ -1175,8 +975,7 @@ async function rodar(log) {
     'e o tremor aponta para o sul, como no bloco',
     'medo encolhe e recua para baixo, não pula');
 
-  // O menu não pode precisar de arrasto: no celular o último item ficava
-  // cortado na borda e só aparecia se você puxasse de lado.
+  // O menu cabe na largura do celular, sem rolagem horizontal.
   const menuCel = /@media \(max-width: 460px\) \{[\s\S]*?\n  \}/.exec(src);
   const menuCelCss = menuCel ? menuCel[0] : '';
   log(!/\.topics \{[^}]*overflow-x: auto/.test(menuCelCss), 'o menu não rola de lado no celular',
@@ -1186,10 +985,7 @@ async function rodar(log) {
   log(/\.topics > \.topic \{[^}]*flex: 1 1 calc\(50% - 6px\)/.test(menuCelCss),
     'cada tópico ocupa meia largura', 'dois por fileira, nada cortado na borda');
 
-  // O ponto de sync foi para a faixa do topo, à esquerda; o botão de tema
-  // continua à direita.
-  // Comparação de posição, e não um regex casando dois </div> seguidos: há um
-  // botão entre eles, e aquele padrão dava resposta errada com cara de certa.
+  // Ponto de sync na faixa do topo, à esquerda; botão de tema à direita.
   const iFaixa = src.indexOf('class="topbar"');
   const iPonto = src.indexOf('syncDot');
   const iTema = src.indexOf('themeToggle');
@@ -1202,14 +998,7 @@ async function rodar(log) {
   log(!/<header class="top">[\s\S]{0,400}syncDot/.test(src),
     'e saiu do cabeçalho', 'cabeçalho ficou com título e assinatura');
 
-  /*
-   * A assinatura destaca por peso e espaço, não por corpo.
-   *
-   * O teste antigo cobrava 0.85rem, de quando destaque era tamanho. Ela
-   * disputava corpo com um título três vezes maior e perdia de qualquer jeito;
-   * encolhida, ganha o que o título não tem. Medir o corpo aqui seria medir a
-   * coisa errada de novo.
-   */
+  // A assinatura se destaca por peso e espaçamento, não por tamanho.
   const assin = /\.assinatura \{[^}]*font-size: ([\d.]+)rem/.exec(src);
   const blocoAssin = /\.assinatura \{[\s\S]*?\n  \}/.exec(src);
   const cssAssin = blocoAssin ? blocoAssin[0] : '';
@@ -1223,8 +1012,7 @@ async function rodar(log) {
     (pesoAssin ? pesoAssin[1] : '?') + ' / ' + (entreAssin ? entreAssin[1] + 'em' : '?'));
   log(/\.assinatura::before,/.test(src) && /\.assinatura::after \{/.test(src),
     'com um fio de cada lado isolando a linha', 'lê como legenda de placa');
-  // O título não pode ter encolhido junto: o pedido foi o cabeçalho menor com
-  // o título intacto.
+  // O título mantém o tamanho.
   const alturaCab = /header\.top \{[\s\S]*?padding-bottom: (\d+)px[\s\S]*?margin-bottom: (\d+)px/.exec(src);
   log(alturaCab && Number(alturaCab[1]) + Number(alturaCab[2]) <= 32,
     'e o cabeçalho ficou mais baixo sem mexer no título',
@@ -1232,13 +1020,11 @@ async function rodar(log) {
   log(/\.assinatura \{[^}]*color: var\(--gold\)/.test(src),
     'e ganhou cor própria', 'dourado, não cinza apagado');
 
-  // Os dois quadrados do meio perderam moldura e fundo.
+  // Os dois quadrados do meio não têm moldura nem fundo.
   log(/\.quadro \{[^}]*border: 0/.test(src), 'os quadrados não têm borda', 'border: 0');
   log(/\.quadro \{[^}]*background: none/.test(src), 'e são transparentes', 'sem fundo');
 
-  // Os quadrados precisam segurar o 1:1. O que garante isso não é o
-  // aspect-ratio sozinho: é ele mais o min-height, porque conteúdo mais alto
-  // que a caixa estica a caixa e o aspect-ratio cede.
+  // Proporção 1:1 garantida por aspect-ratio junto com min-height.
   log(/\.quadro \{[^}]*aspect-ratio: 1 \/ 1/.test(src),
     'os quadrados declaram 1:1', 'aspect-ratio presente');
   log(/\.quadro \{[^}]*min-height: 0/.test(src),
@@ -1247,15 +1033,14 @@ async function rodar(log) {
     'o anel dimensiona pela altura, não pela largura',
     'sem max-width fixo empurrando a caixa');
 
-  // Emma entrou com arte, e com enquadramento próprio.
+  // Emma tem arte com enquadramento próprio.
   const emma = kills.find((b) => b.key === "emma");
   log(!!(emma && emma.enquadre), "a arte da Emma tem enquadramento próprio",
     emma && emma.enquadre ? JSON.stringify(emma.enquadre) : "sem enquadre");
   log(fs.existsSync(path.join(RAIZ, "docs", "icones", "emma.png")),
     "a arte da Emma foi baixada", "icones/emma.png");
 
-  // O painel de mortes não pode voltar a carregar parágrafo: o número é para
-  // ler de relance, e a ressalva vive no hover.
+  // O painel de mortes não tem parágrafo; a ressalva fica no hover.
   await carregar(progress, { hostname: "localhost" });
   const notaMortes = nodes.deathsNote.textContent.trim();
   log(notaMortes === "", "o painel de mortes não mostra texto explicativo",
@@ -1264,25 +1049,24 @@ async function rodar(log) {
   log(/counted|save/i.test(hover), "mas a ressalva continua no hover",
     hover ? "title com " + hover.length + " caracteres" : "title vazio");
 
-  // O contador de mortes voltou a dar número.
+  // O contador de mortes mostra um número.
   log(progress.deaths && progress.deaths.known === true,
     'o contador de mortes está funcionando',
     progress.deaths ? progress.deaths.count + ' (' + progress.deaths.how + ')' : 'ausente');
 
-  // Alvos de toque: o alfinete é desenho, não emoji, e tem alvo grande.
+  // Alvo de toque: o alfinete é um desenho (não emoji) com área ampla.
   log(/\.cat-header \.pin \{[^}]*width: 34px/.test(src), 'o alfinete tem alvo de 34px',
     'alvo maior que o desenho');
   log(!/b\.textContent = "📌"/.test(src) && /pin svg/.test(src),
     'o alfinete é desenhado e segue o tema', 'sem emoji, herda currentColor');
 
-  // O rodapé é discreto, mas tem de existir.
+  // O rodapé existe.
   const rodape = /made by (<span>)?oaovito/i.test(fs.readFileSync(PAGINA, 'utf8'));
   log(rodape, 'rodapé de autoria presente', rodape ? 'made by oaovito' : 'ausente');
 
   await original();
 
-  // Duas contagens independentes das contas: a das flags e a aritmética dos
-  // colares. Divergir significa que uma das duas está errada.
+  // Contas: flags e aritmética dos colares devem coincidir.
   const pb = progress.essentials.prayerBeads;
   const porFlag = (progress.prayerBeadList || []).filter((x) => x.collected).length;
   log(porFlag === pb.collected, 'as duas contagens de Prayer Bead concordam',
@@ -1294,12 +1078,10 @@ async function rodar(log) {
     'sementes por flag batem com as cargas da cabaça',
     gs.collected + ' sementes + ' + gs.startingCharges + ' inicial = ' + gs.charges + ' cargas');
 
-  // O total geral tem de incluir as três seções, senão a barra mede só
-  // próteses e artes.
+  // O total geral inclui as três seções.
   const total = nodes.overallCount.textContent;
   const m = /(\d+)\s*\/\s*(\d+)/.exec(total);
-  // O anel deixou de medir a soma das listas e passou a medir as conquistas do
-  // Steam, que é o placar que o jogo reconhece.
+  // O anel mede as conquistas da Steam.
   const conq = progress.achievements;
   log(!!m && !!conq && Number(m[1]) === conq.desbloqueadas && Number(m[2]) === conq.total,
     'o bloco de progresso mostra as conquistas do Steam',
@@ -1309,20 +1091,15 @@ async function rodar(log) {
   log(soma > 0, 'as listas seguem contando por trás',
     'total mostra ' + total + ', só as três seções já somam ' + soma);
 
-  // Linhas antigas de chefe/mini-chefe no DATA teriam chave morta depois do
-  // renome; se sobrou alguma, ela apareceria desmarcada para sempre.
+  // Nenhuma linha de chefe/mini-chefe no DATA com chave inexistente.
   const cats = nodes.categories.outerHTML;
   log(!/flag:chainedOgre|flag:genichiro1|flag:shichimen\b/.test(cats),
     'nenhuma chave antiga sobrou no DATA', 'renome aplicado');
 }
 
 /**
- * Desenha a página com um progresso qualquer e devolve o que ficou na tela.
- *
- * Serve ao teste do espelho: rodar isto com o progresso local e com o
- * publicado tem de dar o mesmo texto. É a checagem mais direta possível da
- * regra de que o link público não é uma versão reduzida da página — é a mesma
- * página.
+ * Desenha a página com um progresso e devolve o texto da tela. Usado para
+ * comparar a versão local com a publicada.
  */
 async function desenhar(progress) {
   const { nodes } = await carregar(progress, { hostname: 'localhost' });

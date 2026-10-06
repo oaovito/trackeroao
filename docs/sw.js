@@ -1,14 +1,6 @@
 /*
- * sw.js - o que faz o link de progresso abrir como aplicativo no celular.
- *
- * Instalado pela tela inicial (Safari: Compartilhar > Adicionar à Tela de
- * Início; Chrome: Instalar app), o trackeroao abre em tela cheia, com ícone
- * próprio. Este service worker só garante uma coisa: sem rede, a última
- * leitura continua abrindo, em vez de uma tela de erro.
- *
- * Rede primeiro, sempre. O progresso muda enquanto se joga, e servir do cache
- * quando há rede mostraria um número velho como se fosse atual. O cache é só
- * o que sobra quando a rede falta.
+ * sw.js - service worker do aplicativo instalado pela tela inicial.
+ * Rede primeiro; sem rede, serve a última cópia do cache.
  */
 const CACHE = 'trackeroao-v1';
 

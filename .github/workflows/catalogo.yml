@@ -1,11 +1,5 @@
-# A base de jogos nunca fica mais de quinze dias sem release.
-#
-# Toda release ja refaz a base (ver o job "catalogo" de release.yml). Quando
-# nenhuma release sai por quinze dias, esta rotina diaria abre uma so para a
-# base: refaz sync/catalogo-jogos.json.gz, escreve .github/releases/vX.Y.Z.md com a
-# versao seguinte e dispara a publicacao, que passa pelo mesmo teste num
-# Windows limpo de qualquer outra release. As instalacoes recebem a versao
-# nova sozinhas, como sempre.
+# Rotina diaria: apos quinze dias sem release, refaz sync/catalogo-jogos.json.gz,
+# cria .github/releases/vX.Y.Z.md com a versao seguinte e dispara release.yml.
 
 name: catalogo
 
@@ -68,5 +62,5 @@ jobs:
           git add sync/catalogo-jogos.json.gz ".github/releases/v$nova.md"
           git -c user.name=oaovito -c user.email=oaovito@icloud.com commit -q -m "Base de jogos atualizada; release $nova"
           git push -q origin HEAD:main
-          # O push feito por esta rotina nao dispara outra; a publicacao e chamada aqui.
+          # Push com o token do workflow nao dispara outro; chama a publicacao.
           gh workflow run release.yml --ref main

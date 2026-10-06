@@ -1,16 +1,11 @@
 'use strict';
 
 /**
- * A base de jogos que vai em cada release (sync/catalogo-jogos.json.gz).
+ * Gera a base de jogos incluída em cada release (sync/catalogo-jogos.json.gz),
+ * usada pela varredura para reconhecer jogos sem depender da rede.
  *
- * É com ela que a varredura reconhece um jogo pelo nome da pasta, pelo
- * registro do Windows ou pela Epic, em qualquer disco e fora de qualquer
- * loja. Ela sai com a instalação para que a varredura não dependa da rede
- * nem de um serviço de terceiros no computador de quem usa: a rede, quando
- * há, só acrescenta o que saiu depois da release.
- *
- * Roda na integração contínua, antes de cada release, e a cada quinze dias
- * numa release só dela (ver .github/workflows/catalogo.yml).
+ * Roda na CI antes de cada release e a cada quinze dias
+ * (ver .github/workflows/catalogo.yml).
  *
  *   node sync/gerar-catalogo.js            grava a base
  *   node sync/gerar-catalogo.js --conferir  só diz quantos jogos a rede traria
@@ -22,7 +17,7 @@ const https = require('https');
 const zlib = require('zlib');
 
 const ARQUIVO = path.join(__dirname, 'catalogo-jogos.json.gz');
-// Menos que isso é uma fonte quebrada, e não um catálogo: a base anterior fica.
+// Abaixo disso a fonte é considerada inválida e a base anterior é mantida.
 const MINIMO = 20000;
 
 function pedir(url) {
@@ -46,9 +41,8 @@ function pedir(url) {
 }
 
 /*
- * As fontes, uma de reserva da outra, todas públicas e sem chave. A lista de
- * apps da Steam traz todo título com página na loja; a lista mantida em
- * jsnli/steamappidlist é a mesma lista já filtrada para jogos.
+ * Fontes públicas, em ordem de preferência: a lista de apps da Steam e a
+ * jsnli/steamappidlist (já filtrada para jogos).
  */
 const FONTES = [
   {
@@ -91,8 +85,7 @@ function ler() {
 
 async function gerar() {
   const { fonte, jogos } = await coletar();
-  // Ordem estável por appId: a mesma lista gera o mesmo arquivo, e o diff de
-  // uma release para a outra mostra só o que entrou e saiu.
+  // Ordenado por appId, para saída determinística.
   const ordenado = {};
   for (const id of Object.keys(jogos).sort((a, b) => Number(a) - Number(b))) ordenado[id] = jogos[id];
   const antes = ler();

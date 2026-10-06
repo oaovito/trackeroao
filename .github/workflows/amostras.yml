@@ -1,8 +1,5 @@
-# As imagens de preview do README, tiradas das telas a cada mudança estética
-# (a página, a tela de instalação do iOS e os ícones).
-#
-# O push feito aqui não dispara outra rodada (o GitHub não encadeia pushes do
-# próprio token), e só há commit quando alguma imagem mudou.
+# Gera as imagens de preview do README quando a página, a tela de instalação
+# do iOS ou os ícones mudam. Só faz commit se alguma imagem mudou.
 
 name: amostras
 

@@ -1,46 +1,34 @@
 <#
-Registra o sincronizador do save do Sekiro como tarefa agendada, iniciando
-oculto no logon do usuario atual. O servico fica no ar o tempo todo servindo a
-pagina; a leitura do save so acontece enquanto o sekiro.exe estiver rodando.
+Registra o sincronizador como tarefa agendada, iniciando oculto no logon do
+usuario atual.
 
-NAO precisa de administrador: o programa so le arquivos do proprio usuario e
-escuta numa porta alta. Se voce rodar isto elevado, a tarefa ficaria registrada
-para o usuario errado.
+Nao requer administrador (le apenas arquivos do usuario e escuta numa porta
+alta). Rodar elevado registraria a tarefa para o usuario errado.
 #>
 
-# O caminho do Node pode vir de fora porque o instalador sabe coisas que este
-# script nao sabe: quando nao ha winget na maquina, ele baixa o runtime
-# portatil para runtime\node dentro do projeto, e esse Node nao esta no PATH
-# nem em Program Files. Sem receber o caminho, este script nao acharia o Node
-# que acabou de ser instalado e falharia no fim de uma instalacao bem
-# sucedida.
+# Caminho do Node informado pelo instalador (ex.: runtime portatil em
+# runtime\node, fora do PATH).
 param(
     [string]$NodePath,
-    # Para quem registrar a tarefa. Quando a instalacao sobe elevada com OUTRA
-    # conta, o usuario do processo nao e o de quem joga -- e registrar para o
-    # processo deixaria o servico subindo no logon errado. Sem este parametro,
-    # vale o usuario atual, que e o caso comum.
+    # Usuario da tarefa; padrao: o atual. Necessario quando a instalacao roda
+    # elevada com outra conta.
     [string]$Usuario
 )
 
 $ErrorActionPreference = 'Stop'
 
-# O nome antigo fica listado porque o projeto mudou de nome: numa maquina onde
-# o servico ja estava instalado, a tarefa continua registrada como
-# 'SekiroProgressSync'. Reinstalar sem remove-la deixaria duas tarefas subindo
-# dois servicos na mesma porta.
-# Este script mora em windows\, e o projeto e a pasta acima dela.
+# 'SekiroProgressSync' e o nome legado da tarefa, removido na reinstalacao.
+# O projeto e a pasta acima de windows\.
 $raiz       = Split-Path $PSScriptRoot -Parent
 $taskName   = 'TrackeroaoSync'
 $taskAntigo = 'SekiroProgressSync'
 $mainScript = Join-Path $raiz 'sync\main.js'
-# Tudo dentro do proprio projeto: nada resolvido para fora da pasta clonada.
+# Caminhos dentro do proprio projeto.
 $ocultoVbs  = Join-Path $raiz 'sync\oculto.vbs'
 $wscript    = Join-Path $env:WINDIR 'System32\wscript.exe'
 
 # --- node ---
-# Ordem: o que o instalador passou, o do PATH, o de Program Files, e o runtime
-# portatil que uma instalacao anterior possa ter deixado na propria pasta.
+# Ordem: parametro, PATH, Program Files e runtime portatil local.
 $node = $null
 if ($NodePath -and (Test-Path $NodePath)) { $node = $NodePath }
 if (-not $node) { $node = (Get-Command node.exe -ErrorAction SilentlyContinue).Source }
@@ -62,11 +50,8 @@ if (-not (Test-Path $mainScript)) {
     exit 1
 }
 
-# node.exe abre janela de console propria; -WindowStyle nao se aplica a ele.
-# Antes isso era resolvido por um utilitario de terceiro que morava numa pasta
-# irma, fora do projeto: dava para clonar o repositorio e a janela aparecer,
-# porque a dependencia nao vinha junto. O wscript.exe ja vem no Windows, e o
-# oculto.vbs ao lado faz a mesma coisa sem nada para baixar.
+# node.exe abre um console proprio (-WindowStyle nao se aplica); o oculto.vbs
+# o inicia sem janela via wscript.
 if (Test-Path $ocultoVbs) {
     $action = New-ScheduledTaskAction -Execute $wscript `
         -Argument "`"$ocultoVbs`" `"$node`" `"$mainScript`"" `
@@ -87,8 +72,7 @@ $settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGo
     -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
     -MultipleInstances IgnoreNew
 
-# Encerra instancia anterior antes de re-registrar, senao ficam duas brigando
-# pela porta 8777 e a segunda morre com EADDRINUSE.
+# Encerra a instancia anterior para liberar a porta 8777.
 Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" |
     Where-Object { $_.CommandLine -and $_.CommandLine.Contains('main.js') } |
     ForEach-Object {
@@ -105,13 +89,13 @@ Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger `
 
 Write-Host "Tarefa agendada '$taskName' criada (inicia oculta no login)." -ForegroundColor Green
 
-# O pedido de abrir: sem ele o servico sai assim que sobe, porque nada do
-# Trackeroao inicia sozinho sem a caixa "Iniciar com o Windows" marcada.
+# Grava abrir.pedido; sem ele o servico encerra ao subir (a menos que
+# "Iniciar com o Windows" esteja marcado).
 Set-Content -Path (Join-Path $raiz 'sync\abrir.pedido') -Value (Get-Date -Format o) -ErrorAction SilentlyContinue
 Start-ScheduledTask -TaskName $taskName
 Start-Sleep -Seconds 3
 
-# --- confere que subiu de verdade ---
+# --- confere que o servico subiu ---
 $porta = 8777
 $ok = $false
 foreach ($tentativa in 1..5) {

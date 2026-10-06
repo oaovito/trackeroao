@@ -3,11 +3,9 @@ import WebKit
 import CryptoKit
 
 /*
- * Ponte: atende o esquema trackeroao:// buscando cada arquivo no computador,
- * pela rede de casa (http://trackeroao.local:8777, o nome que o serviço
- * anuncia por mDNS). Cada GET que dá certo vira cópia local; com o computador
- * desligado ou longe, a página abre com a última cópia. O telefone só lê:
- * nenhum pedido que altere o computador passa daqui.
+ * Ponte: atende o esquema trackeroao:// buscando cada arquivo em
+ * http://trackeroao.local:8777. Cada GET bem-sucedido vira cópia local, usada
+ * quando o computador está fora. Somente leitura.
  */
 final class Ponte: NSObject, WKURLSchemeHandler {
     static let base = "http://trackeroao.local:8777"
@@ -111,7 +109,7 @@ final class Ponte: NSObject, WKURLSchemeHandler {
         return (tipo, dados)
     }
 
-    // A tela de espera, enquanto o computador não responde e não há cópia.
+    // Tela de espera: sem resposta e sem cópia.
     static let espera = """
     <!doctype html><html><head><meta charset=utf-8>\
     <meta name=viewport content='width=device-width,initial-scale=1,viewport-fit=cover'>\

@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  O aplicativo só lê: mostra a página que o computador serve na rede de casa.
-  Por isso nenhuma permissão além de rede, e as de Wi-Fi servem para achar o
-  computador por mDNS (a trava de multicast é o que deixa a resposta chegar).
+  Somente permissões de rede; as de Wi-Fi servem à descoberta por mDNS.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.oaovito.trackeroao">
@@ -14,7 +12,7 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
-    <!-- O computador fala http puro na rede local; não há certificado a oferecer. -->
+    <!-- O serviço local usa http sem TLS. -->
     <application
         android:label="Trackeroao"
         android:icon="@mipmap/ic_launcher"
@@ -22,7 +20,7 @@
         android:allowBackup="false"
         android:usesCleartextTraffic="true">
 
-        <!-- configChanges: girar a tela não recarrega a página do zero. -->
+        <!-- configChanges: girar a tela não recarrega a página. -->
         <activity
             android:name=".Principal"
             android:exported="true"

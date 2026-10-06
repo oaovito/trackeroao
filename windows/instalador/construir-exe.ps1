@@ -1,62 +1,34 @@
 <#
-Gera o trackeroao-instalador.exe a partir do instalar.ps1 e do
-desinstalar.ps1 -- o mesmo .exe faz os dois papeis, como explicado abaixo.
+Gera o trackeroao-instalador.exe, que embute o instalar.ps1 e o
+desinstalar.ps1 (o mesmo .exe instala e desinstala).
 
-Roda no Windows, e roda sozinho a cada release: a Action de release chama este
-script num runner Windows e anexa o .exe. Com -Saida, grava noutra pasta; com
--Versao, carimba a versao da release nas propriedades do arquivo.
+Executado pela Action de release num runner Windows. -Saida define a pasta de
+saida; -Versao grava a versao nas propriedades do arquivo.
 
-Por que compilar em vez de so distribuir o .ps1: um .ps1 aberto por duplo
-clique abre o editor em vez de executar, e mesmo pela linha de comando esbarra
-na politica de execucao. Um .exe roda em qualquer maquina com duplo clique,
-que e o que se quer de um instalador.
+Compilado com o csc do .NET Framework (C# 5: sem interpolacao de strings,
+membros com =>, ?. ou nameof). O codigo fica numa here-string do PowerShell:
+sem cifrao nem crase, e caracteres nao ASCII apenas como escape unicode.
 
-Por que nao o ps2exe: ele vem da PowerShell Gallery e exige instalar um
-provider, o que nem sempre da certo em maquina alheia. O compilador C# do
-.NET Framework ja vem com o Windows desde sempre, entao este script depende
-so do que a maquina ja tem. Esse compilador so entende C# 5: nada de cifrao
-antes de aspas, => em membro, ?. ou nameof no codigo abaixo. E o codigo mora
-numa here-string do PowerShell, entao tambem nada de cifrao nem de crase nele,
-e acento so em escape de unicode (barra, u, quatro digitos).
+O .exe e winexe: mostra uma janela com o passo atual e uma barra de progresso;
+o PowerShell roda oculto e reporta o progresso por linhas "@@" (protocolo na
+classe Janela). A elevacao e feita pelo .exe. Ao desinstalar, o .exe se copia
+para a pasta temporaria antes de apagar a instalacao.
 
-A janela. O .exe e um programa de janela (winexe), e nao de console: quem
-instala ve uma caixa pequena com o passo atual, uma barra de progresso e uma
-linha de detalhe, e nada mais. O PowerShell roda escondido e conta o que esta
-fazendo por linhas "@@" na saida padrao (o protocolo esta descrito na classe
-Janela). O pedido de administrador tambem saiu do script e veio para ca: o
-.exe se relanca elevado uma vez, e o script nunca abre uma segunda janela.
+O script e gravado em disco e chamado com -File, com a politica de execucao
+via PSExecutionPolicyPreference: -EncodedCommand e -ExecutionPolicy Bypass na
+linha de comando sao bloqueados pelo Windows Defender
+(Trojan:Win32/ClickFix.PM!MTB, reportado como "Access is denied").
 
-Desinstalando, a mesma janela. O desinstalador mora dentro da pasta que ele
-apaga, e um .exe aberto nao pode ser apagado; por isso ele se copia para a
-pasta temporaria e passa a vez para a copia, que mostra a janela ate o fim.
+Inclui manifesto, propriedades de versao e icone. O aviso do SmartScreen so
+desaparece com assinatura de codigo.
 
-Por que o script e gravado em disco e chamado com -File, e NAO passado por
--EncodedCommand: -EncodedCommand seria mais curto e foi assim que isto nasceu,
-e o Windows Defender mata o processo antes de ele existir, reportando
-Trojan:Win32/ClickFix.PM!MTB. A assinatura nao e do nosso script -- e da forma
-"um .exe qualquer abre o powershell com um blob codificado", o padrao das
-campanhas em que a pessoa e convencida a colar um comando codificado no
-Executar. O sintoma engana: vem como "Access is denied" do CreateProcess. Um
-.ps1 legivel em disco e o caminho que o Windows considera normal. Pelo mesmo
-motivo a politica de execucao vai pela variavel PSExecutionPolicyPreference, e
-nao por -ExecutionPolicy Bypass na linha de comando.
-
-O que mais ajuda o antivirus a reconhecer um instalador comum esta aqui: o
-manifesto (roda como o usuario, declara as versoes do Windows e a escala de
-tela), as propriedades do arquivo (produto, descricao, versao, autor) e o
-icone. O aviso azul do SmartScreen ("O Windows protegeu o computador") e outra
-coisa: ele vale para todo .exe baixado sem assinatura digital de codigo, e so
-some com um certificado de assinatura. Isso nao se resolve no codigo.
-
-O modo de ensaio (/ensaio=<script.ps1> /fechar) roda outro script no lugar do
-embutido e fecha sozinho no fim, devolvendo 0 ou 1. E como a Action confere,
-num Windows de verdade, que a janela abre, le o protocolo e termina.
+Modo de ensaio (/ensaio=<script.ps1> /fechar): roda outro script e fecha ao
+final, devolvendo 0 ou 1. Usado pela Action para testar a janela.
 #>
 
 <#
-  -App: a pasta com a janela do Trackeroao (o que o construir-janela.ps1
-  gera). Cada arquivo dela vai dentro do .exe como recurso "app/<nome>", e o
-  instalador os entrega ao script, que os poe em <instalacao>\app.
+  -App: pasta gerada pelo construir-janela.ps1. Cada arquivo vira o recurso
+  "app/<nome>" e e instalado em <instalacao>\app.
 #>
 param([string]$Saida = $PSScriptRoot, [string]$Versao = '', [string]$App = '')
 
@@ -69,10 +41,8 @@ $csc = Get-ChildItem "$env:WINDIR\Microsoft.NET\Framework64" -Filter csc.exe -Re
   Select-Object -Last 1
 if (-not $csc) { throw 'csc.exe do .NET Framework nao encontrado' }
 
-# UTF-8 em base64, e lido como UTF-8 de proposito: sem o -Encoding, o
-# PowerShell 5.1 le arquivo sem BOM como ANSI e o acento chegaria trocado
-# dentro do .exe. Do outro lado ele e regravado como UTF-8 com BOM, pelo mesmo
-# motivo.
+# Le como UTF-8 (o PowerShell 5.1 trataria arquivo sem BOM como ANSI) e
+# embute em base64. O .exe regrava o script como UTF-8 com BOM.
 function Embutir($nome) {
   $fonte = Join-Path $raiz $nome
   if (-not (Test-Path $fonte)) { throw "nao achei $fonte" }
@@ -83,18 +53,14 @@ $b64Instalar = Embutir 'instalar.ps1'
 $b64Desinstalar = Embutir 'desinstalar.ps1'
 $exe = Join-Path $Saida 'trackeroao-instalador.exe'
 
-# A versao numerica que o Windows mostra nas propriedades: v1.6.4 -> 1.6.4.0.
+# Versao numerica das propriedades do arquivo: v1.6.4 -> 1.6.4.0.
 $versaoNum = '0.0.0.0'
 if ($Versao -match '(\d+)\.(\d+)\.(\d+)') { $versaoNum = "$($Matches[1]).$($Matches[2]).$($Matches[3]).0" }
 
 $tmp = Join-Path $env:TEMP ("trackeroao-exe-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $tmp -Force | Out-Null
 
-<#
-  O icone: o do Trackeroao, ja pronto em windows/instalador/icone/trackeroao.ico, com
-  todos os tamanhos que o Windows pede (16 a 256). O desenho vive em SVG na
-  mesma pasta; o .ico e so a forma que o compilador aceita.
-#>
+# Icone .ico (16 a 256), gerado a partir do SVG da mesma pasta.
 $icone = Join-Path $projeto 'windows\instalador\icone\trackeroao.ico'
 if (-not (Test-Path $icone)) { throw "faltou o icone: $icone" }
 
@@ -158,11 +124,9 @@ using System.Windows.Forms;
 [assembly: AssemblyInformationalVersion("$versaoNum")]
 
 /*
- * Os textos da janela e dos passos, em doze idiomas. O idioma e o escolhido
- * no globo da pagina (sync\\idioma.json, de uma instalacao anterior) ou, sem
- * escolha, o do Windows. O script manda "#id|arg|arg" no lugar do texto, e e
- * aqui que ele vira frase; texto sem # passa como veio. O nome Trackeroao
- * nunca e traduzido.
+ * Textos da janela em doze idiomas: sync\\idioma.json de uma instalacao
+ * anterior ou o idioma do Windows. O script envia "#id|arg|arg"; texto sem #
+ * e exibido como veio.
  */
 static class Textos {
   static readonly string[] Idiomas = { "en", "pt-BR", "es", "fr", "de", "it", "ru", "pl", "tr", "ja", "ko", "zh-CN" };
@@ -291,12 +255,8 @@ static class Programa {
       destino = pastaPropria;
     }
 
-    /*
-     * Desinstalando de dentro da pasta, o .exe se copia para a pasta
-     * temporaria e passa a vez para a copia. A janela precisa ficar aberta ate
-     * o fim, e um .exe aberto nao pode ser apagado: rodando da pasta, ela
-     * nunca sairia inteira.
-     */
+    // Ao desinstalar de dentro da pasta, continua a partir de uma copia em
+    // %TEMP%, para a pasta poder ser apagada.
     if (desinstalando && ensaio == null && destino != null && Dentro(proprio, destino)) {
       string copia = Path.Combine(Path.GetTempPath(),
         "trackeroao-desinstalador-" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".exe");
@@ -307,14 +267,9 @@ static class Programa {
     }
 
     /*
-     * Administrador, uma vez so, pedido pelo proprio .exe.
-     *
-     * O PowerShell ja nao pede nada: se pedisse, abriria uma segunda janela de
-     * console, que e o que esta versao existe para evitar. O .exe se relanca
-     * elevado e a copia elevada mostra a janela; recusado o pedido, segue
-     * aqui mesmo, sem administrador, e o script deixa a porta 8777 como
-     * pendencia. Quem pediu vai junto (/usuario), porque elevar pode trocar
-     * de conta.
+     * Elevacao: o .exe se relanca como administrador uma unica vez, repassando
+     * o usuario original (/usuario). Se recusada, segue sem elevacao e a
+     * porta 8777 fica como pendencia.
      */
     if (!desinstalando && ensaio == null && !elevado && !semElevar && !EhAdmin()) {
       string resto = Aspas("/usuario=" + usuario) + " " + Aspas("/exe=" + exeOriginal) + repassar;
@@ -336,8 +291,7 @@ static class Programa {
     } else if (desinstalando) {
       texto = null;
       string local = destino == null ? null : Path.Combine(destino, "windows\\instalador\\desinstalar.ps1");
-      // O desinstalar.ps1 da propria instalacao e o da versao instalada. So
-      // serve se ja souber falar com esta janela; senao, o embutido.
+      // Prefere o desinstalar.ps1 da instalacao, se suportar a janela.
       if (local != null && File.Exists(local)) {
         string t = File.ReadAllText(local, Encoding.UTF8);
         if (t.Contains("TRACKEROAO_GUI")) texto = t;
@@ -353,12 +307,10 @@ static class Programa {
     j.Preparar(texto, usuario, destino, exeOriginal, semElevar || !EhAdmin(), repassar.ToString());
     Application.Run(j);
     int codigo = j.Codigo;
-    // Deu certo: o registro nao serve a mais ninguem. So fica quando falha,
-    // para o botao "Ver registro" (e no ensaio, que a Action le).
+    // O registro so e mantido em caso de falha ou no modo de ensaio.
     if (codigo == 0 && ensaio == null) j.ApagarRegistro();
-    // A copia do desinstalador na pasta temporaria nao pode se apagar
-    // enquanto roda; o Windows a apaga no proximo reinicio (precisa de
-    // administrador; sem ele, a proxima execucao do instalador apaga).
+    // A copia temporaria do desinstalador e agendada para remocao no proximo
+    // reinicio (requer administrador; senao, o Limpar da proxima execucao).
     if (desinstalando && Path.GetFileName(proprio).StartsWith("trackeroao-desinstalador-")) {
       MoveFileEx(proprio, null, 4);
     }
@@ -369,13 +321,9 @@ static class Programa {
   static extern bool MoveFileEx(string de, string para, int opcoes);
 
   /*
-   * /so-janela /destino=<instalacao>: troca so a janela do Trackeroao
-   * (<instalacao>\app) pela que vem dentro deste .exe, sem janela nenhuma e
-   * sem rodar script. E o que a atualizacao automatica chama quando a versao
-   * nova traz uma janela nova: o codigo ela copia do zip, e a janela, que e
-   * binaria, vem daqui. Com a janela a vista nada e trocado (sai com 3), para
-   * nao fecha-la debaixo de quem esta olhando; a proxima conferencia tenta
-   * de novo.
+   * /so-janela /destino=<instalacao>: substitui apenas <instalacao>\app pela
+   * janela embutida, sem interface e sem script. Usado pela atualizacao
+   * automatica. Com a janela visivel, sai com 3.
    */
   static bool JanelaAberta() {
     System.Threading.Mutex m;
@@ -387,20 +335,11 @@ static class Programa {
   static int TrocarJanela(string destino) {
     if (destino == null || !File.Exists(Path.Combine(destino, "sync\\main.js"))) return 2;
     string app = Path.Combine(destino, "app");
-    /*
-     * Janela aberta: ela e fechada pelo mesmo sinal do "Fechar" da bandeja,
-     * a pasta e trocada, e ela abre de novo, ja na versao nova. Assim a
-     * atualizacao nao depende de ninguem fechar nada. Se nao fechar a tempo,
-     * nada e trocado e a proxima conferencia tenta de novo.
-     */
+    // Janela aberta: fecha pelo sinal do "Fechar" da bandeja, troca a pasta e
+    // reabre. Se nao fechar a tempo, sai com 3.
     bool estavaAberta = JanelaAberta(), escondida = false;
     if (estavaAberta) {
-      /*
-       * A vista, a janela nao e fechada debaixo de quem esta olhando: a troca
-       * espera (sai com 3) e a proxima conferencia tenta de novo. Escondida
-       * na bandeja, ela fecha, e a nova volta escondida, no mesmo lugar. Uma
-       * janela anterior a este sinal fecha e reabre como antes.
-       */
+      // Visivel: sai com 3. Escondida na bandeja: fecha e reabre escondida.
       System.Threading.EventWaitHandle vista;
       if (System.Threading.EventWaitHandle.TryOpenExisting("Local\\TrackeroaoAVista", out vista)) {
         bool aVista = vista.WaitOne(0);
@@ -414,8 +353,7 @@ static class Programa {
       if (JanelaAberta()) return 3;
       System.Threading.Thread.Sleep(1000);
     }
-    // O resto do mesmo .exe e o icone da bandeja, que o servico acende de
-    // novo depois da troca: sai agora para largar o arquivo.
+    // Encerra o icone da bandeja (mesmo .exe); o servico o reacende depois.
     foreach (Process p in Process.GetProcessesByName("Trackeroao")) {
       try {
         if (p.MainModule.FileName.StartsWith(app, StringComparison.OrdinalIgnoreCase)) { p.Kill(); p.WaitForExit(5000); }
@@ -425,16 +363,14 @@ static class Programa {
     try {
       if (Directory.Exists(novo)) Directory.Delete(novo, true);
       if (!ExtrairJanela(novo)) return 4;
-      // Um arquivo recem-solto (o .exe que acabou de fechar) pode levar um
-      // instante para ser liberado pelo Windows.
+      // Repete enquanto o Windows libera o .exe recem-fechado.
       for (int i = 0; ; i++) {
         try { if (Directory.Exists(app)) Directory.Delete(app, true); break; }
         catch { if (i >= 10) throw; System.Threading.Thread.Sleep(500); }
       }
       Directory.Move(novo, app);
-      // Pelo shell: a janela nao herda a saida de quem chamou o instalador,
-      // e o servico nao fica esperando por ela.
       AcertarAtalhos(destino, app);
+      // UseShellExecute: a janela nao herda a saida de quem chamou o instalador.
       if (estavaAberta) {
         try { Process.Start(new ProcessStartInfo(Path.Combine(app, "Trackeroao.exe"), escondida ? "/escondida" : "") { UseShellExecute = true }); } catch { }
       }
@@ -446,13 +382,9 @@ static class Programa {
   }
 
   /*
-   * Os atalhos da janela (area de trabalho, menu Iniciar e barra de tarefas)
-   * passam a usar o trackeroao.ico na raiz da instalacao. O Windows guarda o
-   * icone de cada caminho em cache; apontar o atalho para o .exe trocado
-   * continuaria mostrando o icone antigo. Com o caminho novo e o aviso ao
-   * shell, ele le de novo. O arquivo fica fora de app de proposito: o
-   * Explorer segura o icone que esta mostrando, e isso travaria a proxima
-   * troca da pasta.
+   * Os atalhos (area de trabalho, menu Iniciar, barra de tarefas) usam o
+   * trackeroao.ico da raiz da instalacao, fora de app, para evitar o cache de
+   * icones e nao travar a troca da pasta.
    */
   static bool Iguais(string a, string b) {
     if (!File.Exists(a) || !File.Exists(b)) return false;
@@ -498,7 +430,7 @@ static class Programa {
     try { SHChangeNotify(0x08000000, 0, IntPtr.Zero, IntPtr.Zero); } catch { }
   }
 
-  // Os arquivos da janela, dos recursos deste .exe, mais a versao dela.
+  // Extrai os arquivos da janela dos recursos e grava versao.txt.
   internal static bool ExtrairJanela(string pasta) {
     bool algum = false;
     Assembly eu = Assembly.GetExecutingAssembly();
@@ -513,11 +445,9 @@ static class Programa {
   }
 
   /*
-   * Nada se acumula entre uma execucao e outra. Sobras de execucoes que nao
-   * terminaram (o PC desligado no meio, o processo morto) saem aqui: as
-   * pastas de trabalho da janela e as copias antigas do desinstalador. Uma
-   * pasta ainda em uso por outra janela nao pode ser renomeada, e e assim que
-   * ela e reconhecida e deixada em paz.
+   * Remove sobras de execucoes interrompidas em %TEMP%: pastas de trabalho e
+   * copias do desinstalador. Pastas em uso (que nao podem ser renomeadas)
+   * sao ignoradas.
    */
   static void Limpar(string proprio) {
     string temp = Path.GetTempPath();
@@ -573,11 +503,10 @@ static class Programa {
 }
 
 /*
- * A janela: uma caixa pequena, escura, com o nome, o passo atual, uma barra
- * de progresso e uma linha de detalhe. Desenhada a mao, e nao com os
- * controles padrao do Windows, para ser a mesma em qualquer versao dele.
+ * Janela do instalador: nome, passo atual, barra de progresso e detalhe,
+ * desenhados manualmente.
  *
- * O script fala com ela por linhas que comecam com @@ na saida padrao:
+ * Protocolo (linhas na saida padrao do script):
  *   @@PASSO <porcento> <texto>   o que esta sendo feito, e ate onde a barra vai
  *   @@DETALHE <texto>            a linha pequena embaixo da barra
  *   @@PENDENCIA <texto>          o que ficou por fazer, mostrado no fim
@@ -598,8 +527,7 @@ class Janela : Form {
   string erro, fraseFinal;
   // Onde o script instalou a janela (@@APP), para o botao "Abrir".
   string janelaInstalada;
-  // A primeira linha que o PowerShell escreveu como erro: se o script parar
-  // sem dizer o motivo, e ela que a janela mostra.
+  // Primeira linha de stderr, exibida se o script falhar sem @@ERRO.
   string primeiroErro;
   float alvo = 2f, atual = 0f, brilho = 0f;
   readonly Timer relogio = new Timer();
@@ -607,7 +535,7 @@ class Janela : Form {
   string registro, pastaTemp;
   public int Codigo = 1;
   Process ps;
-  // Fotos da janela, para a Action mostrar como ela ficou (TRACKEROAO_FOTO).
+  // Capturas da janela para a Action (TRACKEROAO_FOTO).
   readonly string foto = Environment.GetEnvironmentVariable("TRACKEROAO_FOTO");
   bool fotoTirada;
 
@@ -688,19 +616,14 @@ class Janela : Form {
     Directory.CreateDirectory(pastaTemp);
     string alvoPs = Path.Combine(pastaTemp, nome + ".ps1");
     File.WriteAllText(alvoPs, script, new UTF8Encoding(true));
-    // A janela do Trackeroao vai junto, dentro deste .exe; o script a copia.
+    // Extrai a janela do Trackeroao para o script instalar.
     string pastaApp = Path.Combine(pastaTemp, "app");
     if (!Programa.ExtrairJanela(pastaApp)) pastaApp = null;
 
     ProcessStartInfo psi = new ProcessStartInfo("powershell.exe");
     psi.Arguments = "-NoProfile -NonInteractive -File \"" + alvoPs + "\"" + (desinstalando ? " -GuardarProgresso" : "") + resto;
-    /*
-     * A politica de execucao vai pelo ambiente, e nao por -ExecutionPolicy
-     * Bypass na linha de comando: o flag na linha e metade do que a
-     * heuristica do Defender procura (ver o teste 15 do selftest). A variavel
-     * e lida pelo PowerShell no arranque e faz o mesmo efeito. E preciso
-     * porque em Windows recem-instalado a politica padrao e Restricted.
-     */
+    // Politica de execucao pelo ambiente, nao pela linha de comando (ver o
+    // teste 15 do selftest); necessario com a politica padrao Restricted.
     psi.EnvironmentVariables["PSExecutionPolicyPreference"] = "Bypass";
     psi.EnvironmentVariables["TRACKEROAO_GUI"] = "1";
     psi.EnvironmentVariables["TRACKEROAO_EXE"] = exe;
@@ -751,9 +674,8 @@ class Janela : Form {
     try { File.AppendAllText(registro, linha + Environment.NewLine, Encoding.UTF8); } catch { }
   }
 
-  // As linhas chegam em outra thread. O estado e gravado ali mesmo, para que
-  // o fim (Terminou) sempre veja tudo o que o script disse; a tela so e
-  // avisada para redesenhar.
+  // As linhas chegam em outra thread; o estado e atualizado sob trava e a
+  // tela so e invalidada.
   readonly object trava = new object();
   readonly System.Threading.ManualResetEvent fimSaida = new System.Threading.ManualResetEvent(false);
   readonly System.Threading.ManualResetEvent fimErro = new System.Threading.ManualResetEvent(false);
@@ -788,8 +710,7 @@ class Janela : Form {
 
   void Terminou() {
     int codigo = 1;
-    // Espera a saida acabar de chegar: o processo pode ter saido com linhas
-    // ainda a caminho, e a ultima delas e justamente a do fim.
+    // Aguarda o restante da saida, que pode chegar depois do fim do processo.
     fimSaida.WaitOne(5000);
     fimErro.WaitOne(2000);
     try { codigo = ps.ExitCode; } catch { }
@@ -881,8 +802,7 @@ class Janela : Form {
     using (GraphicsPath cheio = Pilula(bx, by, fw, bh)) {
       using (SolidBrush b = new SolidBrush(cor)) g.FillPath(b, cheio);
       if (modo == Modo.Trabalhando) {
-        // Um brilho que corre sobre o que ja encheu: mostra que ha trabalho
-        // mesmo quando um passo demora e a barra nao anda.
+        // Brilho animado sobre a parte preenchida.
         float cx0 = bx + (brilho - 0.3f) * fw;
         RectangleF faixa = new RectangleF(cx0, by, S(60), bh);
         using (LinearGradientBrush lg = new LinearGradientBrush(new RectangleF(faixa.X - 1, faixa.Y, faixa.Width + 2, faixa.Height),
@@ -974,8 +894,7 @@ class Janela : Form {
   void Primario() {
     if (modo == Modo.Pronto && !desinstalando) {
       try {
-        // Pelo explorer, a janela abre como a pessoa, e nao elevada como este
-        // instalador.
+        // Via explorer, para abrir sem elevacao.
         if (janelaInstalada != null && File.Exists(janelaInstalada)) Process.Start("explorer.exe", Programa.Aspas(janelaInstalada));
         else Process.Start(new ProcessStartInfo("http://localhost:8777/") { UseShellExecute = true });
       } catch { }

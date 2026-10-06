@@ -1,11 +1,9 @@
 'use strict';
 /*
- * arte.js - o banner de cada jogo, na maior resolução que houver.
+ * arte.js - banner de cada jogo, na maior resolução disponível.
  *
- * A tela de jogos mostra cada título pela arte dele, e arte pequena esticada
- * fica borrada numa tela grande. Então cada peça sai como uma LISTA de
- * endereços, da maior para a menor, e a página fica com o primeiro que
- * carregar:
+ * Cada peça é uma lista de endereços, da maior resolução para a menor; a
+ * página usa o primeiro que carregar:
  *
  *   heroi - a arte larga, sem texto, que a Steam usa no topo da biblioteca:
  *           3840x1240 (library_hero_2x), depois 1920x620 (library_hero);
@@ -13,15 +11,10 @@
  *   logo  - o logotipo recortado, com fundo transparente: logo_2x, depois logo;
  *   faixa - a cápsula larga, para miniaturas: 616x353, depois o header 460x215.
  *
- * Jogo que não está na Steam (Valorant, Fortnite, Minecraft...) não tem esses
- * arquivos. Para eles, populares.json guarda o site oficial em `arte.site`, e
- * a arte é a imagem de divulgação que o próprio site declara (og:image), que
- * costuma ser a peça grande da campanha. Jogo achado no disco sem appId passa
- * por uma busca exata de nome na loja da Steam antes de desistir.
- *
- * Nada aqui é essencial: sem rede e sem Steam, a página desenha um pôster
- * tipográfico com o nome do jogo. O que foi resolvido fica em
- * sync/cache/arte.json por 30 dias.
+ * Jogos fora da Steam usam a og:image do site oficial (`arte.site` em
+ * populares.json). Jogos sem appId passam por uma busca exata de nome na loja
+ * da Steam. Sem arte, a página desenha um pôster com o nome do jogo.
+ * Cache em sync/cache/arte.json por 30 dias.
  */
 
 const fs = require('fs');
@@ -31,8 +24,7 @@ const https = require('https');
 const CACHE = path.join(__dirname, 'cache', 'arte.json');
 const VALIDADE = 30 * 24 * 60 * 60 * 1000;
 
-/* Dois servidores da Steam: o atual e o antigo, que ainda guarda arte que o
-   atual às vezes não tem. */
+/* CDNs da Steam: o atual e o antigo, que tem artes ausentes no atual. */
 const CDN = [
   'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/',
   'https://cdn.cloudflare.steamstatic.com/steam/apps/',
@@ -153,9 +145,8 @@ async function resolver(jogos, opts) {
 }
 
 /*
- * O logotipo de um jogo da Steam, recortado e de fundo transparente, para o
- * menu da bandeja. Baixado uma vez e guardado em sync/cache/logos; sem rede,
- * vale o que já houver. Devolve o caminho do .png, ou null.
+ * Logotipo transparente de um jogo da Steam, para o menu da bandeja, em cache
+ * em sync/cache/logos. Devolve o caminho do .png, ou null.
  */
 const LOGOS = path.join(__dirname, 'cache', 'logos');
 function baixar(url, max) {
@@ -178,7 +169,7 @@ async function logoDoJogo(appId) {
   if (fs.existsSync(arq)) return fs.statSync(arq).size ? arq : null;
   for (const url of daSteam(id).logo.reverse()) {
     const png = await baixar(url, 2 * 1024 * 1024);
-    // Só um PNG de verdade: a assinatura dos oito primeiros bytes.
+    // Confere a assinatura PNG.
     if (png && png.length > 8 && png.readUInt32BE(0) === 0x89504e47) {
       fs.mkdirSync(LOGOS, { recursive: true });
       fs.writeFileSync(arq, png);

@@ -1,34 +1,10 @@
 /*
- * Trackeroao.exe - a janela do Trackeroao no Windows.
- *
- * O progresso abre aqui, numa janela propria, e nao num navegador: sem barra
- * de endereco, sem aba, sem link. Ela abre com dois cliques no icone da area
- * de trabalho ou na chama da bandeja, e so por esses dois caminhos.
- *
- * Por dentro, a janela e o WebView2, o componente de pagina que o proprio
- * Windows 10 e 11 ja trazem (o mesmo motor do Edge). Ele mostra a pagina que
- * o servico do Trackeroao serve nesta maquina; o endereco e interno e nunca
- * aparece. Sem o componente (um Windows 10 muito antigo e sem atualizacoes),
- * a pagina abre numa janela de aplicativo do Edge, tambem sem barra.
- *
- * Uma janela so: abrir de novo traz a que ja esta aberta para a frente. O
- * "Fechar" do menu da bandeja fecha esta janela tambem, e o servico junto;
- * abrir esta janela e o que o traz de volta.
- *
- * A borda e a do proprio Trackeroao, e nao a do Windows: uma barra escura com
- * o nome e os tres botoes, como nos aplicativos de jogo. Por baixo a janela
- * continua sendo uma janela comum do Windows -- arrasta, encaixa nas bordas
- * da tela, maximiza com dois cliques e redimensiona pelas bordas --, so sem a
- * barra branca do sistema.
- *
- * O mesmo .exe e tambem o icone da bandeja (/bandeja). Assim o Windows mostra
- * "Trackeroao" e o icone dele na lista de icones da bandeja, e nao o do
- * PowerShell que fazia esse papel antes.
- *
- * Compila com o csc do .NET Framework (C# 5) contra as bibliotecas do
- * WebView2; quem compila e o construir-janela.ps1.
+ * Trackeroao.exe - janela do Trackeroao (WebView2, sem moldura do sistema) e
+ * icone da bandeja (/bandeja). Instancia unica; sem WebView2, abre a pagina
+ * numa janela de aplicativo do Edge. Compilado por construir-janela.ps1 (C# 5).
  */
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Text;
@@ -53,11 +29,7 @@ using Microsoft.Web.WebView2.WinForms;
 static class Programa {
   internal const string Endereco = "http://127.0.0.1:8777/";
 
-  /*
-   * O icone do Trackeroao no tamanho pedido. O .ico da instalacao traz cada
-   * tamanho desenhado a parte (16, 20, 24...), e o Windows escolhe o certo;
-   * sem ele, vale o embutido neste .exe.
-   */
+  // Icone no tamanho dado: o .ico da instalacao, ou o embutido no .exe.
   internal static Icon Icone(Size tamanho) {
     try {
       string raiz = Path.GetDirectoryName(Path.GetDirectoryName(Application.ExecutablePath));
@@ -68,8 +40,7 @@ static class Programa {
     return null;
   }
 
-  // Quem abre passa a vez de ficar na frente para a janela ja aberta: sem
-  // isto o Windows so pisca o botao dela na barra de tarefas.
+  // Permite que a instancia ja aberta venha para a frente.
   [DllImport("user32.dll")] internal static extern bool AllowSetForegroundWindow(int processo);
 
   // Para onde a janela ja aberta deve ir (/ir=#sekiro, do menu da bandeja).
@@ -87,7 +58,7 @@ static class Programa {
     bool primeira;
     Mutex unica = new Mutex(true, "Local\\TrackeroaoJanela", out primeira);
     if (!primeira) {
-      // Ja existe uma janela: ela e que aparece, e esta sai sem mostrar nada.
+      // Ja existe uma janela: traz a existente e sai.
       if (ir != null) { try { File.WriteAllText(ArquivoIr, ir); } catch { } }
       try { AllowSetForegroundWindow(-1); } catch { }
       EventWaitHandle mostrar;
@@ -106,15 +77,14 @@ class Janela : Form {
   readonly WebView2 web;
   readonly EventWaitHandle mostrar = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\TrackeroaoMostrar");
   readonly EventWaitHandle fechar = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\TrackeroaoFechar");
-  // Aceso enquanto a janela esta a vista. A troca da janela pela atualizacao
-  // le este sinal: com ela a vista, espera; escondida na bandeja, troca.
+  // Aceso enquanto a janela esta visivel; a atualizacao so troca o .exe sem ele.
   readonly EventWaitHandle aVista = new EventWaitHandle(false, EventResetMode.ManualReset, "Local\\TrackeroaoAVista");
   readonly bool comecarEscondida;
   string irPara;
-  // O X esconde; so o "Fechar" da bandeja (ou o desligamento do Windows) fecha.
+  // O X esconde; so o "Fechar" da bandeja ou o desligamento do Windows fecha.
   bool saindo;
   FormWindowState antes = FormWindowState.Normal;
-  // O tamanho da janela fora de tela cheia: um so, travado.
+  // Tamanho fixo fora de tela cheia.
   Size tamanho;
 
   [DllImport("user32.dll")] static extern bool IsZoomed(IntPtr janela);
@@ -143,18 +113,14 @@ class Janela : Form {
     irPara = ir;
     Text = "Trackeroao";
     BackColor = Fundo;
-    // O icone da barra de tarefas: o do .exe, que traz todos os tamanhos.
+    // Icone da barra de tarefas.
     try {
       string ico = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(Application.ExecutablePath)), "windows\\instalador\\icone\\trackeroao.ico");
       Icon = File.Exists(ico) ? new Icon(ico) : Icon.ExtractAssociatedIcon(Application.ExecutablePath);
     } catch { }
     AutoScaleMode = AutoScaleMode.Dpi;
-    /*
-     * Onde ela abre: no mesmo lugar da ultima vez (a mesma tela, a mesma
-     * posicao, em tela cheia se estava), inclusive depois de reiniciar o
-     * computador ou de uma atualizacao. Se aquela tela nao existe mais, abre
-     * no meio da tela principal.
-     */
+    // Restaura posicao e tela cheia; se a tela nao existe mais, centraliza
+    // na tela principal.
     Lugar lugar = Lugar.Ler();
     Screen tela = null;
     if (lugar != null) {
@@ -178,35 +144,29 @@ class Janela : Form {
     web = new WebView2();
     web.Dock = DockStyle.Fill;
     web.DefaultBackgroundColor = Fundo;
-    // A pasta de dados do componente e uma so, sempre a mesma: nada se
-    // acumula de uma abertura para a outra.
+    // Pasta de dados fixa do WebView2.
     web.CreationProperties = new CoreWebView2CreationProperties();
     web.CreationProperties.UserDataFolder = Path.Combine(
       Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "trackeroao", "webview");
-    // Uma pagina so, local: um processo de pagina basta, sem reserva de outro
-    // e sem as tarefas de rede de fundo do navegador.
+    // Um unico processo de renderizacao, sem tarefas de rede em segundo plano.
     web.CreationProperties.AdditionalBrowserArguments =
       "--renderer-process-limit=1 --disable-background-networking --disable-features=SpareRendererForSitePerProcess";
     Controls.Add(web);
     Controls.Add(barra);
-    // A pagina ocupa o que sobra abaixo da barra.
+    // Pagina abaixo da barra.
     web.BringToFront();
 
     HandleCreated += delegate {
-      // Modo escuro nas partes que o Windows ainda desenha (Windows 10 20H1+),
-      // e o contorno da janela no tom da barra (Windows 11).
+      // Modo escuro (Windows 10 20H1+) e cor do contorno (Windows 11).
       int sim = 1;
       try { DwmSetWindowAttribute(Handle, 20, ref sim, 4); } catch { }
       int contorno = 0x00221E1C; // COLORREF 0x00BBGGRR: #1c1e22
       try { DwmSetWindowAttribute(Handle, 34, ref contorno, 4); } catch { }
-      // Faz o Windows recalcular a moldura com a regra de WndProc.
+      // Recalcula a moldura conforme WndProc.
       SetWindowPos(Handle, IntPtr.Zero, 0, 0, 0, 0, 0x0027);
     };
-    /*
-     * Tres estados e so: o tamanho travado, a tela cheia, e escondida na
-     * bandeja. Minimizar e fechar pelo X escondem na bandeja; de la ela volta
-     * pelo icone, no mesmo lugar e no mesmo estado.
-     */
+    // Estados: tamanho fixo, tela cheia ou escondida na bandeja. Minimizar e
+    // o X escondem.
     Resize += delegate {
       barra.Invalidate();
       if (WindowState == FormWindowState.Minimized) {
@@ -219,7 +179,7 @@ class Janela : Form {
     };
     VisibleChanged += delegate { Poupar(); AtualizarVista(); };
     ResizeEnd += delegate { SalvarLugar(); };
-    // O contorno da janela acompanha a barra enquanto ela troca de cor.
+    // Contorno acompanha a cor da barra.
     barra.Mudou += delegate(Color c) {
       if (!IsHandleCreated) return;
       int v = c.R | (c.G << 8) | (c.B << 16);
@@ -230,8 +190,7 @@ class Janela : Form {
     Vigiar(fechar, delegate { saindo = true; Close(); });
   }
 
-  // Aberta com /escondida (a troca da atualizacao com a janela na bandeja),
-  // ela nasce sem aparecer, e a pagina so carrega quando for mostrada.
+  // /escondida: nasce oculta; a pagina carrega so ao ser mostrada.
   bool mostrada;
   protected override void SetVisibleCore(bool valor) {
     if (valor && comecarEscondida && !mostrada) {
@@ -265,9 +224,8 @@ class Janela : Form {
     AtualizarVista();
   }
 
-  // O estado tambem vai para sync\janela.estado, que o servico le antes de
-  // tentar a troca: com a janela a vista, ele nem comeca (e o icone da
-  // bandeja nao pisca a cada conferencia).
+  // Grava o estado em sync\janela.estado; o servico nao atualiza com a
+  // janela visivel.
   string estadoGravado;
   static string ArquivoEstado {
     get {
@@ -309,13 +267,8 @@ class Janela : Form {
   }
 
   /*
-   * A moldura.
-   *
-   * A barra de titulo do Windows sai, e o resto da moldura fica: as bordas
-   * invisiveis de redimensionar dos lados e de baixo, a sombra e o encaixe na
-   * tela. A faixa de cima vira area do aplicativo, onde mora a Barra; ali,
-   * fora dos botoes, o Windows entende "barra de titulo" (arrastar, dois
-   * cliques, menu do sistema), e rente ao topo, "borda de cima".
+   * Moldura sem barra de titulo do sistema, mantendo sombra e encaixe. A
+   * faixa de cima e a Barra; fora dos botoes, responde como HTCAPTION.
    */
   int Moldura(bool vertical) {
     // SM_CXSIZEFRAME/SM_CYSIZEFRAME + SM_CXPADDEDBORDER
@@ -323,8 +276,7 @@ class Janela : Form {
   }
 
   protected override void WndProc(ref Message m) {
-    // Fora da tela cheia o tamanho e sempre o mesmo: nem a borda nem o
-    // encaixe do Windows nas laterais da tela mudam o tamanho dela.
+    // Fora da tela cheia, o tamanho nao muda (nem pelo encaixe lateral).
     if (m.Msg == WM_WINDOWPOSCHANGING && IsHandleCreated && !IsZoomed(Handle) && !IsIconic(Handle) && tamanho.Width > 0) {
       PosicaoJanela w = (PosicaoJanela)Marshal.PtrToStructure(m.LParam, typeof(PosicaoJanela));
       if ((w.Opcoes & 0x0001) == 0 && (w.L != tamanho.Width || w.A != tamanho.Height)) {
@@ -337,8 +289,7 @@ class Janela : Form {
       Retangulo r = (Retangulo)Marshal.PtrToStructure(m.LParam, typeof(Retangulo));
       int bx = Moldura(false), by = Moldura(true);
       r.Esq += bx; r.Dir -= bx; r.Base -= by;
-      // Maximizada, a janela passa da tela pela espessura da moldura; o topo
-      // volta para dentro para a barra nao ficar cortada.
+      // Maximizada: compensa a moldura no topo para nao cortar a barra.
       if (WindowState == FormWindowState.Maximized) r.Topo += by;
       Marshal.StructureToPtr(r, m.LParam, false);
       m.Result = IntPtr.Zero;
@@ -346,7 +297,7 @@ class Janela : Form {
     }
     if (m.Msg == WM_NCHITTEST) {
       base.WndProc(ref m);
-      // As bordas nao redimensionam: o tamanho e travado.
+      // Bordas sem redimensionamento.
       int onde = m.Result.ToInt32();
       if (onde >= 10 && onde <= 17) { m.Result = (IntPtr)HTBORDER; return; }
       if (onde != HTCLIENT) return;
@@ -368,10 +319,7 @@ class Janela : Form {
     t.Start();
   }
 
-  /*
-   * Minimizada, a pagina para de desenhar e o componente devolve memoria ao
-   * sistema; de volta, tudo retoma de onde estava.
-   */
+  // Escondida: suspende a renderizacao e libera memoria do WebView2.
   void Poupar() {
     if (web == null || web.CoreWebView2 == null) return;
     bool min = WindowState == FormWindowState.Minimized || !Visible;
@@ -394,8 +342,7 @@ class Janela : Form {
     s.AreDefaultContextMenusEnabled = false;
     s.IsGeneralAutofillEnabled = false;
     s.IsPasswordAutosaveEnabled = false;
-    // Link para fora (uma loja, um site de jogo) abre no navegador da pessoa;
-    // dentro desta janela so fica o Trackeroao.
+    // Links externos abrem no navegador padrao.
     web.CoreWebView2.NewWindowRequested += delegate(object o, CoreWebView2NewWindowRequestedEventArgs e) {
       e.Handled = true;
       Fora(e.Uri);
@@ -406,8 +353,7 @@ class Janela : Form {
       Fora(e.Uri);
     };
     web.CoreWebView2.DocumentTitleChanged += delegate { Text = "Trackeroao"; };
-    // A pagina manda a cor das pontas dela ("cor:#rrggbb"), e a barra passa
-    // para essa cor devagar.
+    // "cor:#rrggbb" da pagina: transicao da cor da barra.
     web.CoreWebView2.WebMessageReceived += delegate(object o, CoreWebView2WebMessageReceivedEventArgs e) {
       string m = null;
       try { m = e.TryGetWebMessageAsString(); } catch { }
@@ -432,20 +378,16 @@ class Janela : Form {
     }
   }
 
-  /*
-   * O servico sobe no logon, mas pode ter sido encerrado. A tarefa agendada e
-   * o caminho certo para subi-lo: roda como o usuario certo e na pasta certa.
-   */
+  // Sobe o servico pela tarefa agendada (usuario e pasta corretos).
   static bool GarantirServico() {
-    // Abrir a mao desfaz o "Fechar" da bandeja: sem esta marca, o servico
-    // volta a subir sozinho no logon e com o jogo.
+    // Remove a marca de "Fechar" da bandeja.
     try {
       string raiz = Path.GetDirectoryName(Path.GetDirectoryName(Application.ExecutablePath));
       File.Delete(Path.Combine(Path.Combine(raiz, "sync"), "fechado.flag"));
     } catch { }
     if (Responde()) return true;
-    // O pedido de abrir: sem ele o servico que a tarefa sobe sai na hora,
-    // porque nada do Trackeroao inicia sozinho sem a caixa marcada na bandeja.
+    // Marca de abertura manual: sem ela, com "Iniciar com o Windows"
+    // desmarcado, o servico sai na hora.
     try {
       string raiz = Path.GetDirectoryName(Path.GetDirectoryName(Application.ExecutablePath));
       File.WriteAllText(Path.Combine(Path.Combine(raiz, "sync"), "abrir.pedido"), DateTime.Now.ToString("o"));
@@ -483,7 +425,7 @@ class Janela : Form {
     });
   }
 
-  // A tela de espera, sem texto: so o nome, que nao muda com o idioma.
+  // Tela de espera: so o nome.
   static string Espera() {
     return "<!doctype html><meta charset=utf-8><style>" +
       "html,body{margin:0;height:100%;background:#06070a;color:#f5f6f8;font-family:'Segoe UI',system-ui,sans-serif}" +
@@ -505,10 +447,7 @@ class Janela : Form {
   }
 }
 
-/*
- * Onde a janela estava: a posicao fora da tela cheia e se estava em tela
- * cheia, num arquivo pequeno ao lado dos dados do componente de pagina.
- */
+// Posicao e estado de tela cheia, gravados junto dos dados do WebView2.
 class Lugar {
   public int X, Y;
   public bool Cheia;
@@ -541,16 +480,14 @@ class Lugar {
 }
 
 /*
- * A barra do Trackeroao: o icone, o nome e os botoes de minimizar, maximizar
- * e fechar, desenhados no escuro do aplicativo. O nome e titulo e nao muda com
- * o idioma. Fora dos botoes ela e transparente para o Windows, que ali trata
- * o clique como barra de titulo (ver WndProc da Janela).
+ * Barra de titulo: icone, nome e botoes minimizar/maximizar/fechar. Fora dos
+ * botoes, o clique vale como barra de titulo (ver Janela.WndProc).
  */
 class Barra : Control {
   static readonly Color Inicial = Color.FromArgb(10, 11, 15);
   static readonly Color Fechar = Color.FromArgb(237, 66, 69);
 
-  // A cor da barra e a das pontas da pagina, e muda com ela em ~0,35 s.
+  // Cor da barra; transicao de ~0,35 s.
   Color fundo = Inicial, de = Inicial, para = Inicial;
   DateTime desde;
   readonly System.Windows.Forms.Timer passo = new System.Windows.Forms.Timer();
@@ -579,7 +516,7 @@ class Barra : Control {
       (int)Math.Round(a.B + (b.B - a.B) * k));
   }
 
-  // Num fundo claro (o tema claro da pagina) o texto e os botoes escurecem.
+  // Fundo claro: texto e botoes escuros.
   bool Claro { get { return (0.2126 * fundo.R + 0.7152 * fundo.G + 0.0722 * fundo.B) / 255.0 > 0.55; } }
   Color Texto { get { return Claro ? Color.FromArgb(18, 20, 26) : Color.FromArgb(236, 238, 242); } }
   Color Apagado { get { return Claro ? Color.FromArgb(84, 88, 98) : Color.FromArgb(150, 154, 164); } }
@@ -652,7 +589,7 @@ class Barra : Control {
     Graphics g = e.Graphics;
     g.Clear(fundo);
     float k = Height / 36f;
-    // Sem linha embaixo: a barra continua na pagina, que desce dela em degrade.
+    // Sem linha inferior: a pagina continua a barra em degrade.
 
     int x = (int)(12 * k);
     if (icone != null) {
@@ -660,7 +597,7 @@ class Barra : Control {
       g.DrawIcon(icone, new Rectangle(x, (Height - t) / 2, t, t));
       x += t + (int)(9 * k);
     }
-    // O nome: "Tracker" claro e "oao" no limao, como no titulo da pagina.
+    // "Tracker" claro e "oao" em limao.
     g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
     using (Font f = new Font("Segoe UI Semibold", 9.5f * k, FontStyle.Regular, GraphicsUnit.Point)) {
       TextFormatFlags ff = TextFormatFlags.NoPadding | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine;
@@ -671,12 +608,8 @@ class Barra : Control {
       TextRenderer.DrawText(g, "oao", f, faixa, Limao, ff);
     }
 
-    /*
-     * Os tres botoes, no jeito do Discord: tracos finos e arredondados, sem
-     * moldura, e ao passar o mouse uma pastilha de cantos redondos por tras
-     * (vermelha no fechar). Tudo com suavizacao, na mesma linha fina dos
-     * icones da pagina.
-     */
+    // Botoes em traco fino; ao passar o mouse, fundo arredondado (vermelho
+    // no fechar).
     g.SmoothingMode = SmoothingMode.AntiAlias;
     g.PixelOffsetMode = PixelOffsetMode.HighQuality;
     for (int i = 0; i < 3; i++) {
@@ -733,12 +666,9 @@ class Barra : Control {
 }
 
 /*
- * O consumo do Trackeroao: a soma dos processos dele -- o servico (node), os
- * Trackeroao.exe (a janela e este icone) e tudo o que eles abriram, como o
- * motor da pagina (msedgewebview2). CPU pela diferenca do tempo de
- * processador entre duas medidas; GPU pelos contadores "GPU Engine" do
- * Windows, o mesmo numero do Gerenciador de Tarefas; RAM pelo conjunto de
- * trabalho. So mede com o menu aberto: fechado, nao custa nada.
+ * Consumo somado dos processos do Trackeroao (node, Trackeroao.exe e
+ * descendentes): CPU por delta de tempo, GPU pelos contadores "GPU Engine",
+ * RAM pelo conjunto de trabalho privado. So mede com o menu aberto.
  */
 class Consumo {
   [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -767,7 +697,7 @@ class Consumo {
 
   public Consumo(int servico) { this.servico = servico; }
 
-  // Os processos do Trackeroao: as raizes e todos os descendentes delas.
+  // Raizes e todos os descendentes.
   System.Collections.Generic.HashSet<int> Nossos() {
     System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<int>> filhos =
       new System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<int>>();
@@ -832,12 +762,8 @@ class Consumo {
     Gpu = MedirGpu(nossos, temAntes);
   }
 
-  /*
-   * A memoria e a mesma do Gerenciador de Tarefas: o conjunto de trabalho
-   * privado de cada processo. O conjunto de trabalho inteiro conta de novo,
-   * em cada processo do WebView2, as paginas que eles dividem entre si, e a
-   * soma sairia maior do que a memoria que o Trackeroao ocupa de fato.
-   */
+  // Conjunto de trabalho privado, como o Gerenciador de Tarefas; o total
+  // contaria varias vezes as paginas compartilhadas do WebView2.
   static long Privada(System.Collections.Generic.HashSet<int> nossos) {
     try {
       InstanceDataCollectionCollection tudo = new PerformanceCounterCategory("Process").ReadCategory();
@@ -855,12 +781,8 @@ class Consumo {
 
   string MedirGpu(System.Collections.Generic.HashSet<int> nossos, bool temAntes) {
     try {
-      /*
-       * Uma leitura so da categoria inteira por medida, em vez de um contador
-       * por motor: a propria medida nao pode pesar no numero que ela mostra.
-       * Como o Gerenciador de Tarefas: por tipo de motor, a soma dos
-       * processos; o numero e o do motor mais ocupado.
-       */
+      // Uma leitura da categoria inteira por medida (mais barata). Soma por
+      // tipo de motor; vale o mais ocupado, como no Gerenciador de Tarefas.
       InstanceDataCollection util = new PerformanceCounterCategory("GPU Engine").ReadCategory()["Utilization Percentage"];
       System.Collections.Generic.Dictionary<string, CounterSample> agora = new System.Collections.Generic.Dictionary<string, CounterSample>();
       System.Collections.Generic.Dictionary<string, double> porTipo = new System.Collections.Generic.Dictionary<string, double>();
@@ -888,11 +810,7 @@ class Consumo {
   }
 }
 
-/*
- * O icone de "atualizando": o anel do Trackeroao aberto em arco, girando.
- * O icone de sempre tem o anel fechado; o arco so aparece enquanto uma
- * atualizacao pedida pela bandeja esta em andamento.
- */
+// Icone de "atualizando": o anel aberto em arco, girando.
 class Girando {
   const int Quadros = 12;
   readonly Icon[] quadros = new Icon[Quadros];
@@ -910,8 +828,7 @@ class Girando {
     for (int i = 0; i < Quadros; i++) quadros[i] = Desenhar(tamanho.Width, i * 360f / Quadros);
     relogio.Interval = 80;
     relogio.Tick += delegate {
-      // Sem resposta em tres minutos, o icone volta ao normal: girar para
-      // sempre prometeria uma atualizacao que nao esta mais acontecendo.
+      // Limite de tres minutos; depois volta ao icone normal.
       if (DateTime.Now - desde > TimeSpan.FromMinutes(3)) { Parar(); return; }
       atual = (atual + 1) % Quadros;
       icone.Icon = quadros[atual];
@@ -938,8 +855,7 @@ class Girando {
     using (Graphics g = Graphics.FromImage(bmp)) {
       g.SmoothingMode = SmoothingMode.AntiAlias;
       g.Clear(Color.Transparent);
-      // Sem fundo: o anel ocupa o quadro inteiro, como o icone parado, com um
-      // aro escuro fino que o deixa legivel tambem na barra clara.
+      // Sem fundo; aro escuro fino para contraste na barra clara.
       float raio = n * 0.39f, largura = n * 0.16f, c = n / 2f;
       RectangleF anel = new RectangleF(c - raio, c - raio, raio * 2, raio * 2);
       using (Pen aro = new Pen(Color.FromArgb(128, 11, 13, 18), largura + Math.Max(1.2f, n * 0.075f))) g.DrawEllipse(aro, anel);
@@ -966,16 +882,13 @@ class Girando {
 }
 
 /*
- * No Windows 11, icone novo na bandeja nasce escondido no menu da seta. Na
- * primeira vez que o Windows registra o icone do Trackeroao, ele e posto a
- * vista; dali em diante a escolha e de quem usa: se for escondido a mao, fica
- * escondido. A marca "TrackeroaoVisivel", na propria entrada do Windows, e o
- * que diz que a primeira vez ja passou.
+ * Windows 11: torna o icone visivel na bandeja so no primeiro registro; a
+ * marca "TrackeroaoVisivel" na entrada preserva a escolha posterior.
  */
 static class Visivel {
   const string Chave = @"Control Panel\NotifyIconSettings";
 
-  // true quando a entrada do Trackeroao ja foi achada (acertada agora ou antes).
+  // true quando a entrada do Trackeroao foi encontrada.
   public static bool Acertar() {
     string meu = Application.ExecutablePath;
     string pasta = Path.GetFileName(Path.GetDirectoryName(Path.GetDirectoryName(meu)));
@@ -984,11 +897,20 @@ static class Visivel {
     try {
       using (RegistryKey k = Registry.CurrentUser.OpenSubKey(Chave)) {
         if (k == null) return false;
+        List<string> velhas = new List<string>();
         foreach (string nome in k.GetSubKeyNames()) {
           using (RegistryKey e = k.OpenSubKey(nome, true)) {
             if (e == null) continue;
             string exe = e.GetValue("ExecutablePath") as string;
             if (exe == null) continue;
+            // Entrada antiga do icone feito pelo PowerShell: aparecia como
+            // "Windows PowerShell" nas configuracoes da barra de tarefas.
+            string dica = e.GetValue("InitialTooltip") as string ?? "";
+            if (exe.EndsWith("\\powershell.exe", StringComparison.OrdinalIgnoreCase) &&
+                dica.IndexOf("Trackeroao", StringComparison.OrdinalIgnoreCase) >= 0) {
+              velhas.Add(nome);
+              continue;
+            }
             bool nosso = exe.Equals(meu, StringComparison.OrdinalIgnoreCase) ||
               exe.EndsWith(fim, StringComparison.OrdinalIgnoreCase);
             if (!nosso) continue;
@@ -998,6 +920,13 @@ static class Visivel {
             e.SetValue("TrackeroaoVisivel", 1, RegistryValueKind.DWord);
           }
         }
+        if (velhas.Count > 0) {
+          using (RegistryKey w = Registry.CurrentUser.OpenSubKey(Chave, true)) {
+            foreach (string nome in velhas) {
+              try { w.DeleteSubKeyTree(nome, false); } catch { }
+            }
+          }
+        }
       }
     } catch { }
     return achou;
@@ -1005,18 +934,12 @@ static class Visivel {
 }
 
 /*
- * O icone da bandeja (Trackeroao.exe /bandeja /porta=8777 /pai=<pid>).
- *
- * Fica aceso enquanto o Trackeroao estiver de pe, e some quando o servico que
- * o chamou (o /pai) sai. Um clique abre a janela. O botao direito abre o menu
- * do Trackeroao, desenhado no estilo dele (escuro, com o limao de destaque),
- * como o da Steam: os jogos no topo, o consumo, "Abrir", "Forcar
- * atualizacao", "Iniciar com o Windows" e "Fechar". Os textos seguem o idioma
- * escolhido no globo da pagina (sync\idioma.json) ou, sem escolha, o do
- * Windows.
+ * Icone da bandeja (Trackeroao.exe /bandeja /porta=8777 /pai=<pid>). Sai junto
+ * com o processo /pai. Clique abre a janela; botao direito abre o menu (jogos,
+ * consumo, acoes). Idioma de sync\idioma.json ou do Windows.
  */
 static class Bandeja {
-  // Idioma, forcar atualizacao, fechar, aviso de versao atual, abrir, iniciar com o Windows.
+  // Textos do menu por idioma.
   static readonly string[][] Textos = new string[][] {
     new string[] { "en", "Force update", "Close", "You are on the latest version ({0}).", "Open Trackeroao", "Start with Windows" },
     new string[] { "pt-BR", "Forçar atualização", "Fechar", "Você já está na versão mais recente ({0}).", "Abrir o Trackeroao", "Iniciar com o Windows" },
@@ -1048,7 +971,7 @@ static class Bandeja {
     return Textos[0];
   }
 
-  // A versao instalada, do versao.json que a instalacao e a atualizacao gravam.
+  // Versao instalada (versao.json).
   static string Versao(string raiz) {
     try {
       Match m = Regex.Match(File.ReadAllText(Path.Combine(raiz, "versao.json"), Encoding.UTF8), "\"tag\"\\s*:\\s*\"v?([^\"]+)\"");
@@ -1107,7 +1030,7 @@ static class Bandeja {
     NotifyIcon icone = new NotifyIcon();
     icone.Icon = Programa.Icone(SystemInformation.SmallIconSize) ?? SystemIcons.Application;
     Girando girando = new Girando(icone, icone.Icon, SystemInformation.SmallIconSize);
-    // O nome e a versao instalada: no texto ao passar o mouse e no topo do menu.
+    // Nome e versao: dica do icone e topo do menu.
     Func<string> nome = delegate { string v = Versao(raiz); return v == null ? "Trackeroao" : "Trackeroao " + v; };
     icone.Text = nome();
 
@@ -1127,7 +1050,7 @@ static class Bandeja {
     menu.ForeColor = Tema.Texto;
     menu.ShowImageMargin = true;
     menu.ShowCheckMargin = false;
-    // A coluna das imagens e larga o bastante para o logotipo de cada jogo.
+    // Coluna de imagens larga o bastante para os logotipos.
     menu.ImageScalingSize = new Size(44, 22);
     menu.Padding = new Padding(6, 8, 6, 8);
     menu.Font = new Font("Segoe UI", 9.5f);
@@ -1140,7 +1063,7 @@ static class Bandeja {
       return i;
     };
 
-    // O topo: o icone e o nome com a versao.
+    // Topo: icone, nome e versao.
     Icon grande = Programa.Icone(new Size(20, 20));
     ToolStripMenuItem cabeca = item(nome(), grande != null ? grande.ToBitmap() : null);
     cabeca.Font = negrito;
@@ -1148,16 +1071,13 @@ static class Bandeja {
     cabeca.Click += delegate { abrir(null); };
     menu.Items.Add(cabeca);
 
-    // Os jogos, como na Steam: um clique abre a pagina dele (ou a tela
-    // inicial, para quem ainda nao tem pagina de progresso).
+    // Jogos: o clique abre a pagina do jogo, ou a inicial se nao houver.
     ToolStripSeparator antesDosJogos = new ToolStripSeparator();
     menu.Items.Add(antesDosJogos);
     System.Collections.Generic.List<ToolStripItem> itensDeJogo = new System.Collections.Generic.List<ToolStripItem>();
     string[] jogos = new string[0];
     object trava = new object();
-    // O icone oficial de cada jogo (o do executavel dele), de fundo
-    // transparente; sem executavel achado, o logotipo pedido ao servico; sem
-    // nenhum dos dois, o selo com a inicial.
+    // Icone do executavel do jogo; senao o logotipo do servico; senao o selo.
     System.Collections.Generic.Dictionary<string, Bitmap> logos = new System.Collections.Generic.Dictionary<string, Bitmap>();
     Action lerJogos = delegate {
       ThreadPool.QueueUserWorkItem(delegate {
@@ -1169,7 +1089,6 @@ static class Bandeja {
             string[] partes = linha.Split('\t');
             string chave = partes[0];
             lock (trava) { if (logos.ContainsKey(chave)) continue; }
-            // Primeiro o icone do executavel do jogo; sem ele, o logotipo.
             Bitmap logo = null;
             try { logo = partes.Length > 3 ? Tema.Icone(partes[3].Trim()) : null; } catch { logo = null; }
             if (logo == null) {
@@ -1206,10 +1125,7 @@ static class Bandeja {
       antesDosJogos.Visible = itensDeJogo.Count > 0;
     };
 
-    // O que o Trackeroao inteiro gasta agora (servico, janela, este icone e
-    // o motor da pagina). O menu abre na hora: a medida roda por fora, a
-    // cada segundo so enquanto ele estiver aberto, e os numeros chegam logo
-    // depois.
+    // Consumo atual, medido em segundo plano a cada segundo com o menu aberto.
     ToolStripMenuItem cpu = item("CPU   ...", null);
     ToolStripMenuItem gpu = item("GPU   ...", null);
     ToolStripMenuItem ram = item("RAM   ...", null);
@@ -1254,12 +1170,8 @@ static class Bandeja {
 
     ToolStripMenuItem atualizar = item(t[1], null);
     atualizar.Click += delegate {
-      /*
-       * O servico confere a release agora. Ja na ultima versao, um aviso
-       * pequeno sai ao lado deste icone e some sozinho. Havendo versao nova,
-       * ela e aplicada em silencio e o servico se reinicia. Enquanto isso, o
-       * anel do icone abre em arco e gira.
-       */
+      // Verifica a release: sem versao nova, mostra um aviso; com versao
+      // nova, aplica e reinicia o servico, com o icone girando.
       girando.Comecar();
       ThreadPool.QueueUserWorkItem(delegate {
         bool nova = false;
@@ -1277,8 +1189,7 @@ static class Bandeja {
     };
     menu.Items.Add(atualizar);
 
-    // Iniciar com o Windows: desmarcada, nada do Trackeroao sobe sozinho no
-    // logon (o servico que a tarefa agendada chama sai na hora).
+    // Desmarcado, o servico chamado pela tarefa agendada sai na hora.
     ToolStripMenuItem iniciar = item(t[5], null);
     Action marcar = delegate { iniciar.Image = Tema.Caixa(File.Exists(comWindows)); };
     marcar();
@@ -1295,11 +1206,7 @@ static class Bandeja {
     ToolStripMenuItem fechar = item(t[2], null);
     fechar.Tag = "fechar";
     fechar.Click += delegate {
-      /*
-       * Fecha tudo de verdade: a janela, este icone e o servico. Nada volta
-       * sozinho ate o Trackeroao ser aberto a mao (ou, com a caixa marcada,
-       * ate o proximo logon).
-       */
+      // Fecha janela, icone e servico ate a proxima abertura ou logon.
       EventWaitHandle sinal;
       if (EventWaitHandle.TryOpenExisting("Local\\TrackeroaoFechar", out sinal)) sinal.Set();
       try { File.WriteAllText(Path.Combine(sync, "fechado.flag"), DateTime.Now.ToString("o")); } catch { }
@@ -1326,14 +1233,14 @@ static class Bandeja {
 
     icone.ContextMenuStrip = menu;
     icone.MouseClick += delegate(object o, MouseEventArgs e) { if (e.Button == MouseButtons.Left) abrir(null); };
-    // O menu precisa de identificador para o BeginInvoke do aviso.
+    // Cria o handle para o BeginInvoke do aviso.
     IntPtr h = menu.Handle;
     // Cantos arredondados no Windows 11, como os menus do sistema.
     int redondo = 2;
     try { DwmSetWindowAttribute(h, 33, ref redondo, 4); } catch { }
     lerJogos();
     icone.Visible = true;
-    // Aceso de novo no meio de uma atualizacao (a troca da janela), segue girando.
+    // Recriado durante uma atualizacao: continua girando.
     foreach (string a in args) if (a.Equals("/atualizando", StringComparison.OrdinalIgnoreCase)) girando.Comecar();
 
     // O Windows registra o icone alguns segundos depois de ele aparecer.
@@ -1343,8 +1250,7 @@ static class Bandeja {
     vista.Tick += delegate { if (Visivel.Acertar() || ++tentativas >= 30) vista.Stop(); };
     vista.Start();
 
-    // Sem o servico que o chamou, o icone sai: icone orfao prometeria uma
-    // aplicacao que nao esta mais la.
+    // Sai quando o processo /pai termina.
     if (pai > 0) {
       System.Windows.Forms.Timer vigia = new System.Windows.Forms.Timer();
       vigia.Interval = 2000;
@@ -1362,11 +1268,7 @@ static class Bandeja {
   }
 }
 
-/*
- * O desenho do menu da bandeja: o vidro escuro do Trackeroao, texto claro, o
- * limao como destaque do item sob o mouse, e cada jogo com um selo da cor
- * dele e a inicial, como os icones da lista da Steam.
- */
+// Renderizador do menu da bandeja: fundo escuro, destaque em limao.
 class Tema : ToolStripProfessionalRenderer {
   public static readonly Color Fundo = Color.FromArgb(17, 19, 24);
   public static readonly Color Borda = Color.FromArgb(44, 47, 56);
@@ -1432,17 +1334,12 @@ class Tema : ToolStripProfessionalRenderer {
 
   protected override void OnRenderArrow(ToolStripArrowRenderEventArgs e) { }
 
-  // O logotipo de um jogo: o PNG transparente, sem a margem vazia em volta,
-  // encaixado sem deformar numa faixa de 44 x 22. Null se nao for imagem.
+  // Logotipo PNG recortado e encaixado em 44 x 22; null se nao for imagem.
   [DllImport("user32.dll", CharSet = CharSet.Unicode)]
   static extern uint PrivateExtractIcons(string arquivo, int indice, int cx, int cy, IntPtr[] icones, uint[] ids, uint quantos, uint flags);
   [DllImport("user32.dll")] static extern bool DestroyIcon(IntPtr icone);
 
-  /*
-   * O icone oficial de um jogo: o do proprio executavel, o mesmo que o
-   * Windows mostra na area de trabalho, com o fundo transparente. Tirado em
-   * 64 px e reduzido, para ficar nitido em qualquer escala da tela.
-   */
+  // Icone do executavel, extraido em 64 px e reduzido.
   public static Bitmap Icone(string exe) {
     if (string.IsNullOrEmpty(exe) || !File.Exists(exe)) return null;
     IntPtr[] h = new IntPtr[1];
@@ -1502,7 +1399,7 @@ class Tema : ToolStripProfessionalRenderer {
     }
   }
 
-  // O selo de um jogo: um quadrado arredondado na cor tirada do nome, com a inicial.
+  // Selo: quadrado arredondado com cor derivada do nome e a inicial.
   public static Bitmap Selo(string nome) {
     int h = 0;
     foreach (char c in nome) h = h * 31 + c;
@@ -1525,7 +1422,7 @@ class Tema : ToolStripProfessionalRenderer {
     return bmp;
   }
 
-  // A caixa de "Iniciar com o Windows": vazia, ou cheia de limao com o visto.
+  // Caixa de selecao de "Iniciar com o Windows".
   public static Bitmap Caixa(bool marcada) {
     Bitmap bmp = new Bitmap(20, 20, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
     using (Graphics g = Graphics.FromImage(bmp)) {

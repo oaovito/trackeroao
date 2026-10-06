@@ -1,12 +1,8 @@
 'use strict';
 
 /**
- * Código QR, sem dependência nenhuma.
- *
- * Serve para o endereço do celular: a página no computador mostra um código
- * que a câmera do telefone lê, em vez de pedir que alguém copie um endereço
- * que muda de rede para rede. Modo byte, correção M, versões 1 a 10 (até
- * 213 bytes), mais do que basta para um endereço da rede local.
+ * Gerador de código QR sem dependências, para o endereço do celular.
+ * Modo byte, correção M, versões 1 a 10 (até 213 bytes).
  *
  * Segue a especificação ISO/IEC 18004; a estrutura acompanha a implementação
  * de referência de domínio público de Project Nayuki.
@@ -222,7 +218,7 @@ function gerar(texto) {
   return m;
 }
 
-/** O código como SVG, com a margem de quatro módulos que a leitura pede. */
+/** O código como SVG, com margem de quatro módulos. */
 function svg(texto, cor, fundo) {
   const m = gerar(texto);
   const n = m.length + 8;

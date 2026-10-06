@@ -1,16 +1,10 @@
 # mem.ps1 - leitura de memoria do processo do jogo, somente leitura.
 #
-# O Node nao consegue chamar ReadProcessMemory sozinho, e este projeto nao tem
-# dependencia nativa nenhuma - nem vai ter. O PowerShell ja e usado aqui (a
-# tarefa agendada, o instalador), e com Add-Type ele compila o P/Invoke na hora.
-# Entao a ponte e esta: o Node manda um pedido em JSON pela entrada padrao e
-# recebe a resposta em JSON pela saida.
+# Recebe as operacoes em JSON pela entrada padrao e responde em JSON pela
+# saida. O P/Invoke e compilado com Add-Type.
 #
-# SOMENTE LEITURA, e isso nao e retorica: o handle e aberto com
-# PROCESS_VM_READ | PROCESS_QUERY_INFORMATION. Sem PROCESS_VM_WRITE, sem
-# PROCESS_VM_OPERATION. Uma tentativa de escrita falharia no nivel do Windows,
-# nao na boa vontade deste script. O mesmo principio do leitor de save: este
-# programa observa o jogo, nunca mexe nele.
+# O handle e aberto com PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, sem
+# PROCESS_VM_WRITE nem PROCESS_VM_OPERATION.
 
 $ErrorActionPreference = 'Stop'
 
@@ -130,9 +124,8 @@ try {
 
         foreach ($op in $req.ops) {
             if ($op.tipo -eq 'scanRel') {
-                # Acha o padrao, le o deslocamento relativo de 4 bytes em
-                # `desloc` e soma ao endereco da proxima instrucao. E assim que
-                # o x64 enderaca dado global: RIP-relativo.
+                # Acha o padrao e resolve o endereco RIP-relativo: deslocamento
+                # de 4 bytes em `desloc` + endereco da proxima instrucao.
                 $p = ParsePadrao $op.padrao
                 $achou = [Mem]::Scan($base, $size, $p.bytes, $p.mask)
                 if ($achou -eq 0) { $res[$op.nome] = $null; continue }
@@ -146,9 +139,7 @@ try {
                 $res[$op.nome] = if ($null -eq $b) { $null } else { [Convert]::ToBase64String($b) }
             }
             elseif ($op.tipo -eq 'snapshot') {
-                # Guarda a regiao inteira num arquivo. A comparacao acontece
-                # aqui dentro depois: mover 66 MB por chamada de PowerShell
-                # seria lento e sem proposito.
+                # Grava a regiao num arquivo; a comparacao e feita aqui depois.
                 $fs = [System.IO.File]::Create($op.arquivo)
                 try {
                     $pos = [long]$op.inicio
@@ -195,14 +186,8 @@ try {
                 $res[$op.nome] = @{ total = $achados.Count; offsets = @($achados | Select-Object -First 4000) }
             }
             elseif ($op.tipo -eq 'varredura') {
-                # Igual ao diff, mas sem saber de quanto subiu: agrupa os
-                # deslocamentos por quanto cresceram, de 1 ate `maxDelta`.
-                #
-                # Existe porque o `diff` obriga a informar o numero exato de
-                # mortes, e quem esta jogando teria de contar. Numa passada so
-                # pela memoria da para separar em baldes; depois, o cruzamento
-                # de duas rodadas diz qual balde de cada uma contem o contador
-                # de verdade, sem ninguem ter contado nada.
+                # Como o diff, mas agrupa os deslocamentos pelo quanto
+                # cresceram, de 1 ate `maxDelta`.
                 $fs = [System.IO.File]::OpenRead($op.arquivo)
                 $baldes = @{}
                 $maxD = [int]$op.maxDelta

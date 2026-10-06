@@ -2,28 +2,14 @@
 /*
  * deathsmem.js - contagem de mortes lida da memória do jogo, em tempo real.
  *
- * Por que isto substitui o método antigo. A contagem anterior era deduzida do
- * save: uma morte só aparecia quando custava Sen, e o Unseen Aid anula essa
- * perda em parte das vezes — o número era um piso declarado, nunca o total. E
- * só atualizava quando o jogo gravava.
- *
- * Na memória o contador do próprio jogo existe e é exato. O que falta é saber
- * ONDE ele está, e isso nenhuma fonte pública documenta para o Sekiro. Então é
- * achado por diferença, do mesmo jeito que se achou a base das event flags —
- * mas agora em segundos, porque dá para tirar uma foto da memória a qualquer
- * momento, em vez de esperar o jogo gravar.
- *
- * O procedimento é:
+ * O offset do contador é encontrado por diferença entre fotos da memória:
  *
  *   npm run deaths mark        tira a foto
  *   (morra no jogo)
  *   npm run deaths confirm 1   compara e guarda os candidatos
  *   (repita com outro número)  o cruzamento decide
  *
- * Duas rodadas com números diferentes bastam: um contador de quadros ou de
- * saves não sobe pelo mesmo tanto nas duas.
- *
- * Nada aqui escreve no jogo. O handle é aberto sem PROCESS_VM_WRITE.
+ * Somente leitura: o handle é aberto sem PROCESS_VM_WRITE.
  */
 
 const fs = require('fs');
@@ -61,8 +47,8 @@ function marcar() {
 }
 
 /**
- * Compara com a foto e mantém só quem subiu exatamente `mortes`.
- * O cruzamento com a rodada anterior é o que decide.
+ * Compara com a foto e mantém os offsets que subiram exatamente `mortes`,
+ * cruzando com a rodada anterior.
  */
 function confirmar(mortes) {
   const e = carregar();
@@ -70,7 +56,7 @@ function confirmar(mortes) {
   const c = memoria.conectar();
   if (!c.ok) return { ok: false, erro: c.erro || 'jogo fechado' };
   if (c.base !== e.base) {
-    // O jogo foi reiniciado e o módulo carregou noutro lugar: a foto não vale.
+    // Módulo carregado em outro endereço (jogo reiniciado): foto inválida.
     return { ok: false, erro: 'o jogo reiniciou desde a foto; tire outra' };
   }
   const r = memoria.executar([{
@@ -105,23 +91,9 @@ function confirmar(mortes) {
 }
 
 /**
- * Confirma sem que ninguém precise ter contado as mortes.
- *
- * O `confirmar` acima exige o número exato, e isso obriga quem está jogando a
- * contar — o que é fácil de errar e, errado, elimina justamente o offset certo.
- * Aqui a memória é varrida uma vez só e os deslocamentos são separados em
- * baldes por quanto subiram. O contador de mortes está no balde `d`, onde `d`
- * é quantas vezes se morreu; não se sabe qual é, mas sabe-se que ele existe.
- *
- * Duas rodadas resolvem. Para cada par de baldes (um de cada rodada), cruzam-se
- * os deslocamentos; o offset verdadeiro aparece em exatamente um par, porque
- * qualquer outro contador que tenha subido junto numa rodada dificilmente sobe
- * na proporção certa na outra. Quando o cruzamento deixa um só, está achado.
- *
- * O teto de 20 existe porque acima disso não é morte: é contador de quadro, de
- * tique de relógio, de partícula. Morrer mais de vinte vezes entre duas fotos
- * é possível, e nesse caso o balde certo fica de fora e a rodada não resolve —
- * o que o código diz, em vez de inventar um offset.
+ * Confirmação sem informar o número de mortes. Os offsets são agrupados em
+ * baldes pelo quanto subiram (1 a 20); cruzando os baldes de duas rodadas, o
+ * contador verdadeiro aparece em exatamente um par.
  */
 const TETO_MORTES = 20;
 
@@ -145,8 +117,8 @@ function varrer() {
 
   const rodadas = Array.isArray(e.rodadas) ? e.rodadas : [];
   rodadas.push({ baldes, em: new Date().toISOString() });
-  e.rodadas = rodadas.slice(-3);          // três bastam; guardar mais é peso à toa
-  e.fotoEm = null;                        // a foto foi consumida por esta rodada
+  e.rodadas = rodadas.slice(-3);          // mantém as três últimas rodadas
+  e.fotoEm = null;                        // foto consumida por esta rodada
 
   // Cruza a última rodada com cada anterior, balde a balde.
   let achado = null;
@@ -164,8 +136,7 @@ function varrer() {
     }
   }
 
-  // Havendo mais de um par com um só deslocamento, não dá para escolher entre
-  // eles sem chutar — e chutar aqui grava um offset errado como se fosse certo.
+  // Mais de um par com um só deslocamento: ambíguo, não grava.
   const unicos = pares.filter((p) => p.n === 1);
   if (unicos.length === 1) {
     e.offset = unicos[0].offsets[0];
@@ -196,20 +167,8 @@ function varrer() {
 }
 
 /**
- * A contagem da jornada inteira, lida da struct que o save carrega.
- *
- * Esta é a leitura boa, e a diferença em relação à anterior é a pergunta que
- * se responde. O offset achado por diferença mora na região estática do
- * módulo: ele zera toda vez que o jogo abre, então media só a sessão. Uma
- * noite de cinco mortes aparecia como "5 mortes", com 82 horas de jogo atrás.
- *
- * O GameDataMan é carregado do arquivo de save, então a contagem dele vem de
- * quando aquele save começou — que é o que se quer dizer com "quantas vezes
- * você morreu neste jogo".
- *
- * A struct foi confirmada, não deduzida: o tempo de jogo interno é campo dela,
- * e leu 54,7 horas contra 82,3 de relógio da Steam. Menu e carregamento
- * explicam a diferença, e um número desligado da realidade não explicaria.
+ * Contagem total do save, lida do GameDataMan (carregado do arquivo de save).
+ * A mesma struct tem o tempo de jogo interno.
  */
 function daJornada() {
   const c = memoria.conectar();
@@ -222,8 +181,7 @@ function daJornada() {
   const p = memoria.ler(r.res.g.alvo, 8);
   if (!p) return null;
   const inst = Number(p.readBigUInt64LE(0));
-  // No menu principal a instância ainda não existe: não há partida carregada,
-  // e inventar zero aqui apagaria a contagem da página.
+  // No menu principal a instância ainda não existe.
   if (!inst) return null;
 
   const campo = (off) => {
@@ -246,11 +204,7 @@ function daJornada() {
 }
 
 /**
- * Guarda a última leitura boa, para o número não sumir com o jogo fechado.
- *
- * Grava só quando muda, ou a cada dez minutos: isto roda a cada ciclo de
- * leitura enquanto o jogo está aberto, e reescrever o arquivo a cada cinco
- * segundos seria castigar o disco para não guardar nada de novo.
+ * Guarda a última leitura boa. Grava só quando muda ou a cada dez minutos.
  */
 function registrar(j) {
   const e = carregar() || {};
@@ -268,15 +222,7 @@ function registrar(j) {
   gravar(e);
 }
 
-/**
- * A última contagem que se conseguiu ler, com o jogo fechado.
- *
- * Existe porque a alternativa é pior: sem isto, fechar o jogo derrubava o
- * número de 221 para 6 — a estimativa do save — e quem abrisse o link público
- * fora do horário de jogo veria o número errado. Contagem de mortes não
- * diminui quando se fecha o jogo. O que muda é ela deixar de ser ao vivo, e é
- * isso que o campo `aoVivo` diz.
- */
+/** Última contagem lida, usada com o jogo fechado (`aoVivo: false`). */
 function ultimaConhecida() {
   const e = carregar();
   const o = e && e.ultimaObservacao;
@@ -292,11 +238,8 @@ function ultimaConhecida() {
 }
 
 /**
- * A contagem desta sessão, pelo offset achado por diferença.
- *
- * Continua aqui como reserva: se uma atualização do jogo mudar o código a
- * ponto de o padrão do GameDataMan não casar, isto ainda conta — só que a
- * partir da abertura do jogo, e a página diz isso em vez de fingir o total.
+ * Contagem da sessão, pelo offset achado por diferença. Reserva para quando o
+ * padrão do GameDataMan não for encontrado.
  */
 function daSessao() {
   const e = carregar();
@@ -352,13 +295,8 @@ if (require.main === module) {
     }
   } else {
     /*
-     * O estado, e a comparação com a última vez que se olhou.
-     *
-     * A comparação existe para responder sozinha a única pergunta que ficou
-     * em aberto na calibração: a contagem é da jornada ou só da sessão. Se for
-     * da jornada, ela sobrevive a fechar e reabrir o jogo; se for da sessão,
-     * volta do zero. Guardando a leitura de hoje, a de amanhã se explica sem
-     * ninguém precisar lembrar de qual era o número.
+     * Estado e comparação com a leitura anterior, para indicar se a contagem
+     * sobrevive ao reinício do jogo (jornada) ou zera (sessão).
      */
     const e = estado();
     console.log(`  calibrado: ${e.calibrado ? 'sim, offset de sessão 0x' + e.offset.toString(16) : 'não'}`);

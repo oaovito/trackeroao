@@ -1,31 +1,14 @@
 'use strict';
 /*
- * jogador.js - de quem é este progresso.
+ * jogador.js - nome do jogador exibido no cabeçalho.
  *
- * A assinatura do cabeçalho era a palavra "oaovito", escrita à mão no HTML.
- * Isso funciona numa máquina só e mente em qualquer outra: instalado no PC de
- * outra pessoa, o tracker anunciava o progresso dela com o nome de quem
- * escreveu a página.
- *
- * O nome certo é o apelido do Steam (PersonaName), que é o nome público da
- * conta - o mesmo que aparece na lista de amigos e no perfil. Ele mora em:
+ * Usa o apelido público da Steam (PersonaName):
  *
  *     Steam/config/loginusers.vdf
  *       "76561198xxxxxxxxx" { "AccountName" "..." "PersonaName" "fulano" }
  *
- * Duas coisas que este módulo NÃO faz, de propósito:
- *
- *   - não lê `AccountName`. Esse é o nome de login da conta, e o projeto
- *     publica o que lê. Apelido é público por natureza; nome de login não é,
- *     e não há motivo nenhum para ele entrar no processo.
- *   - não inventa um nome quando não há Steam. Devolve null, e o cabeçalho
- *     some inteiro - ver o comentário da assinatura na página. Um "player"
- *     genérico seria pior que a ausência: ocuparia o mesmo espaço dizendo
- *     nada.
- *
- * Quando há mais de uma conta no arquivo, quem decide é o SteamID64 do save
- * que está sendo lido. Pegar a primeira daria o apelido de outra pessoa numa
- * máquina de família.
+ * `AccountName` (login) nunca é lido. Sem Steam e sem nome escolhido, devolve
+ * null. Com várias contas, vale a do SteamID64 do save lido.
  */
 
 const fs = require('fs');
@@ -33,11 +16,8 @@ const path = require('path');
 const instalacao = require('./instalacao');
 
 /**
- * Todos os blocos de conta do loginusers.vdf: { id64, persona }.
- *
- * O formato é VDF e a estrutura é rasa - id da conta, e dentro dele os campos.
- * Interpretar o formato inteiro seria trabalho para nada: basta casar o id
- * seguido do PersonaName que vem logo depois, dentro do mesmo bloco.
+ * Blocos de conta do loginusers.vdf: { id64, persona }. Casa o id com o
+ * PersonaName do mesmo bloco, sem interpretar o VDF inteiro.
  */
 function contasDoArquivo(texto) {
   const fora = [];
@@ -50,26 +30,16 @@ function contasDoArquivo(texto) {
   return fora;
 }
 
-/** O SteamID64 que aparece no caminho do save: é a pasta em que ele mora. */
+/** SteamID64 extraído do caminho do save. */
 function id64DoSave(caminhoSave) {
   if (!caminhoSave) return null;
   const m = /(7656119\d{10})/.exec(String(caminhoSave).replace(/\\/g, '/'));
   return m ? m[1] : null;
 }
 
-/**
- * { nick, fonte } ou null.
- *
- * `fonte` existe para a página poder dizer a verdade sobre o que está
- * mostrando, e para o teste poder cobrar que ela não invente.
- */
 /*
- * O nome escolhido na própria página, gravado em jogador.json.
- *
- * É o caminho sem Steam: numa máquina sem ela, a pessoa dá o nome uma vez e
- * o cabeçalho passa a tê-lo. Com a Steam presente, o escolhido continua
- * mandando -- é uma decisão de quem usa -- e o apelido da Steam vai junto só
- * como conferência.
+ * Nome escolhido na página, gravado em jogador.json. Tem prioridade sobre o
+ * apelido da Steam, que vai junto como conferência.
  */
 const ESCOLHIDO = path.join(__dirname, '..', 'jogador.json');
 
@@ -95,6 +65,7 @@ function escolher(nick, arq) {
   return n;
 }
 
+/** { nick, fonte } ou null; `fonte` indica a origem do nome. */
 function quem(opts) {
   const o = opts || {};
   const meu = escolhido(o.arquivo);

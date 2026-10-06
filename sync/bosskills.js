@@ -2,21 +2,13 @@
 /*
  * bosskills.js - quantas vezes cada chefe foi morto.
  *
- * O jogo não guarda isso. As flags de chefe são booleanas (morto / não morto) e
- * as Memories são posse de item, não quantidade. Então não há número para ler:
- * há um número para construir.
+ * O jogo não guarda essa contagem (as flags são booleanas), então ela é
+ * construída:
  *
- * Como se constrói:
+ *   - Semente: chefe já morto no ciclo atual conta como 1.
+ *   - Cada transição da flag de desligada para ligada (ex.: a cada NG+) soma 1.
  *
- *   - Semente: o que já está morto no ciclo atual conta como 1. Não dá para
- *     saber quantas vezes você matou o Gyoubu antes de eu existir, e chutar
- *     seria pior do que começar de 1.
- *   - Daí em diante: cada vez que uma flag vai de desligada para ligada, é mais
- *     uma morte. É o que acontece a cada NG+, quando as flags zeram e você mata
- *     tudo de novo.
- *
- * Ou seja: é exato do momento em que o serviço começou a olhar, e um piso antes
- * disso. A página diz isso, em vez de apresentar o número como se fosse do jogo.
+ * Exato a partir do início da observação; antes disso, um piso.
  */
 
 const fs = require('fs');
@@ -53,7 +45,7 @@ function atualizar(bosses, opts) {
       if (typeof b.defeated !== 'boolean') continue;
       estado.chefes[b.key] = {
         vezes: b.defeated ? 1 : 0,
-        // `semeado` marca que o 1 veio da semente, e não de uma morte que eu vi.
+        // `semeado`: o 1 veio da semente, não de uma morte observada.
         semeado: b.defeated === true,
         ultima: b.defeated ? null : null,
         estava: b.defeated,
@@ -68,13 +60,12 @@ function atualizar(bosses, opts) {
     if (typeof b.defeated !== 'boolean') continue;
     let c = estado.chefes[b.key];
     if (!c) {
-      // Chefe novo no config: entra com a mesma regra da semente.
+      // Chefe novo no config: mesma regra da semente.
       c = estado.chefes[b.key] = { vezes: b.defeated ? 1 : 0, semeado: b.defeated, ultima: null, estava: b.defeated };
       mudou = true;
       continue;
     }
-    // Só a transição desligado -> ligado conta. O caminho inverso é o NG+
-    // zerando as flags, e não é uma morte a menos.
+    // Só desligado -> ligado conta (o inverso é o NG+ zerando as flags).
     if (b.defeated && !c.estava) {
       c.vezes += 1;
       c.ultima = agora;
@@ -101,7 +92,7 @@ function paraProgresso(bosses, estado) {
       emblemaPorque: b.emblemaPorque || null,
       enquadre: b.enquadre || null,
       vezes: c.vezes || 0,
-      // `semeado` avisa que o número é um piso: a contagem exata começou depois.
+      // `semeado`: o número é um piso.
       semeado: c.semeado === true,
       ultima: c.ultima || null,
     };

@@ -1,10 +1,8 @@
 <!doctype html>
 <!--
-  A página que o código QR do iPhone abre, servida pelo próprio computador
-  (rota /ios de serve.js): o passo a passo para instalar o aplicativo de iOS
-  pelo SideStore (grátis, com o Apple ID de quem instala), com a fonte do
-  Trackeroao (docs/celular/altstore/fonte.json, no formato do AltStore). Cabe
-  inteira na tela, sem rolagem, no visual da tela inicial do Trackeroao.
+  Passo a passo de instalação do aplicativo de iOS pelo SideStore, servido na
+  rota /ios de serve.js. Fonte: docs/celular/altstore/fonte.json (formato do
+  AltStore).
 -->
 <html lang="en">
 <head>
@@ -48,8 +46,7 @@
     font: 600 0.8rem/1 'Unbounded', system-ui, sans-serif; letter-spacing: 0.02em;
   }
   .bt svg { width: 15px; height: 15px; flex: none; }
-  /* O botão do Trackeroao, no meio da tela, pulsando devagar: o halo cresce e
-     apaga (só transform e opacity, que o compositor faz sozinho). */
+  /* Botão central com halo pulsante (transform e opacity). */
   .centro { display: flex; justify-content: center; padding: clamp(6px, 1.6vh, 14px) 0; }
   .baixar {
     position: relative; isolation: isolate; display: inline-flex; align-items: center; gap: 10px;
@@ -68,7 +65,7 @@
   @media (prefers-reduced-motion: reduce) { .baixar, .baixar::before { animation: none; } }
   .nota { margin: 0; text-align: center; color: var(--apagado); font-size: 0.78rem; }
   .apagado { color: var(--apagado); }
-  /* Tela baixa (iPhone SE de primeira geração): letra um pouco menor para caber. */
+  /* Telas baixas (iPhone SE de 1ª geração). */
   @media (max-height: 600px) { body { font-size: 0.74rem; } .nota { font-size: 0.7rem; } }
 </style>
 </head>
@@ -102,11 +99,7 @@ document.documentElement.lang = idioma || "en";
 document.title = t[0];
 document.getElementById("t0").innerHTML = t[0].replace("Trackeroao", "Tracker<span>oao</span>");
 ["t1", "t2", "t3", "t4", "t5", "t6"].forEach(function (id, k) { document.getElementById(id).textContent = t[k + 1]; });
-/*
- * O botão abre a fonte do Trackeroao no SideStore. Se ele não estiver no
- * aparelho e a página continuar à vista, tenta o AltStore, que lê a mesma
- * fonte.
- */
+// Abre a fonte no SideStore; se a página continuar visível, tenta o AltStore.
 document.getElementById("baixar").addEventListener("click", function (ev) {
   ev.preventDefault();
   var url = encodeURIComponent(FONTE);
