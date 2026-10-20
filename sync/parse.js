@@ -701,7 +701,7 @@ function diffProgress(antes, depois) {
  * Produz o objeto final que vai para o disco: preserva a última leitura boa se
  * esta falhou, e carrega o histórico de mudanças adiante.
  */
-function finalizeProgress(outFile, progress) {
+function finalizeProgress(outFile, progress, diff) {
   let anterior = null;
   try {
     anterior = JSON.parse(fs.readFileSync(outFile, 'utf8'));
@@ -713,7 +713,7 @@ function finalizeProgress(outFile, progress) {
   const historico = (anterior && anterior.history) || [];
 
   // Só compara leituras boas; resultado preservado não gera histórico.
-  const novas = final.stale ? [] : diffProgress(anterior, final);
+  const novas = final.stale ? [] : (diff || diffProgress)(anterior, final);
   final.history = historico.concat(novas).slice(-HISTORY_MAX);
   return final;
 }

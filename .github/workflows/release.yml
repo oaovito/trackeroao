@@ -541,10 +541,11 @@ jobs:
         run: |
           notas=".github/releases/${TAG}.md"
           tail -n +3 "$notas" > corpo.md
-          # Instalador do Windows e APK de Android.
+          # Instalador do Windows, aplicativos de celular e extensão do navegador.
           cp dist/app/trackeroao.apk dist/trackeroao.apk
           cp dist/ipa/trackeroao.ipa dist/trackeroao.ipa
-          gh release create "$TAG" dist/trackeroao-instalador.exe dist/trackeroao.apk dist/trackeroao.ipa \
+          node .github/extensao.js dist/trackeroao-extensao.zip "$TAG"
+          gh release create "$TAG" dist/trackeroao-instalador.exe dist/trackeroao.apk dist/trackeroao.ipa dist/trackeroao-extensao.zip \
             --target "${{ needs.catalogo.outputs.sha }}" --title "Trackeroao ${TAG#v}" --notes-file corpo.md
 
       # Aponta a fonte do AltStore (docs/celular/altstore/fonte.json) para o .ipa

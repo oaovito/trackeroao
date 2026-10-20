@@ -16,8 +16,9 @@
     "A comparacao e por nome de imagem, sem caminho, e sem diferenciar maiuscula.",
     "",
     "'leitura' diz ate onde o suporte vai:",
-    "  completa - le o save e a memoria, que e o caso do Sekiro",
+    "  completa - le o save (o Sekiro tambem le a memoria)",
     "  nenhuma  - o tracker so percebe que o jogo abriu e fechou",
+    "'progresso' e o arquivo que a pagina le para o jogo; sem ele, progress.json.",
     "Um jogo com 'nenhuma' ainda serve para acender a aplicacao na bandeja, que",
     "e o que o item de menu promete: aparecer quando o jogo escolhido comecar."
   ],
@@ -28,6 +29,14 @@
       "processos": ["sekiro.exe"],
       "appId": "814380",
       "leitura": "completa"
+    },
+    {
+      "chave": "steam-1245620",
+      "nome": "ELDEN RING",
+      "processos": ["eldenring.exe"],
+      "appId": "1245620",
+      "leitura": "completa",
+      "progresso": "elden.json"
     }
   ]
 }

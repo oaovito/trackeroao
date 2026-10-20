@@ -174,6 +174,7 @@ function paraProgresso() {
       nome: g.nome,
       appId: g.appId || null,
       leitura: g.leitura || 'nenhuma',
+      progresso: g.progresso || null,
       vigiado: esc ? esc.includes(g.chave) : (g.leitura === 'completa'),
       instalado: g.instalado === undefined ? null : g.instalado,
       naSteam: (g.fontes || []).some((f) => /^steam/.test(f)),

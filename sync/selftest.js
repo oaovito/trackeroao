@@ -1794,6 +1794,278 @@ function resumo() {
   console.log('');
 }
 
+console.log('\n  === 25. Elden Ring ===');
+
+/*
+ * Save mínimo do Elden Ring, montado aqui: um personagem no slot 0 com uma
+ * arma, uma armadura, um talismã, uma cinza de guerra, uma magia, mortes e
+ * flags de progresso. Mesmo leiaute que o jogo grava (versão 220).
+ */
+function saveEldenDeTeste(mortes) {
+  const ERSave = require('./ersave');
+  const TAM = 0x1ba03d0, ENTRADA = 0x280010, UD10 = 0x19003a0, UD11 = 0x19603b0;
+  const u8 = new Uint8Array(TAM);
+  const dv = new DataView(u8.buffer);
+  let pos = 0;
+  const w = {
+    u8: (v) => { dv.setUint8(pos, v); pos += 1; return w; },
+    u16: (v) => { dv.setUint16(pos, v, true); pos += 2; return w; },
+    u32: (v) => { dv.setUint32(pos, v >>> 0, true); pos += 4; return w; },
+    i32: (v) => { dv.setInt32(pos, v, true); pos += 4; return w; },
+    u64: (v) => { dv.setBigUint64(pos, BigInt(v), true); pos += 8; return w; },
+    bytes: (a) => { u8.set(a, pos); pos += a.length; return w; },
+    fill: (n, v) => { u8.fill(v || 0, pos, pos + n); pos += n; return w; },
+    utf16: (s, n) => { for (let i = 0; i < n; i++) w.u16(i < s.length ? s.charCodeAt(i) : 0); return w; },
+  };
+  // Cabeçalho BND4 com dez slots e os dois blocos USER_DATA.
+  w.bytes([0x42, 0x4e, 0x44, 0x34]).u32(0).u32(0x10000).u32(12).u64(0x40).bytes([...'00000001'].map((c) => c.charCodeAt(0)))
+    .u64(0x20).u64(0x300).u8(1).u8(0x20).u8(0).u8(0).u32(0).u64(0);
+  const entradas = [];
+  for (let i = 0; i < 10; i++) entradas.push([0x300 + i * ENTRADA, ENTRADA]);
+  entradas.push([UD10, 0x60010], [UD11, 0x240020]);
+  entradas.forEach(([off, tam], i) => {
+    pos = 0x40 + i * 0x20;
+    w.u32(0x50).i32(-1).u64(tam).u32(off).u32(0x1c0 + i * 26).u64(0);
+    pos = 0x1c0 + i * 26;
+    w.utf16('USER_DATA' + String(i).padStart(3, '0'), 13);
+  });
+  // Slot 0.
+  const base = 0x300;
+  pos = base + 0x10;
+  w.u32(220).bytes([0, 36, 42, 60]).u64(3723000).fill(16, 0x11);
+  const arma = 0x80800000, elmo = 0x90800001, cinza = 0xc0800002;
+  const ga = [[arma, 1000000 + 12, 0], [elmo, 0x10000000 | 40000], [cinza, 0x80000000 | 10000]];
+  for (let i = 0; i < 0x1400; i++) {
+    const g = ga[i];
+    if (!g) { w.u32(0).u32(0); continue; }
+    w.u32(g[0]).u32(g[1]);
+    if (g[0] >>> 28 !== 0xc) { w.i32(-1).i32(0); if (g[0] >>> 28 === 0x8) w.u32(g[2]).u8(0); }
+  }
+  const P = pos;
+  w.u32(0).u32(0).u32(500).u32(500).u32(500).u32(80).u32(80).u32(80).u32(0).u32(100).u32(100).u32(100).u32(0);
+  for (const v of [15, 10, 11, 14, 13, 9, 9, 7]) w.u32(v);
+  w.u32(0).u32(0).u32(0).u32(9).u32(1234).u32(56789);
+  pos = P + 0x94; w.utf16('Tarnished', 16).u16(0);
+  pos = P + 0xb6; w.u8(1).u8(0).u8(0).u8(0).u8(2).u8(3);
+  pos = P + 0xbe; w.u8(1).u8(4);
+  pos = P + 0xf9; w.u8(6).u8(3);
+  pos = P + 0x1b0;
+  w.fill(0xd0 + 0x58 + 0x1c + 0x58 + 0x58, 0);
+  // Inventário: arma, elmo, talismã 1000, magia 4000 (Glintstone Pebble) e a cinza de guerra.
+  const bolsa = [[arma, 1], [elmo, 1], [0xa0000000 | 1000, 1], [0xb0000000 | 4000, 1], [cinza, 1]];
+  w.u32(bolsa.length);
+  for (let i = 0; i < 0xa80; i++) { const it = bolsa[i]; if (it) w.u32(it[0]).u32(it[1]).u32(i); else w.u32(0).u32(0).u32(0); }
+  w.u32(0);
+  for (let i = 0; i < 0x180; i++) w.u32(0).u32(0).u32(0);
+  w.u32(0).u32(0);
+  w.fill(0x74 + 0x8c + 0x18, 0).u32(2).fill(16, 0x22).fill(0x9c + 0xc + 0x12f, 0);
+  // Baú vazio.
+  w.u32(0);
+  for (let i = 0; i < 0x780; i++) w.u32(0).u32(0).u32(0);
+  w.u32(0);
+  for (let i = 0; i < 0x80; i++) w.u32(0).u32(0).u32(0);
+  w.u32(0).u32(0);
+  w.fill(0x100, 0).u32(0).fill(0x28 + 1 + 0x44 + 4 + 4, 0).u16(0).u16(0).u32(0x1000).fill(0x1000, 0x33);
+  w.fill(0x34 + 0x1b588, 0).u16(174).u16(1).u32(0x400).fill(0x400, 0x44).fill(3, 0);
+  w.u32(mortes).i32(0).u8(0).u32(0).u32(0).u8(0).u32(0).u32(0);
+  const flags = pos;
+  // Godrick derrotado, a graça dele, um mapa e a Chama Frenética recebida.
+  for (const id of [10000800, 71000, 63010, 108]) {
+    const l = ERSave.locateFlag(id);
+    if (!l) throw new Error('flag ' + id + ' sem lugar no save');
+    u8[flags + l.byte] |= 1 << l.bit;
+  }
+  // Perfil ativo no USER_DATA010.
+  pos = UD10 + 0x10;
+  w.u32(0x2c).u64('76561197960265728');
+  u8.set([1, 0, 0, 0, 0, 0, 0, 0, 0, 0], UD10 + 0x1964);
+  pos = UD10 + 0x196e;
+  w.utf16('Tarnished', 16).u16(0).u32(9).u32(3723).u32(56789).bytes([0, 36, 42, 60]).u32(0);
+  pos = UD10 + 0x196e + 0x242;
+  w.u8(1).u8(0).u8(3);
+  for (const [off, tam] of entradas) u8.set(crypto.createHash('md5').update(u8.subarray(off + 16, off + tam)).digest(), off);
+  return Buffer.from(u8.buffer);
+}
+
+const ER_DADOS = path.join(RAIZ_PROJETO, 'docs', 'app', 'eldenring');
+
+check('o save do Elden Ring é lido: mortes, itens e flags do personagem', () => {
+  const elden = require('./elden');
+  const pasta = fs.mkdtempSync(path.join(require('os').tmpdir(), 'trackeroao-er-'));
+  const arq = path.join(pasta, 'ER0000.sl2');
+  try {
+    fs.writeFileSync(arq, saveEldenDeTeste(4321));
+    const estado = {};
+    const r = elden.construir({ file: arq, estado });
+    assert(r.ok, 'não leu: ' + r.error + ' ' + (r.message || ''));
+    assert(r.jogo === 'eldenring' && r.formato === 1, 'cabeçalho do elden.json errado');
+    assert(r.mortes === 4321, 'mortes: ' + r.mortes);
+    assert(r.fonte.slot === 0 && r.fonte.arquivo === 'sl2', 'slot ou arquivo: ' + JSON.stringify(r.fonte));
+    assert(r.itens.armas.includes(1000000), 'a Dagger (+12) não virou o id base: ' + r.itens.armas);
+    assert(r.itens.armaduras.includes(40000) && r.itens.talismas.includes(1000) && r.itens.cinzas.includes(10000), 'itens: ' + JSON.stringify(r.itens));
+    assert(r.itens.bens.includes(4000), 'a magia não entrou nos bens: ' + r.itens.bens);
+    for (const f of [10000800, 71000, 63010, 108]) assert(r.flags.includes(f), 'flag ' + f + ' não lida');
+    assert(!/[\\/]/.test(JSON.stringify(r)), 'o elden.json carrega um caminho de arquivo');
+    assert(estado.anterior && estado.anterior.activeSlot === 0, 'o slot não ficou guardado para a próxima leitura');
+    assert(elden.precisaLer(arq, path.join(pasta, 'nao-existe.json')), 'sem leitura anterior, precisa ler');
+    fs.writeFileSync(path.join(pasta, 'elden.json'), JSON.stringify(r));
+    assert(!elden.precisaLer(arq, path.join(pasta, 'elden.json')), 'releria um save que não mudou');
+    // Save corrompido: erro claro, sem caminho.
+    const ruim = saveEldenDeTeste(1);
+    ruim[0x300 + 0x20] ^= 0xff;
+    fs.writeFileSync(arq, ruim);
+    const e = elden.construir({ file: arq, estado: {} });
+    assert(!e.ok && e.error && !String(e.message).includes(pasta), 'save corrompido: ' + JSON.stringify(e));
+    const nenhum = elden.construir({ file: null, estado: {} });
+    assert(!nenhum.ok && nenhum.error === 'no-save-found', 'sem save: ' + nenhum.error);
+    return 'mortes 4321, a arma +12 contada pela base, magia e flags lidas; save ruim vira erro';
+  } finally {
+    fs.rmSync(pasta, { recursive: true, force: true });
+  }
+});
+
+check('o save do Elden Ring é achado pela pasta do jogo ou pela variável ELDEN_SAVE', () => {
+  const pasta = fs.mkdtempSync(path.join(require('os').tmpdir(), 'trackeroao-er-'));
+  const antes = process.env.ELDEN_SAVE;
+  try {
+    const arq = path.join(pasta, 'ER0000.sl2');
+    fs.writeFileSync(arq, 'x');
+    process.env.ELDEN_SAVE = arq;
+    assert(sl2.acharSave(sl2.ELDEN) === arq, 'ignorou ELDEN_SAVE');
+    assert(sl2.ELDEN.arquivos.includes('ER0000.co2'), 'o save do Seamless Co-op não é procurado');
+    assert(sl2.SEKIRO.arquivos.length === 1 && sl2.SEKIRO.arquivos[0] === 'S0000.sl2', 'a busca do Sekiro mudou');
+    return 'ER0000.sl2 e ER0000.co2, na pasta EldenRing de cada conta';
+  } finally {
+    if (antes === undefined) delete process.env.ELDEN_SAVE; else process.env.ELDEN_SAVE = antes;
+    fs.rmSync(pasta, { recursive: true, force: true });
+  }
+});
+
+check('o Elden Ring é lido só pelo save, sem abrir o processo do jogo', () => {
+  for (const f of ['elden.js', 'ersave.js']) {
+    const fonte = fs.readFileSync(path.join(__dirname, f), 'utf8');
+    assert(!/require\(['"]\.\/(memoria|deathsmem|bosskills)['"]\)|mem\.ps1|ReadProcessMemory|OpenProcess/.test(fonte), f + ' toca na memória do jogo');
+  }
+  const main = fs.readFileSync(path.join(__dirname, 'main.js'), 'utf8');
+  assert(/require\('\.\/elden'\)/.test(main) && /function syncElden/.test(main), 'o serviço não lê o Elden Ring');
+  const serve = fs.readFileSync(path.join(__dirname, 'serve.js'), 'utf8');
+  assert(/elden\\\.json/.test(serve), 'o servidor não entrega o elden.json');
+  assert(/\(progress\|elden\)\\\.json/.test(serve), 'sem elden.json, o servidor não responde em JSON');
+  const j = JSON.parse(fs.readFileSync(path.join(__dirname, 'jogos.json'), 'utf8'));
+  const lista = j.lista || [];
+  const er = lista.find((g) => g.chave === 'steam-1245620');
+  assert(er && er.leitura === 'completa' && er.progresso === 'elden.json', 'o Elden Ring não está marcado como lido');
+  return 'elden.js e ersave.js sem leitura de memória; Easy Anti-Cheat intocado';
+});
+
+check('os dados do Elden Ring cabem em oito arquivos e se conferem', () => {
+  const arqs = fs.readdirSync(ER_DADOS);
+  assert(arqs.length <= 8, arqs.length + ' arquivos em docs/app/eldenring');
+  const d = {};
+  for (const a of arqs) {
+    d[a.replace(/\.json$/, '')] = JSON.parse(fs.readFileSync(path.join(ER_DADOS, a), 'utf8'));
+    assert(d[a.replace(/\.json$/, '')].formato === 1, a + ' sem formato 1');
+  }
+  const g = d.geral;
+  const listas = {
+    armas: d.armas.armas, escudos: d.armas.escudos, armaduras: d.armaduras.armaduras, talismas: d.talismas.talismas,
+    'cinzas-de-guerra': d.cinzas['cinzas-de-guerra'], 'cinzas-espirituais': d.cinzas['cinzas-espirituais'],
+    feiticos: d.magias.feiticos, encantamentos: d.magias.encantamentos, chefes: d.mundo.chefes, locais: d.mundo.gracas, mapas: d.mundo.mapas,
+  };
+  const regioes = new Set(g.regioes.map((r) => r.id));
+  let dlc = 0;
+  for (const [k, l] of Object.entries(listas)) {
+    const ids = l.map((x) => x.i);
+    assert(new Set(ids).size === ids.length, k + ' tem ids repetidos');
+    assert(JSON.stringify(ids) === JSON.stringify(g.ids[k]), 'os ids de ' + k + ' no geral.json não batem com a lista');
+    for (const x of l) {
+      assert(x.n, k + ' sem nome: ' + x.i);
+      if (x.r) assert(regioes.has(x.r), k + ' ' + x.n + ' em região desconhecida: ' + x.r);
+      if (x.dlc) dlc++;
+    }
+  }
+  assert(dlc > 300, 'pouco conteúdo da expansão: ' + dlc);
+  for (const c of d.mundo.chefes) assert(c.d && c.d.en && c.d.pt, 'chefe sem descrição: ' + c.n);
+  for (const k of ['armas', 'armaduras', 'talismas', 'cinzas-de-guerra', 'feiticos', 'encantamentos']) {
+    const sem = listas[k].filter((x) => !Array.isArray(x.o) || !x.o.length);
+    assert(!sem.length, k + ' sem como obter: ' + sem.slice(0, 3).map((x) => x.n));
+  }
+  const missoes = new Set(d.pessoas.missoes.map((m) => m.id));
+  for (const n of d.pessoas.npcs) if (n.q) assert(missoes.has(n.q), 'NPC ' + n.n + ' aponta para missão inexistente');
+  const chefes = new Set(g.ids.chefes);
+  const tipos = new Set();
+  for (const r of g.rotas) {
+    tipos.add(r.tipo);
+    for (const p of r.passos) {
+      for (const c of p.c || []) assert(chefes.has(c), 'rota ' + r.id + ' cita chefe inexistente ' + c);
+      for (const [cat, id] of p.i || []) assert(g.ids[cat] && g.ids[cat].includes(id), 'rota ' + r.id + ' cita item inexistente ' + cat + ' ' + id);
+    }
+  }
+  assert(['final', 'cem', 'build'].every((t) => tipos.has(t)), 'faltam rotas de finais, 100% ou builds: ' + [...tipos]);
+  assert(g.finais.length === 6 && g.finais.every((f) => f.d && f.req), 'finais incompletos');
+  const leitura = new Set(g.leitura.flags);
+  for (const k of ['chefes', 'locais', 'mapas']) assert(g.ids[k].every((i) => leitura.has(i)), 'flags de ' + k + ' fora da leitura');
+  return arqs.length + ' arquivos, ' + Object.values(listas).reduce((n, l) => n + l.length, 0) + ' registros (' + dlc + ' da expansão), ' + g.rotas.length + ' rotas';
+});
+
+check('a página do Elden Ring tem os textos nos doze idiomas', () => {
+  const html = fs.readFileSync(path.join(RAIZ_PROJETO, 'trackeroao.html'), 'utf8');
+  const ini = html.indexOf('const I18N = {');
+  const fim = html.indexOf('\n};\n', ini);
+  assert(ini > 0 && fim > ini, 'não achei a tabela de textos');
+  const I18N = require('vm').runInNewContext('(' + html.slice(ini + 'const I18N = '.length, fim + 2) + ')');
+  const so = new Set(['er.det.dlc', 'er.rota.cem']);
+  const chaves = Object.keys(I18N.en).filter((k) => /^er\./.test(k) && !so.has(k)).concat(['jogos.soSave']);
+  assert(chaves.length > 70, 'poucos textos do Elden Ring: ' + chaves.length);
+  const faltam = [];
+  for (const [idioma, tabela] of Object.entries(I18N)) for (const k of chaves) if (!tabela[k]) faltam.push(idioma + ':' + k);
+  assert(!faltam.length, 'faltam textos: ' + faltam.slice(0, 6).join(', '));
+  // Cada t("er.…") usado na página existe.
+  const usados = new Set([...html.matchAll(/t\("(er\.[\w.-]+[\w-])"/g)].map((m) => m[1]));
+  const prefixos = [...html.matchAll(/t\("(er\.[\w-]+\.)" \+/g)].map((m) => m[1]);
+  const semTexto = [...usados].filter((k) => !I18N.en[k]);
+  assert(!semTexto.length, 'textos usados e não definidos: ' + semTexto.join(', '));
+  for (const p of prefixos) assert(Object.keys(I18N.en).some((k) => k.startsWith(p)), 'nenhum texto com o prefixo ' + p);
+  return chaves.length + ' textos em ' + Object.keys(I18N).length + ' idiomas';
+});
+
+check('a extensão do navegador sai completa e sem script embutido', () => {
+  const ext = require('../.github/extensao');
+  const lista = ext.arquivos('1.10.0');
+  const por = new Map(lista);
+  const m = JSON.parse(por.get('manifest.json').toString('utf8'));
+  assert(m.manifest_version === 3 && m.version === '1.10.0' && m.background && m.background.service_worker === 'fundo.js', 'manifesto: ' + JSON.stringify(m));
+  assert(!m.permissions && !m.host_permissions, 'a extensão pede permissões');
+  const html = por.get('index.html').toString('utf8');
+  assert(!/<script(?![^>]*\bsrc=)[^>]*>/.test(html), 'a página da extensão ainda tem script embutido');
+  assert(/<script src="ersave\.js"><\/script>\s*<script src="pagina\.js"><\/script>/.test(html), 'a página não carrega o leitor e o script');
+  assert(!/\son[a-z]+="/.test(html), 'atributo de evento embutido na página');
+  for (const f of fs.readdirSync(ER_DADOS)) assert(por.has('app/eldenring/' + f), 'faltou ' + f);
+  assert(por.get('pagina.js').toString('utf8').includes('function erIniciarNavegador'), 'o script da página não tem o modo da extensão');
+  // O .zip abre: o diretório central lista todos os arquivos e o primeiro descomprime igual.
+  const z = ext.zip(lista);
+  const fimCd = z.length - 22;
+  assert(z.readUInt32LE(fimCd) === 0x06054b50 && z.readUInt16LE(fimCd + 10) === lista.length, 'fim do .zip inválido');
+  const nome = z.readUInt16LE(26);
+  const comp = z.readUInt32LE(18);
+  const dados = require('zlib').inflateRawSync(z.subarray(30 + nome, 30 + nome + comp));
+  assert(dados.equals(lista[0][1]), 'o primeiro arquivo não volta igual do .zip');
+  assert(ext.versaoDe('v1.10.0') === '1.10.0', 'versão da tag');
+  return lista.length + ' arquivos, Manifest V3, sem permissões, ' + Math.round(z.length / 1024) + ' KB';
+});
+
+check('o leitor do save no navegador é o mesmo do serviço', () => {
+  const ERSave = require('./ersave');
+  const g = JSON.parse(fs.readFileSync(path.join(ER_DADOS, 'geral.json'), 'utf8'));
+  const res = ERSave.parse(saveEldenDeTeste(77));
+  const r = ERSave.resumo(res, g.leitura);
+  assert(r && r.mortes === 77 && r.slot === 0, 'resumo: ' + JSON.stringify(r));
+  const fonte = fs.readFileSync(path.join(__dirname, 'ersave.js'), 'utf8');
+  assert(/\broot\.ERSave = factory\(\)/.test(fonte) && /module\.exports = factory\(\)/.test(fonte), 'o leitor deixou de servir aos dois lados');
+  assert(/MIT/.test(fonte.slice(0, 1500)), 'o aviso de licença do leitor original sumiu');
+  return 'ERSave.parse e resumo, com o aviso de licença MIT no topo';
+});
+
 /*
  * 6. A página desenha o que o save diz.
  *

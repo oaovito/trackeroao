@@ -4,9 +4,12 @@ Tracker de progresso para jogos de PC. O Trackeroao lê o save e a memória do
 jogo, somente para leitura, e mostra o que encontrou numa página de progresso.
 Hoje a leitura completa cobre **Sekiro: Shadows Die Twice**, com chefes,
 mini-chefes, itens, próteses, artes de combate, conquistas, mortes e tempo de
-jogo.
+jogo, e **Elden Ring** com a expansão Shadow of the Erdtree, com equipamento,
+magias, chefes, locais, finais, missões, rotas sugeridas e o total de mortes do
+personagem. A página do Elden Ring também funciona inteiramente no navegador,
+por uma extensão, sem instalar o Trackeroao.
 
-Além da página do Sekiro, o Trackeroao tem uma tela inicial com os jogos
+Além das páginas dos jogos, o Trackeroao tem uma tela inicial com os jogos
 instalados no computador, encontrados na Steam, na Epic, em outras lojas e no
 disco. No Windows, ele roda como aplicativo próprio, com janela e ícone na
 bandeja do sistema. No Android e no iOS, há aplicativos que leem o progresso a
@@ -30,19 +33,23 @@ As imagens abaixo são geradas a partir das próprias telas sempre que uma
 mudança visual chega à `main`, por `.github/workflows/amostras.yml`, com o
 progresso de `docs/progress.json` e uma lista fixa de jogos populares.
 
-![A tela inicial, com o jogo em foco no alto e os jogos instalados abaixo](docs/amostras/inicio.png)
+![A tela inicial, com o jogo em foco no alto e os jogos instalados abaixo](docs/amostras/computador/inicio.png)
 
-![A página de progresso do Sekiro](docs/amostras/sekiro.png)
+![A página de progresso do Sekiro](docs/amostras/computador/sekiro.png)
 
-![A lista completa de jogos, dividida entre os que estão no computador e os que não estão](docs/amostras/todos.png)
+![A página do Elden Ring, com o total de mortes e os blocos de consulta](docs/amostras/computador/eldenring.png)
 
-![A janela do código QR para levar o Trackeroao ao celular](docs/amostras/celular-qr.png)
+![A lista de chefes do Elden Ring, com o detalhe do chefe escolhido](docs/amostras/computador/eldenring-lista.png)
+
+![A lista completa de jogos, dividida entre os que estão no computador e os que não estão](docs/amostras/computador/todos.png)
+
+![A janela do código QR para levar o Trackeroao ao celular](docs/amostras/computador/qr.png)
 
 No celular, as mesmas telas em pé:
 
-<img src="docs/amostras/celular-inicio.png" alt="A tela inicial no celular" width="240"> <img src="docs/amostras/celular-inicio-pequeno.png" alt="A tela inicial num celular de tela pequena" width="240"> <img src="docs/amostras/celular-todos.png" alt="A lista completa de jogos no celular" width="240">
+<img src="docs/amostras/celular/inicio.png" alt="A tela inicial no celular" width="240"> <img src="docs/amostras/celular/inicio-pequeno.png" alt="A tela inicial num celular de tela pequena" width="240"> <img src="docs/amostras/celular/todos.png" alt="A lista completa de jogos no celular" width="240">
 
-<img src="docs/amostras/celular.png" alt="A página de progresso do Sekiro no celular" width="240"> <img src="docs/amostras/ios.png" alt="O passo a passo para instalar o aplicativo de iOS" width="240">
+<img src="docs/amostras/celular/sekiro.png" alt="A página de progresso do Sekiro no celular" width="240"> <img src="docs/amostras/celular/eldenring.png" alt="A página do Elden Ring no celular" width="240"> <img src="docs/amostras/celular/ios.png" alt="O passo a passo para instalar o aplicativo de iOS" width="240">
 
 ## Requisitos
 
@@ -196,6 +203,73 @@ caso, o primeiro passo é executar `npm run selftest`.
 Quando o save não está disponível, a página mostra `—` em vez de zero e indica
 o motivo no topo.
 
+## Elden Ring
+
+A página do Elden Ring reúne, num único painel, o total de mortes do personagem
+e dezesseis blocos de consulta, organizados em quatro grupos: **Equipamento**
+(armas, armaduras, talismãs, cinzas de guerra e escudos), **Magia**
+(encantamentos, feitiçarias, todas as magias e cinzas espirituais), **Mundo e
+mapas** (mapa, chefes, locais e NPCs) e **Guias e builds** (finais, missões
+secundárias e rotas sugeridas). Todo o conteúdo considera o jogo base e a
+expansão Shadow of the Erdtree, identificada em cada registro.
+
+Cada bloco abre uma janela com a lista à esquerda e o detalhe do registro
+escolhido à direita. A lista é paginada pelo espaço disponível, sem rolagem, e
+pode ser filtrada por nome, por tipo ou região, pelo que já foi obtido e pelo
+conteúdo da expansão. O detalhe apresenta a descrição, a localização e a forma
+de obtenção de cada item; os requisitos de atributos de armas, escudos e
+magias; a descrição e a localização dos chefes, com a graça mais próxima e as
+recompensas; e, para os NPCs, a relação com missões e itens. Registros
+relacionados aparecem como atalhos, de modo que um chefe leva aos itens que
+deixa e uma missão leva ao final a que conduz.
+
+O **contador de mortes** mostra o total gravado no próprio save, o que inclui
+as mortes anteriores à instalação do Trackeroao. Os **finais** são avaliados a
+partir das flags de evento do save: um final que deixou de ser possível no
+estado atual do jogo aparece esmaecido, com o motivo. É o caso, por exemplo,
+de aceitar a Chama Frenética sem curá-la, o que só deixa o final do Lorde da
+Chama Frenética, ou de queimar a Erdtree sem ela, o que fecha esse final. As
+**rotas sugeridas** cobrem cada final, o 100% do jogo com a expansão e builds
+de armas específicas, com os chefes e itens de cada passo.
+
+| Item | Origem | Confiança |
+|---|---|---|
+| Mortes | save (contador do personagem) | alta |
+| Armas, escudos, armaduras, talismãs e cinzas de guerra | save (inventário e baú) | alta |
+| Feitiçarias, encantamentos e cinzas espirituais | save (inventário e baú) | alta |
+| Chefes derrotados, graças descobertas e fragmentos de mapa | save (flags de evento) | alta |
+| Finais alcançados e finais ainda possíveis | save (flags de evento) | média |
+
+O Elden Ring roda protegido pelo Easy Anti-Cheat; por isso, o Trackeroao não
+abre o processo do jogo e lê apenas o arquivo de save, em modo de leitura. O
+slot exibido é o do personagem que o jogo gravou por último; na primeira
+leitura, é o de maior tempo de jogo. Os textos de referência (nomes,
+descrições do jogo, localizações e requisitos) ficam em `docs/app/eldenring`,
+em oito arquivos carregados somente quando a página é aberta. Nomes de itens,
+chefes e lugares aparecem como o jogo os escreve; as descrições do jogo ficam
+em inglês, e os textos próprios do Trackeroao têm versão em inglês e em
+português.
+
+## Extensão do navegador
+
+Para consultar o progresso do Elden Ring sem instalar o Trackeroao, cada
+release traz `trackeroao-extensao.zip`, uma extensão para Chrome e Edge
+(Manifest V3). A extensão contém a mesma página e o mesmo leitor de save do
+serviço; o arquivo é lido no próprio navegador, e nada é enviado para fora do
+computador.
+
+1. Extraia o `.zip` numa pasta.
+2. Abra `chrome://extensions` (ou `edge://extensions`), ative o **modo do
+   desenvolvedor** e escolha **Carregar sem compactação**, apontando para a
+   pasta extraída.
+3. Clique no ícone do Trackeroao e escolha o arquivo `ER0000.sl2`, que fica na
+   pasta `EldenRing` dentro de `Roaming`, nos dados do usuário do Windows.
+
+Com o acesso ao arquivo concedido, a página relê o save sempre que o jogo grava,
+enquanto estiver aberta. Depois de reiniciar o navegador, o acesso precisa ser
+confirmado de novo pelo botão da página. A extensão cobre apenas o Elden Ring:
+a leitura do Sekiro depende da memória do jogo e, portanto, do serviço.
+
 ## A Steam é opcional
 
 O Trackeroao funciona sem a Steam. Quando ela está instalada, é usada como
@@ -244,7 +318,9 @@ firewall. O log do serviço fica em `sync/trackeroao.log`.
 
 ## Onde ele procura o save
 
-- **Windows:** `%APPDATA%\Sekiro\<steamid>\S0000.sl2`.
+- **Windows:** `%APPDATA%\Sekiro\<steamid>\S0000.sl2` e, para o Elden Ring,
+  `%APPDATA%\EldenRing\<steamid>\ER0000.sl2` (ou `ER0000.co2`, do Seamless
+  Co-op).
 - **Linux e Steam Deck:** no prefixo do Proton,
   `~/.local/share/Steam/steamapps/compatdata/814380/pfx/drive_c/users/steamuser/AppData/Roaming/Sekiro/<steamid>/S0000.sl2`,
   além de `~/.steam/steam`, da instalação via Flatpak e de prefixos Wine comuns.
@@ -283,13 +359,15 @@ permissões de rede, e os aplicativos de celular apenas leem dados do computador
 ```
 trackeroao/
   .github/
+    amostras.js         gera as imagens de preview
+    extensao.js         monta a extensão do navegador
     releases/           notas de cada versão (vX.Y.Z.md)
     workflows/          release, catálogo de jogos, iOS e imagens de preview
   .gitignore
   README.md
   docs/
-    amostras/           imagens de preview deste README
-    app/                ícones do aplicativo
+    amostras/           imagens de preview deste README (computador e celular)
+    app/                ícones do aplicativo e dados do Elden Ring (eldenring/)
     celular/
       android/          aplicativo de Android
       ios/              aplicativo de iOS (Swift)
@@ -300,6 +378,8 @@ trackeroao/
     main.js             serviço: detecção do jogo, leitura do save e servidor
     parse.js            monta o progress.json
     sl2.js              leitura do container do save
+    elden.js            leitura do save do Elden Ring (elden.json)
+    ersave.js           formato do save do Elden Ring
     offsets.json        IDs e offsets
     mem.ps1             leitor de memória (somente leitura)
     serve.js            servidor local
@@ -320,8 +400,8 @@ trackeroao/
 Para publicar uma versão, adicione o arquivo de notas `.github/releases/vX.Y.Z.md`
 à `main`. O workflow `.github/workflows/release.yml` gera o instalador e o
 aplicativo de Android, testa a instalação num Windows limpo, verifica o
-orçamento de recursos e publica a release `vX.Y.Z` com `trackeroao-instalador.exe`
-e `trackeroao.apk`. O título da release é o nome do aplicativo seguido da
+orçamento de recursos e publica a release `vX.Y.Z` com `trackeroao-instalador.exe`,
+`trackeroao.apk`, `trackeroao.ipa` e `trackeroao-extensao.zip`. O título da release é o nome do aplicativo seguido da
 versão, como "Trackeroao 1.9.0".
 
 O catálogo de jogos é atualizado diariamente por `.github/workflows/catalogo.yml`,

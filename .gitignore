@@ -3,6 +3,8 @@
 # --- estado desta máquina ---
 # Leitura crua do save; a versão saneada vai para docs/.
 /progress.json
+# Leitura do save do Elden Ring (refeita a partir do save).
+/elden.json
 # Estado dos contadores (com horários de jogo; refeitos se apagados).
 /deaths.json
 /deaths-mem.json

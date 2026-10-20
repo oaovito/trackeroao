@@ -2925,6 +2925,261 @@
   .gesto-seta svg { width: 16px; height: 16px; fill: none; stroke: #f5f6f8; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   a, button, input { -webkit-tap-highlight-color: transparent; }
   ::selection { background: var(--blood); color: var(--paper); }
+
+  /* ============================================================ Elden Ring
+     Página própria do Elden Ring: fundo negro quente, dourado da Árvore Áurea,
+     títulos em Libre Baskerville e texto em Sora. Blocos em quatro grupos;
+     cada bloco abre uma janela com lista paginada e detalhe ao lado. */
+  body.jogo-er {
+    --er-bg: #0b0a08;
+    --er-painel: rgba(26, 22, 15, 0.74);
+    --er-painel-forte: #16130d;
+    --er-ouro: #d4b26a;
+    --er-ouro-vivo: #f0d38c;
+    --er-texto: #efe7d6;
+    --er-apagado: rgba(239, 231, 214, 0.64);
+    --er-linha: rgba(212, 178, 106, 0.22);
+    --er-tem: #a7d27f;
+    --er-falta: rgba(239, 231, 214, 0.32);
+    --er-perigo: #e0866a;
+    --er-dlc: #c7a6ec;
+    --bg: var(--er-bg);
+    --bg-panel: var(--er-painel-forte);
+    --text: var(--er-texto);
+    --text-dim: var(--er-apagado);
+    --line: var(--er-linha);
+    --gold: var(--er-ouro);
+    --font-display: 'Libre Baskerville', Georgia, serif;
+    --font-body: 'Sora', 'Segoe UI', system-ui, sans-serif;
+    background: var(--er-bg);
+    background-image: radial-gradient(ellipse 70% 55% at 50% -14%, rgba(212, 178, 106, 0.2), rgba(212, 178, 106, 0) 70%);
+    color: var(--er-texto);
+    font-family: var(--font-body);
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] body.jogo-er {
+    --er-bg: #f2ecdf;
+    --er-painel: rgba(255, 252, 244, 0.78);
+    --er-painel-forte: #fbf7ee;
+    --er-ouro: #8a6a22;
+    --er-ouro-vivo: #6d5216;
+    --er-texto: #221c12;
+    --er-apagado: rgba(34, 28, 18, 0.64);
+    --er-linha: rgba(138, 106, 34, 0.26);
+    --er-tem: #3f7a26;
+    --er-falta: rgba(34, 28, 18, 0.3);
+    --er-perigo: #a5432c;
+    --er-dlc: #6e4a94;
+    background-image: radial-gradient(ellipse 70% 55% at 50% -14%, rgba(138, 106, 34, 0.16), rgba(138, 106, 34, 0) 70%);
+    color-scheme: light;
+  }
+  /* Os efeitos e as cenas da página do Sekiro não entram aqui. */
+  body.jogo-er::before, body.jogo-er::after, .jogo-er .topbar::before, .jogo-er .kaiden-cena { display: none !important; }
+  .jogo-er .wrap > :not(.topbar):not(#er):not(.made-by) { display: none !important; }
+  .jogo-er .wrap { max-width: 82rem; }
+  .jogo-er ::selection { background: var(--er-ouro); color: var(--er-bg); }
+  .jogo-er .made-by { margin-top: 18px; }
+
+  .er { display: flex; flex-direction: column; gap: 14px; }
+  .er-topo { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  body.jogo-er .er h1.er-titulo {
+    margin: 0; font-family: 'Libre Baskerville', Georgia, serif; font-weight: 400;
+    font-size: clamp(1.6rem, 4.6vh, 2.6rem); letter-spacing: 0.3em; text-indent: 0; text-align: left;
+    color: var(--er-ouro-vivo); line-height: 1.1;
+  }
+  .er-sub { font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--er-apagado); margin-top: 4px; }
+  .er-acoes { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .er-bt {
+    appearance: none; cursor: pointer; font: inherit; font-size: 0.74rem; letter-spacing: 0.08em;
+    padding: 0.5rem 0.9rem; border-radius: 999px; border: 1px solid var(--er-linha);
+    background: var(--er-painel); color: var(--er-texto);
+  }
+  .er-bt:hover, .er-bt:focus-visible { border-color: var(--er-ouro); color: var(--er-ouro-vivo); }
+  .er-bt.forte { background: var(--er-ouro); color: var(--er-bg); border-color: var(--er-ouro); font-weight: 600; }
+
+  .er-corpo-pagina { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  /* Mortes do save inteiro. */
+  .er-mortes {
+    display: flex; align-items: center; gap: 16px; padding: 14px 18px;
+    border: 1px solid var(--er-linha); border-radius: 14px; background: var(--er-painel);
+  }
+  .er-mortes-num {
+    font-family: 'Libre Baskerville', Georgia, serif; font-size: clamp(2rem, 7vh, 3.6rem); line-height: 1;
+    color: var(--er-ouro-vivo); font-variant-numeric: tabular-nums;
+  }
+  .er-mortes-txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .er-mortes-rot { font-size: 0.78rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--er-texto); }
+  .er-mortes-nota { font-size: 0.72rem; color: var(--er-apagado); line-height: 1.4; }
+
+  .er-grupos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .er-grupo {
+    display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0;
+    padding: 12px; border: 1px solid var(--er-linha); border-radius: 14px; background: var(--er-painel);
+  }
+  .er-grupo h2 {
+    margin: 0 0 2px; font-family: 'Libre Baskerville', Georgia, serif; font-weight: 400;
+    font-size: 0.72rem; letter-spacing: 0.24em; text-transform: uppercase; color: var(--er-ouro);
+  }
+  .er-blocos { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; flex: 1 1 auto; min-height: 0; }
+  .er-bloco {
+    position: relative; appearance: none; cursor: pointer; font: inherit; color: inherit; text-align: left;
+    display: grid; grid-template-columns: minmax(0, 1fr) 1.1rem; align-items: center; align-content: center; gap: 3px 10px;
+    padding: 8px 10px; min-height: 0; border-radius: 10px;
+    border: 1px solid transparent; background: rgba(212, 178, 106, 0.06);
+  }
+  .er-bloco:hover, .er-bloco:focus-visible { border-color: var(--er-linha); background: rgba(212, 178, 106, 0.12); outline: none; }
+  .er-bloco-nome { font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .er-bloco-num { grid-column: 1; grid-row: 2; font-size: 0.74rem; color: var(--er-apagado); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .er-barra { grid-column: 1; grid-row: 3; margin-top: 3px; height: 2px; border-radius: 2px; background: var(--er-falta); overflow: hidden; }
+  .er-barra > b { display: block; height: 100%; width: 0; background: var(--er-ouro); }
+  /* "+" de abrir, como nos outros blocos clicáveis. */
+  .er-bloco::after {
+    content: ""; grid-column: 2; grid-row: 1 / span 3; justify-self: end;
+    width: 1.1rem; height: 1.1rem; border-radius: 50%; border: 1px solid var(--er-ouro);
+    background:
+      linear-gradient(var(--er-ouro), var(--er-ouro)) center / 46% 1px no-repeat,
+      linear-gradient(var(--er-ouro), var(--er-ouro)) center / 1px 46% no-repeat;
+    opacity: 0.85; transition: transform 0.25s ease, opacity 0.2s ease;
+  }
+  .er-bloco:hover::after, .er-bloco:focus-visible::after { opacity: 1; }
+  .er-bloco[aria-expanded="true"]::after { transform: rotate(45deg); }
+
+  /* --- janela de lista e detalhe --- */
+  .er-janela {
+    width: min(76rem, calc(100vw - 2rem)); height: min(52rem, calc(100dvh - 2rem)); max-height: none; max-width: none;
+    border-radius: 14px; background: var(--er-painel-forte); border-color: var(--er-linha);
+  }
+  .er-janela .janela-topo { flex-wrap: wrap; gap: 10px 14px; padding: 12px 16px; }
+  .er-janela .janela-titulo { color: var(--er-ouro); }
+  .er-janela .janela-paginas {
+    display: flex; align-items: center; gap: 10px; margin-left: auto;
+    font-size: 0.72rem; letter-spacing: 0.12em; color: var(--er-apagado); font-variant-numeric: tabular-nums;
+  }
+  .er-janela .janela-paginas button {
+    appearance: none; background: none; border: 1px solid var(--er-linha); color: var(--er-texto);
+    width: 1.9rem; height: 1.9rem; border-radius: 50%; cursor: pointer; font-size: 1rem; line-height: 1;
+  }
+  .er-janela .janela-paginas button:disabled { opacity: 0.3; cursor: default; }
+  .er-janela .janela-paginas button:not(:disabled):hover { border-color: var(--er-ouro); color: var(--er-ouro); }
+  .er-ferramentas { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--er-linha); flex: 0 0 auto; }
+  .er-ferramentas input[type="search"], .er-ferramentas select {
+    font: inherit; font-size: 0.78rem; color: var(--er-texto); background: var(--er-painel);
+    border: 1px solid var(--er-linha); border-radius: 999px; padding: 0.42rem 0.8rem; min-width: 0;
+  }
+  .er-ferramentas input[type="search"] { flex: 1 1 12rem; }
+  .er-ferramentas select { flex: 0 1 14rem; }
+  .er-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+  .er-chip {
+    appearance: none; cursor: pointer; font: inherit; font-size: 0.72rem; padding: 0.36rem 0.7rem; border-radius: 999px;
+    border: 1px solid var(--er-linha); background: none; color: var(--er-apagado);
+  }
+  .er-chip[aria-pressed="true"] { background: var(--er-ouro); border-color: var(--er-ouro); color: var(--er-bg); }
+  .er-miolo { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); flex: 1 1 auto; min-height: 0; }
+  .er-lista { list-style: none; margin: 0; padding: 8px 10px; overflow: hidden; min-height: 0; border-right: 1px solid var(--er-linha); }
+  .er-linha {
+    appearance: none; width: 100%; cursor: pointer; font: inherit; color: inherit; text-align: left; background: none;
+    display: grid; grid-template-columns: 0.9rem minmax(0, 1fr) auto; align-items: center; gap: 10px;
+    height: 2.35rem; padding: 0 8px; border: 1px solid transparent; border-radius: 8px;
+  }
+  .er-linha:hover, .er-linha:focus-visible { background: rgba(212, 178, 106, 0.1); outline: none; }
+  .er-linha[aria-current="true"] { border-color: var(--er-ouro); background: rgba(212, 178, 106, 0.12); }
+  .er-marca { width: 0.62rem; height: 0.62rem; border-radius: 50%; border: 1px solid var(--er-falta); justify-self: center; }
+  .er-marca.tem { background: var(--er-tem); border-color: var(--er-tem); }
+  .er-marca.nada { border-color: transparent; }
+  .er-linha-nome { font-size: 0.84rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .er-linha-sub { font-size: 0.7rem; color: var(--er-apagado); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 16rem; }
+  .er-linha.apagada { opacity: 0.42; }
+  .er-dlc { color: var(--er-dlc); font-size: 0.64rem; letter-spacing: 0.1em; margin-left: 6px; }
+  .er-vazio { padding: 18px 10px; color: var(--er-apagado); font-size: 0.82rem; }
+  .er-detalhe { position: relative; min-height: 0; overflow: hidden; padding: 16px 18px 44px; display: flex; flex-direction: column; }
+  .er-det-conteudo { min-height: 0; flex: 1 1 auto; overflow: hidden; }
+  .er-det-conteudo h3 { margin: 0 0 4px; font-family: 'Libre Baskerville', Georgia, serif; font-weight: 400; font-size: 1.15rem; color: var(--er-ouro-vivo); line-height: 1.3; }
+  .er-det-meta { font-size: 0.72rem; color: var(--er-apagado); margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  .er-estado { font-size: 0.72rem; display: inline-flex; align-items: center; gap: 6px; }
+  .er-estado.tem { color: var(--er-tem); }
+  .er-estado.perigo { color: var(--er-perigo); }
+  .er-det-sec { margin: 10px 0 0; }
+  .er-det-sec h4 { margin: 0 0 4px; font-size: 0.64rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--er-ouro); }
+  .er-det-sec p, .er-det-sec li { margin: 0; font-size: 0.8rem; line-height: 1.5; }
+  .er-det-sec ul, .er-det-sec ol { margin: 0; padding-left: 1.7rem; display: flex; flex-direction: column; gap: 3px; }
+  .er-texto-jogo { white-space: pre-line; color: var(--er-apagado); font-style: italic; }
+  .er-req { display: flex; gap: 12px; font-size: 0.76rem; font-variant-numeric: tabular-nums; }
+  .er-req b { color: var(--er-ouro); font-weight: 600; margin-right: 3px; }
+  .er-elos { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .er-elo {
+    appearance: none; cursor: pointer; font: inherit; font-size: 0.7rem; padding: 0.22rem 0.55rem; border-radius: 999px;
+    border: 1px solid var(--er-linha); background: none; color: var(--er-texto);
+  }
+  .er-elo.tem { border-color: var(--er-tem); color: var(--er-tem); }
+  .er-elo:hover, .er-elo:focus-visible { border-color: var(--er-ouro); }
+  .er-elo[disabled] { cursor: default; opacity: 0.7; }
+  .er-det-vazio { color: var(--er-apagado); font-size: 0.82rem; margin: auto 0; text-align: center; }
+  .er-det-folhas { position: absolute; right: 14px; bottom: 10px; display: flex; gap: 8px; align-items: center; font-size: 0.7rem; color: var(--er-apagado); font-variant-numeric: tabular-nums; }
+  .er-det-folhas button {
+    appearance: none; background: none; border: 1px solid var(--er-linha); color: var(--er-texto);
+    width: 1.6rem; height: 1.6rem; border-radius: 50%; cursor: pointer; line-height: 1;
+  }
+  .er-det-folhas button:disabled { opacity: 0.3; cursor: default; }
+  .er-det-voltar { display: none; }
+
+  /* Computador: a página é uma grade da altura da janela, sem rolagem. */
+  @media (min-width: 641px) and (min-height: 480px) {
+    body.jogo-er:not(.vista-hub):not(.vista-bibli) .wrap {
+      grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
+    }
+    body.jogo-er:not(.vista-hub):not(.vista-bibli) .wrap > * { grid-row: 2; grid-column: 1; }
+    body.jogo-er:not(.vista-hub):not(.vista-bibli) .wrap > .topbar { grid-row: 1; }
+    body.jogo-er:not(.vista-hub):not(.vista-bibli) .wrap > .made-by { grid-row: 3; margin-top: clamp(4px, 1vh, 12px); }
+    .er { min-height: 0; height: 100%; gap: clamp(6px, 1.4vh, 16px); }
+    .er-corpo-pagina { flex: 1 1 auto; min-height: 0; grid-template-columns: minmax(12rem, 0.9fr) minmax(0, 4fr); grid-template-rows: minmax(0, 1fr); gap: clamp(8px, 1.2vw, 16px); }
+    .er-mortes { flex-direction: column; justify-content: center; text-align: center; padding: clamp(10px, 2vh, 24px) 14px; }
+    .er-mortes-num { font-size: clamp(2.4rem, 11vh, 5.6rem); }
+    .er-grupos { grid-template-columns: repeat(4, minmax(0, 1fr)); min-height: 0; gap: clamp(8px, 1vw, 14px); }
+    .er-grupo { padding: clamp(8px, 1.4vh, 14px); }
+    .er-blocos { grid-auto-rows: minmax(0, 1fr); }
+    .er-bloco { padding-block: clamp(4px, 1vh, 10px); }
+    .er-bloco-nome { font-size: clamp(0.74rem, 1.9vh, 0.92rem); }
+    .er-janela { height: calc(100dvh - 48px); width: min(76rem, calc(100vw - 48px)); }
+  }
+  /* Janela estreita: mortes em faixa acima e grupos em duas colunas. */
+  @media (min-width: 641px) and (min-height: 480px) and (max-width: 1099px) {
+    .er-corpo-pagina { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .er-mortes { flex-direction: row; text-align: left; padding: clamp(6px, 1.2vh, 14px) 16px; }
+    .er-mortes-num { font-size: clamp(1.8rem, 6vh, 3rem); }
+    .er-grupos { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+    .er-blocos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  /* Celular: a lista ocupa a tela e o detalhe entra no lugar dela. */
+  @media (max-width: 640px) {
+    body.jogo-er .wrap { padding-bottom: 1rem; }
+    .er, .er-corpo-pagina { gap: 8px; }
+    .er-topo { align-items: center; }
+    body.jogo-er .er h1.er-titulo { font-size: 1.3rem; letter-spacing: 0.2em; }
+    .er-sub { margin-top: 2px; font-size: 0.64rem; }
+    .er-mortes { padding: 6px 12px; gap: 12px; }
+    .er-mortes-num { font-size: 1.9rem; }
+    .er-mortes-rot { font-size: 0.68rem; }
+    .er-mortes-nota { font-size: 0.64rem; line-height: 1.3; }
+    .er-grupos { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+    .er-grupo { padding: 6px 8px; gap: 4px; border-radius: 12px; }
+    .er-grupo h2 { font-size: 0.62rem; }
+    .er-blocos { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+    .er-bloco { padding: 4px 8px; gap: 1px 8px; border-radius: 8px; }
+    .er-bloco-nome { font-size: 0.8rem; }
+    .er-bloco-num { font-size: 0.66rem; }
+    .er-barra { margin-top: 2px; }
+    .er-janela.vendo-detalhe .janela-paginas { display: none; }
+    .er-janela { width: 100vw; height: 100dvh; max-width: 100vw; margin: 0; border-radius: 0; border: 0; }
+    .er-miolo { grid-template-columns: minmax(0, 1fr); }
+    .er-lista { border-right: 0; }
+    .er-detalhe { display: none; padding-bottom: 16px; overflow-y: auto; }
+    .er-det-conteudo { overflow: visible; }
+    .er-janela.vendo-detalhe .er-lista, .er-janela.vendo-detalhe .er-ferramentas { display: none; }
+    .er-janela.vendo-detalhe .er-detalhe { display: flex; }
+    .er-det-voltar { display: inline-flex; align-self: flex-start; margin-bottom: 10px; }
+    .er-det-folhas { display: none; }
+    .er-linha-sub { max-width: 9rem; }
+  }
 </style>
 </head>
 <body>
@@ -3017,6 +3272,46 @@
       <button class="hub-bt hub-bt-icone" id="bibliVarrer" type="button" hidden title="Search again" aria-label="Search again" data-i18n-title="bibli.varrer" data-i18n-aria="bibli.varrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg></button>
     </div>
     <div class="hub-nota" id="bibliNota"></div>
+  </section>
+
+  <!-- Elden Ring: mortes do save e blocos; cada bloco abre a janela de lista e detalhe. -->
+  <section class="er" id="er" hidden>
+    <div class="er-topo">
+      <div>
+        <h1 class="er-titulo" translate="no">ELDEN RING</h1>
+        <div class="er-sub" id="erSub"></div>
+      </div>
+      <div class="er-acoes">
+        <button class="er-bt forte" id="erEscolher" type="button" hidden data-i18n="er.save.escolher">Choose save file</button>
+        <input id="erArquivo" type="file" accept=".sl2,.co2" hidden>
+      </div>
+    </div>
+    <div class="er-corpo-pagina">
+      <div class="er-mortes">
+        <span class="er-mortes-num" id="erMortesNum">—</span>
+        <span class="er-mortes-txt">
+          <span class="er-mortes-rot" data-i18n="er.mortes">Deaths</span>
+          <span class="er-mortes-nota" id="erMortesNota"></span>
+        </span>
+      </div>
+      <div class="er-grupos" id="erGrupos"></div>
+    </div>
+    <dialog class="janela er-janela" id="erJanela" aria-labelledby="erJanelaTitulo">
+      <div class="janela-topo">
+        <span class="janela-titulo" id="erJanelaTitulo"></span>
+        <div class="janela-paginas" id="erPaginas" hidden><button type="button" class="folha-antes" aria-label="Previous">‹</button><span class="folha-num"></span><button type="button" class="folha-depois" aria-label="Next">›</button></div>
+        <button class="janela-fecha" type="button" aria-label="Close" data-i18n-aria="janela.fechar">✕</button>
+      </div>
+      <div class="er-ferramentas">
+        <input id="erBusca" type="search" autocomplete="off" spellcheck="false" placeholder="Search by name" data-i18n-placeholder="er.busca" aria-label="Search by name" data-i18n-aria="er.busca">
+        <div class="er-chips" id="erChips"></div>
+        <select id="erTipo" aria-label="All types" data-i18n-aria="er.filtro.tipo"></select>
+      </div>
+      <div class="er-miolo">
+        <ol class="er-lista" id="erLista"></ol>
+        <article class="er-detalhe" id="erDetalhe" aria-live="polite"></article>
+      </div>
+    </dialog>
   </section>
 
   <header class="top">
@@ -3449,6 +3744,88 @@ const IDIOMA_CHAVE = "idioma";
 
 const I18N = {
   en: {
+    "er.grupo.equip": "Equipment",
+    "er.grupo.magia": "Magic",
+    "er.grupo.mundo": "World and maps",
+    "er.grupo.guias": "Guides and builds",
+    "er.bloco.armas": "Weapons",
+    "er.bloco.armaduras": "Armor",
+    "er.bloco.talismas": "Talismans",
+    "er.bloco.cinzas-de-guerra": "Ashes of War",
+    "er.bloco.escudos": "Shields",
+    "er.bloco.encantamentos": "Incantations",
+    "er.bloco.feiticos": "Sorceries",
+    "er.bloco.magias": "All spells",
+    "er.bloco.cinzas-espirituais": "Spirit Ashes",
+    "er.bloco.mapa": "Map",
+    "er.bloco.chefes": "Bosses",
+    "er.bloco.locais": "Locations",
+    "er.bloco.npcs": "NPCs",
+    "er.bloco.finais": "Endings",
+    "er.bloco.missoes": "Side quests",
+    "er.bloco.rotas": "Suggested routes",
+    "er.mortes": "Deaths",
+    "er.mortes.nota": "Every death of this character, read from the save, including those before the app was installed.",
+    "er.estado.lido": "Read from the save · slot {slot}",
+    "er.estado.arquivo": "Read from the chosen save file · slot {slot}",
+    "er.estado.antigo": "Save unavailable, showing the last reading",
+    "er.estado.semSave": "No Elden Ring save found on this computer",
+    "er.estado.semLeitura": "The save has not been read yet",
+    "er.save.escolher": "Choose save file",
+    "er.save.trocar": "Change save file",
+    "er.save.dica": "Choose ER0000.sl2 (EldenRing folder, inside Roaming) to read your progress. Nothing leaves this browser.",
+    "er.save.erro": "This file could not be read as an Elden Ring save.",
+    "er.filtro.todos": "All",
+    "er.filtro.tem": "Owned",
+    "er.filtro.falta": "Missing",
+    "er.filtro.derrotados": "Defeated",
+    "er.filtro.vivos": "Alive",
+    "er.filtro.achados": "Found",
+    "er.filtro.faltam": "Not found",
+    "er.filtro.tipo": "All types",
+    "er.filtro.regiao": "All regions",
+    "er.busca": "Search by name",
+    "er.vazio": "Nothing matches these filters.",
+    "er.carregando": "Loading…",
+    "er.falhou": "The list could not be loaded.",
+    "er.det.descricao": "Description",
+    "er.det.obter": "How to get it",
+    "er.det.onde": "Location",
+    "er.det.requisitos": "Requirements",
+    "er.det.efeito": "Effect",
+    "er.det.tem": "In your inventory",
+    "er.det.falta": "Not obtained yet",
+    "er.det.derrotado": "Defeated",
+    "er.det.vivo": "Not defeated yet",
+    "er.det.achado": "Site of Grace found",
+    "er.det.naoAchado": "Site of Grace not found yet",
+    "er.det.drops": "Drops",
+    "er.det.graca": "Nearest Site of Grace",
+    "er.det.missao": "Related quest",
+    "er.det.itens": "Related items",
+    "er.det.inicio": "Where it starts",
+    "er.det.passos": "Steps",
+    "er.det.aviso": "Watch out",
+    "er.det.final": "Related ending",
+    "er.det.requisitosFinal": "What it takes",
+    "er.det.voltar": "Back to the list",
+    "er.det.escolha": "Choose an entry to see its details.",
+    "er.det.mapa": "Map fragments",
+    "er.det.areas": "Areas",
+    "er.det.chefes": "Bosses",
+    "er.final.feito": "Achieved",
+    "er.final.possivel": "Still possible",
+    "er.final.pronto": "Ready to choose",
+    "er.final.impossivel": "Not possible in this playthrough",
+    "er.final.chama": "The Flame of Frenzy was accepted and not cured, so only the Lord of Frenzied Flame ending remains.",
+    "er.final.queimou": "The Erdtree was burned without the Flame of Frenzy, so this ending is closed in this playthrough.",
+    "er.rota.final": "Ending",
+    "er.rota.build": "Weapon build",
+    "er.mapa.resumo": "{gracas} graces · {chefes} bosses",
+    "er.mapa.total": "{gracas} graces · {chefes} bosses",
+    "jogos.soSave": "The save is read for this game.",
+    "er.det.dlc": "Shadow of the Erdtree",
+    "er.rota.cem": "100%",
     "nav.rotulo": "Navigation",
     "nav.voltar": "Back",
     "nav.avancar": "Forward",
@@ -3677,6 +4054,86 @@ const I18N = {
   },
 
   "pt-BR": {
+    "er.grupo.equip": "Equipamento",
+    "er.grupo.magia": "Magia",
+    "er.grupo.mundo": "Mundo e mapas",
+    "er.grupo.guias": "Guias e builds",
+    "er.bloco.armas": "Armas",
+    "er.bloco.armaduras": "Armaduras",
+    "er.bloco.talismas": "Talismãs",
+    "er.bloco.cinzas-de-guerra": "Cinzas de Guerra",
+    "er.bloco.escudos": "Escudos",
+    "er.bloco.encantamentos": "Encantamentos",
+    "er.bloco.feiticos": "Feitiçarias",
+    "er.bloco.magias": "Todas as magias",
+    "er.bloco.cinzas-espirituais": "Cinzas Espirituais",
+    "er.bloco.mapa": "Mapa",
+    "er.bloco.chefes": "Chefes",
+    "er.bloco.locais": "Locais",
+    "er.bloco.npcs": "NPCs",
+    "er.bloco.finais": "Finais",
+    "er.bloco.missoes": "Missões secundárias",
+    "er.bloco.rotas": "Rotas sugeridas",
+    "er.mortes": "Mortes",
+    "er.mortes.nota": "Todas as mortes deste personagem, lidas do save, inclusive as de antes da instalação do aplicativo.",
+    "er.estado.lido": "Lido do save · slot {slot}",
+    "er.estado.arquivo": "Lido do arquivo de save escolhido · slot {slot}",
+    "er.estado.antigo": "Save indisponível, mostrando a última leitura",
+    "er.estado.semSave": "Nenhum save do Elden Ring encontrado neste computador",
+    "er.estado.semLeitura": "O save ainda não foi lido",
+    "er.save.escolher": "Escolher arquivo de save",
+    "er.save.trocar": "Trocar arquivo de save",
+    "er.save.dica": "Escolha o ER0000.sl2 (pasta EldenRing, dentro de Roaming) para ler o progresso. Nada sai deste navegador.",
+    "er.save.erro": "Este arquivo não pôde ser lido como save do Elden Ring.",
+    "er.filtro.todos": "Todos",
+    "er.filtro.tem": "Tenho",
+    "er.filtro.falta": "Faltam",
+    "er.filtro.derrotados": "Derrotados",
+    "er.filtro.vivos": "Vivos",
+    "er.filtro.achados": "Achados",
+    "er.filtro.faltam": "Faltam",
+    "er.filtro.tipo": "Todos os tipos",
+    "er.filtro.regiao": "Todas as regiões",
+    "er.busca": "Buscar pelo nome",
+    "er.vazio": "Nada corresponde a estes filtros.",
+    "er.carregando": "Carregando…",
+    "er.falhou": "Não foi possível carregar a lista.",
+    "er.det.descricao": "Descrição",
+    "er.det.obter": "Como obter",
+    "er.det.onde": "Localização",
+    "er.det.requisitos": "Requisitos",
+    "er.det.efeito": "Efeito",
+    "er.det.tem": "No seu inventário",
+    "er.det.falta": "Ainda não obtido",
+    "er.det.derrotado": "Derrotado",
+    "er.det.vivo": "Ainda não derrotado",
+    "er.det.achado": "Graça encontrada",
+    "er.det.naoAchado": "Graça ainda não encontrada",
+    "er.det.drops": "Recompensas",
+    "er.det.graca": "Graça mais próxima",
+    "er.det.missao": "Missão relacionada",
+    "er.det.itens": "Itens relacionados",
+    "er.det.inicio": "Onde começa",
+    "er.det.passos": "Passos",
+    "er.det.aviso": "Atenção",
+    "er.det.final": "Final relacionado",
+    "er.det.requisitosFinal": "O que é preciso",
+    "er.det.voltar": "Voltar à lista",
+    "er.det.escolha": "Escolha um item para ver os detalhes.",
+    "er.det.mapa": "Fragmentos de mapa",
+    "er.det.areas": "Áreas",
+    "er.det.chefes": "Chefes",
+    "er.final.feito": "Alcançado",
+    "er.final.possivel": "Ainda possível",
+    "er.final.pronto": "Pronto para escolher",
+    "er.final.impossivel": "Impossível nesta jornada",
+    "er.final.chama": "A Chama Frenética foi aceita e não foi curada, então só resta o final do Lorde da Chama Frenética.",
+    "er.final.queimou": "A Árvore Áurea foi queimada sem a Chama Frenética, então este final está fechado nesta jornada.",
+    "er.rota.final": "Final",
+    "er.rota.build": "Build de arma",
+    "er.mapa.resumo": "{gracas} graças · {chefes} chefes",
+    "er.mapa.total": "{gracas} graças · {chefes} chefes",
+    "jogos.soSave": "O save é lido para este jogo.",
     "nav.rotulo": "Navegação",
     "nav.voltar": "Voltar",
     "nav.avancar": "Avançar",
@@ -3905,6 +4362,86 @@ const I18N = {
   },
 
   es: {
+    "er.grupo.equip": "Equipo",
+    "er.grupo.magia": "Magia",
+    "er.grupo.mundo": "Mundo y mapas",
+    "er.grupo.guias": "Guías y builds",
+    "er.bloco.armas": "Armas",
+    "er.bloco.armaduras": "Armaduras",
+    "er.bloco.talismas": "Talismanes",
+    "er.bloco.cinzas-de-guerra": "Cenizas de guerra",
+    "er.bloco.escudos": "Escudos",
+    "er.bloco.encantamentos": "Encantamientos",
+    "er.bloco.feiticos": "Hechicerías",
+    "er.bloco.magias": "Todos los hechizos",
+    "er.bloco.cinzas-espirituais": "Cenizas espirituales",
+    "er.bloco.mapa": "Mapa",
+    "er.bloco.chefes": "Jefes",
+    "er.bloco.locais": "Lugares",
+    "er.bloco.npcs": "PNJ",
+    "er.bloco.finais": "Finales",
+    "er.bloco.missoes": "Misiones secundarias",
+    "er.bloco.rotas": "Rutas sugeridas",
+    "er.mortes": "Muertes",
+    "er.mortes.nota": "Todas las muertes de este personaje, leídas de la partida guardada, incluidas las anteriores a la instalación de la aplicación.",
+    "er.estado.lido": "Leído de la partida · ranura {slot}",
+    "er.estado.arquivo": "Leído del archivo elegido · ranura {slot}",
+    "er.estado.antigo": "Partida no disponible, se muestra la última lectura",
+    "er.estado.semSave": "No se encontró ninguna partida de Elden Ring en este equipo",
+    "er.estado.semLeitura": "La partida aún no se ha leído",
+    "er.save.escolher": "Elegir archivo de partida",
+    "er.save.trocar": "Cambiar archivo de partida",
+    "er.save.dica": "Elige ER0000.sl2 (carpeta EldenRing, dentro de Roaming) para leer tu progreso. Nada sale de este navegador.",
+    "er.save.erro": "Este archivo no se pudo leer como partida de Elden Ring.",
+    "er.filtro.todos": "Todos",
+    "er.filtro.tem": "Obtenidos",
+    "er.filtro.falta": "Faltan",
+    "er.filtro.derrotados": "Derrotados",
+    "er.filtro.vivos": "Vivos",
+    "er.filtro.achados": "Encontrados",
+    "er.filtro.faltam": "Por encontrar",
+    "er.filtro.tipo": "Todos los tipos",
+    "er.filtro.regiao": "Todas las regiones",
+    "er.busca": "Buscar por nombre",
+    "er.vazio": "Nada coincide con estos filtros.",
+    "er.carregando": "Cargando…",
+    "er.falhou": "No se pudo cargar la lista.",
+    "er.det.descricao": "Descripción",
+    "er.det.obter": "Cómo obtenerlo",
+    "er.det.onde": "Ubicación",
+    "er.det.requisitos": "Requisitos",
+    "er.det.efeito": "Efecto",
+    "er.det.tem": "En tu inventario",
+    "er.det.falta": "Aún no obtenido",
+    "er.det.derrotado": "Derrotado",
+    "er.det.vivo": "Aún no derrotado",
+    "er.det.achado": "Gracia encontrada",
+    "er.det.naoAchado": "Gracia aún no encontrada",
+    "er.det.drops": "Botín",
+    "er.det.graca": "Gracia más cercana",
+    "er.det.missao": "Misión relacionada",
+    "er.det.itens": "Objetos relacionados",
+    "er.det.inicio": "Dónde empieza",
+    "er.det.passos": "Pasos",
+    "er.det.aviso": "Atención",
+    "er.det.final": "Final relacionado",
+    "er.det.requisitosFinal": "Qué hace falta",
+    "er.det.voltar": "Volver a la lista",
+    "er.det.escolha": "Elige una entrada para ver los detalles.",
+    "er.det.mapa": "Fragmentos de mapa",
+    "er.det.areas": "Zonas",
+    "er.det.chefes": "Jefes",
+    "er.final.feito": "Conseguido",
+    "er.final.possivel": "Aún posible",
+    "er.final.pronto": "Listo para elegir",
+    "er.final.impossivel": "Imposible en esta partida",
+    "er.final.chama": "Se aceptó la Llama de la Locura y no se curó: solo queda el final del Señor de la Llama de la Locura.",
+    "er.final.queimou": "El Árbol Áureo ardió sin la Llama de la Locura: este final quedó cerrado en esta partida.",
+    "er.rota.final": "Final",
+    "er.rota.build": "Build de arma",
+    "er.mapa.resumo": "{gracas} gracias · {chefes} jefes",
+    "er.mapa.total": "{gracas} gracias · {chefes} jefes",
+    "jogos.soSave": "Se lee la partida guardada de este juego.",
     "nav.rotulo": "Navegación",
     "nav.voltar": "Atrás",
     "nav.avancar": "Adelante",
@@ -4133,6 +4670,86 @@ const I18N = {
   },
 
   fr: {
+    "er.grupo.equip": "Équipement",
+    "er.grupo.magia": "Magie",
+    "er.grupo.mundo": "Monde et cartes",
+    "er.grupo.guias": "Guides et builds",
+    "er.bloco.armas": "Armes",
+    "er.bloco.armaduras": "Armures",
+    "er.bloco.talismas": "Talismans",
+    "er.bloco.cinzas-de-guerra": "Cendres de guerre",
+    "er.bloco.escudos": "Boucliers",
+    "er.bloco.encantamentos": "Incantations",
+    "er.bloco.feiticos": "Sorts",
+    "er.bloco.magias": "Toute la magie",
+    "er.bloco.cinzas-espirituais": "Cendres spirituelles",
+    "er.bloco.mapa": "Carte",
+    "er.bloco.chefes": "Boss",
+    "er.bloco.locais": "Lieux",
+    "er.bloco.npcs": "PNJ",
+    "er.bloco.finais": "Fins",
+    "er.bloco.missoes": "Quêtes secondaires",
+    "er.bloco.rotas": "Itinéraires suggérés",
+    "er.mortes": "Morts",
+    "er.mortes.nota": "Toutes les morts de ce personnage, lues dans la sauvegarde, y compris celles d'avant l'installation de l'application.",
+    "er.estado.lido": "Lu dans la sauvegarde · emplacement {slot}",
+    "er.estado.arquivo": "Lu dans le fichier choisi · emplacement {slot}",
+    "er.estado.antigo": "Sauvegarde indisponible, dernière lecture affichée",
+    "er.estado.semSave": "Aucune sauvegarde d'Elden Ring trouvée sur cet ordinateur",
+    "er.estado.semLeitura": "La sauvegarde n'a pas encore été lue",
+    "er.save.escolher": "Choisir la sauvegarde",
+    "er.save.trocar": "Changer de sauvegarde",
+    "er.save.dica": "Choisissez ER0000.sl2 (dossier EldenRing, dans Roaming) pour lire votre progression. Rien ne quitte ce navigateur.",
+    "er.save.erro": "Ce fichier n'a pas pu être lu comme sauvegarde d'Elden Ring.",
+    "er.filtro.todos": "Tous",
+    "er.filtro.tem": "Obtenus",
+    "er.filtro.falta": "Manquants",
+    "er.filtro.derrotados": "Vaincus",
+    "er.filtro.vivos": "En vie",
+    "er.filtro.achados": "Trouvés",
+    "er.filtro.faltam": "À trouver",
+    "er.filtro.tipo": "Tous les types",
+    "er.filtro.regiao": "Toutes les régions",
+    "er.busca": "Rechercher par nom",
+    "er.vazio": "Rien ne correspond à ces filtres.",
+    "er.carregando": "Chargement…",
+    "er.falhou": "Impossible de charger la liste.",
+    "er.det.descricao": "Description",
+    "er.det.obter": "Comment l'obtenir",
+    "er.det.onde": "Emplacement",
+    "er.det.requisitos": "Prérequis",
+    "er.det.efeito": "Effet",
+    "er.det.tem": "Dans votre inventaire",
+    "er.det.falta": "Pas encore obtenu",
+    "er.det.derrotado": "Vaincu",
+    "er.det.vivo": "Pas encore vaincu",
+    "er.det.achado": "Site de grâce trouvé",
+    "er.det.naoAchado": "Site de grâce pas encore trouvé",
+    "er.det.drops": "Butin",
+    "er.det.graca": "Site de grâce le plus proche",
+    "er.det.missao": "Quête liée",
+    "er.det.itens": "Objets liés",
+    "er.det.inicio": "Point de départ",
+    "er.det.passos": "Étapes",
+    "er.det.aviso": "Attention",
+    "er.det.final": "Fin liée",
+    "er.det.requisitosFinal": "Ce qu'il faut",
+    "er.det.voltar": "Retour à la liste",
+    "er.det.escolha": "Choisissez une entrée pour voir les détails.",
+    "er.det.mapa": "Fragments de carte",
+    "er.det.areas": "Zones",
+    "er.det.chefes": "Boss",
+    "er.final.feito": "Obtenue",
+    "er.final.possivel": "Encore possible",
+    "er.final.pronto": "Prête à choisir",
+    "er.final.impossivel": "Impossible dans cette partie",
+    "er.final.chama": "La Flamme de la frénésie a été acceptée et non guérie : seule la fin du Seigneur de la Flamme de la frénésie reste possible.",
+    "er.final.queimou": "L'Arbre-Monde a brûlé sans la Flamme de la frénésie : cette fin est fermée dans cette partie.",
+    "er.rota.final": "Fin",
+    "er.rota.build": "Build d'arme",
+    "er.mapa.resumo": "{gracas} sites de grâce · {chefes} boss",
+    "er.mapa.total": "{gracas} sites de grâce · {chefes} boss",
+    "jogos.soSave": "La sauvegarde de ce jeu est lue.",
     "nav.rotulo": "Navigation",
     "nav.voltar": "Retour",
     "nav.avancar": "Suivant",
@@ -4361,6 +4978,86 @@ const I18N = {
   },
 
   de: {
+    "er.grupo.equip": "Ausrüstung",
+    "er.grupo.magia": "Magie",
+    "er.grupo.mundo": "Welt und Karten",
+    "er.grupo.guias": "Guides und Builds",
+    "er.bloco.armas": "Waffen",
+    "er.bloco.armaduras": "Rüstungen",
+    "er.bloco.talismas": "Talismane",
+    "er.bloco.cinzas-de-guerra": "Kriegsaschen",
+    "er.bloco.escudos": "Schilde",
+    "er.bloco.encantamentos": "Anrufungen",
+    "er.bloco.feiticos": "Zauber",
+    "er.bloco.magias": "Alle Zauber",
+    "er.bloco.cinzas-espirituais": "Geisteraschen",
+    "er.bloco.mapa": "Karte",
+    "er.bloco.chefes": "Bosse",
+    "er.bloco.locais": "Orte",
+    "er.bloco.npcs": "NPCs",
+    "er.bloco.finais": "Enden",
+    "er.bloco.missoes": "Nebenquests",
+    "er.bloco.rotas": "Routenvorschläge",
+    "er.mortes": "Tode",
+    "er.mortes.nota": "Alle Tode dieses Charakters, aus dem Spielstand gelesen, auch die vor der Installation der App.",
+    "er.estado.lido": "Aus dem Spielstand gelesen · Slot {slot}",
+    "er.estado.arquivo": "Aus der gewählten Datei gelesen · Slot {slot}",
+    "er.estado.antigo": "Spielstand nicht verfügbar, letzte Lesung wird angezeigt",
+    "er.estado.semSave": "Kein Elden-Ring-Spielstand auf diesem Computer gefunden",
+    "er.estado.semLeitura": "Der Spielstand wurde noch nicht gelesen",
+    "er.save.escolher": "Spielstand wählen",
+    "er.save.trocar": "Spielstand wechseln",
+    "er.save.dica": "Wähle ER0000.sl2 (Ordner EldenRing in Roaming), um deinen Fortschritt zu lesen. Nichts verlässt diesen Browser.",
+    "er.save.erro": "Diese Datei konnte nicht als Elden-Ring-Spielstand gelesen werden.",
+    "er.filtro.todos": "Alle",
+    "er.filtro.tem": "Vorhanden",
+    "er.filtro.falta": "Fehlend",
+    "er.filtro.derrotados": "Besiegt",
+    "er.filtro.vivos": "Unbesiegt",
+    "er.filtro.achados": "Gefunden",
+    "er.filtro.faltam": "Nicht gefunden",
+    "er.filtro.tipo": "Alle Typen",
+    "er.filtro.regiao": "Alle Regionen",
+    "er.busca": "Nach Namen suchen",
+    "er.vazio": "Nichts passt zu diesen Filtern.",
+    "er.carregando": "Wird geladen…",
+    "er.falhou": "Die Liste konnte nicht geladen werden.",
+    "er.det.descricao": "Beschreibung",
+    "er.det.obter": "So bekommst du es",
+    "er.det.onde": "Fundort",
+    "er.det.requisitos": "Anforderungen",
+    "er.det.efeito": "Effekt",
+    "er.det.tem": "Im Inventar",
+    "er.det.falta": "Noch nicht erhalten",
+    "er.det.derrotado": "Besiegt",
+    "er.det.vivo": "Noch nicht besiegt",
+    "er.det.achado": "Ort der Gnade gefunden",
+    "er.det.naoAchado": "Ort der Gnade noch nicht gefunden",
+    "er.det.drops": "Beute",
+    "er.det.graca": "Nächster Ort der Gnade",
+    "er.det.missao": "Zugehörige Quest",
+    "er.det.itens": "Zugehörige Gegenstände",
+    "er.det.inicio": "Startpunkt",
+    "er.det.passos": "Schritte",
+    "er.det.aviso": "Achtung",
+    "er.det.final": "Zugehöriges Ende",
+    "er.det.requisitosFinal": "Was nötig ist",
+    "er.det.voltar": "Zurück zur Liste",
+    "er.det.escolha": "Wähle einen Eintrag, um die Details zu sehen.",
+    "er.det.mapa": "Kartenfragmente",
+    "er.det.areas": "Gebiete",
+    "er.det.chefes": "Bosse",
+    "er.final.feito": "Erreicht",
+    "er.final.possivel": "Noch möglich",
+    "er.final.pronto": "Bereit zur Wahl",
+    "er.final.impossivel": "In diesem Durchgang unmöglich",
+    "er.final.chama": "Die Flamme der Raserei wurde angenommen und nicht geheilt: Nur das Ende des Herrn der Rasenden Flamme bleibt.",
+    "er.final.queimou": "Der Erdenbaum wurde ohne die Flamme der Raserei verbrannt: Dieses Ende ist in diesem Durchgang verschlossen.",
+    "er.rota.final": "Ende",
+    "er.rota.build": "Waffen-Build",
+    "er.mapa.resumo": "{gracas} Orte der Gnade · {chefes} Bosse",
+    "er.mapa.total": "{gracas} Orte der Gnade · {chefes} Bosse",
+    "jogos.soSave": "Für dieses Spiel wird der Spielstand gelesen.",
     "nav.rotulo": "Navigation",
     "nav.voltar": "Zurück",
     "nav.avancar": "Vorwärts",
@@ -4589,6 +5286,86 @@ const I18N = {
   },
 
   it: {
+    "er.grupo.equip": "Equipaggiamento",
+    "er.grupo.magia": "Magia",
+    "er.grupo.mundo": "Mondo e mappe",
+    "er.grupo.guias": "Guide e build",
+    "er.bloco.armas": "Armi",
+    "er.bloco.armaduras": "Armature",
+    "er.bloco.talismas": "Talismani",
+    "er.bloco.cinzas-de-guerra": "Ceneri di guerra",
+    "er.bloco.escudos": "Scudi",
+    "er.bloco.encantamentos": "Incantesimi sacri",
+    "er.bloco.feiticos": "Stregonerie",
+    "er.bloco.magias": "Tutte le magie",
+    "er.bloco.cinzas-espirituais": "Ceneri degli spiriti",
+    "er.bloco.mapa": "Mappa",
+    "er.bloco.chefes": "Boss",
+    "er.bloco.locais": "Luoghi",
+    "er.bloco.npcs": "PNG",
+    "er.bloco.finais": "Finali",
+    "er.bloco.missoes": "Missioni secondarie",
+    "er.bloco.rotas": "Percorsi consigliati",
+    "er.mortes": "Morti",
+    "er.mortes.nota": "Tutte le morti di questo personaggio, lette dal salvataggio, comprese quelle precedenti all'installazione dell'app.",
+    "er.estado.lido": "Letto dal salvataggio · slot {slot}",
+    "er.estado.arquivo": "Letto dal file scelto · slot {slot}",
+    "er.estado.antigo": "Salvataggio non disponibile, mostrata l'ultima lettura",
+    "er.estado.semSave": "Nessun salvataggio di Elden Ring trovato su questo computer",
+    "er.estado.semLeitura": "Il salvataggio non è ancora stato letto",
+    "er.save.escolher": "Scegli il salvataggio",
+    "er.save.trocar": "Cambia salvataggio",
+    "er.save.dica": "Scegli ER0000.sl2 (cartella EldenRing, dentro Roaming) per leggere i tuoi progressi. Nulla esce da questo browser.",
+    "er.save.erro": "Questo file non può essere letto come salvataggio di Elden Ring.",
+    "er.filtro.todos": "Tutti",
+    "er.filtro.tem": "Posseduti",
+    "er.filtro.falta": "Mancanti",
+    "er.filtro.derrotados": "Sconfitti",
+    "er.filtro.vivos": "Vivi",
+    "er.filtro.achados": "Trovati",
+    "er.filtro.faltam": "Da trovare",
+    "er.filtro.tipo": "Tutti i tipi",
+    "er.filtro.regiao": "Tutte le regioni",
+    "er.busca": "Cerca per nome",
+    "er.vazio": "Nessun risultato con questi filtri.",
+    "er.carregando": "Caricamento…",
+    "er.falhou": "Impossibile caricare l'elenco.",
+    "er.det.descricao": "Descrizione",
+    "er.det.obter": "Come ottenerlo",
+    "er.det.onde": "Posizione",
+    "er.det.requisitos": "Requisiti",
+    "er.det.efeito": "Effetto",
+    "er.det.tem": "Nel tuo inventario",
+    "er.det.falta": "Non ancora ottenuto",
+    "er.det.derrotado": "Sconfitto",
+    "er.det.vivo": "Non ancora sconfitto",
+    "er.det.achado": "Luogo di grazia trovato",
+    "er.det.naoAchado": "Luogo di grazia non ancora trovato",
+    "er.det.drops": "Bottino",
+    "er.det.graca": "Luogo di grazia più vicino",
+    "er.det.missao": "Missione collegata",
+    "er.det.itens": "Oggetti collegati",
+    "er.det.inicio": "Dove inizia",
+    "er.det.passos": "Passaggi",
+    "er.det.aviso": "Attenzione",
+    "er.det.final": "Finale collegato",
+    "er.det.requisitosFinal": "Cosa serve",
+    "er.det.voltar": "Torna all'elenco",
+    "er.det.escolha": "Scegli una voce per vederne i dettagli.",
+    "er.det.mapa": "Frammenti di mappa",
+    "er.det.areas": "Zone",
+    "er.det.chefes": "Boss",
+    "er.final.feito": "Ottenuto",
+    "er.final.possivel": "Ancora possibile",
+    "er.final.pronto": "Pronto da scegliere",
+    "er.final.impossivel": "Impossibile in questa partita",
+    "er.final.chama": "La Fiamma della follia è stata accettata e non curata: resta solo il finale del Signore della Fiamma della follia.",
+    "er.final.queimou": "L'Albero Madre è bruciato senza la Fiamma della follia: questo finale è chiuso in questa partita.",
+    "er.rota.final": "Finale",
+    "er.rota.build": "Build d'arma",
+    "er.mapa.resumo": "{gracas} luoghi di grazia · {chefes} boss",
+    "er.mapa.total": "{gracas} luoghi di grazia · {chefes} boss",
+    "jogos.soSave": "Di questo gioco viene letto il salvataggio.",
     "nav.rotulo": "Navigazione",
     "nav.voltar": "Indietro",
     "nav.avancar": "Avanti",
@@ -4817,6 +5594,86 @@ const I18N = {
   },
 
   ru: {
+    "er.grupo.equip": "Снаряжение",
+    "er.grupo.magia": "Магия",
+    "er.grupo.mundo": "Мир и карты",
+    "er.grupo.guias": "Гайды и билды",
+    "er.bloco.armas": "Оружие",
+    "er.bloco.armaduras": "Броня",
+    "er.bloco.talismas": "Талисманы",
+    "er.bloco.cinzas-de-guerra": "Пепел войны",
+    "er.bloco.escudos": "Щиты",
+    "er.bloco.encantamentos": "Заклинания веры",
+    "er.bloco.feiticos": "Колдовство",
+    "er.bloco.magias": "Вся магия",
+    "er.bloco.cinzas-espirituais": "Прах духов",
+    "er.bloco.mapa": "Карта",
+    "er.bloco.chefes": "Боссы",
+    "er.bloco.locais": "Места",
+    "er.bloco.npcs": "NPC",
+    "er.bloco.finais": "Концовки",
+    "er.bloco.missoes": "Побочные квесты",
+    "er.bloco.rotas": "Рекомендуемые маршруты",
+    "er.mortes": "Смерти",
+    "er.mortes.nota": "Все смерти этого персонажа, прочитанные из сохранения, включая те, что были до установки приложения.",
+    "er.estado.lido": "Прочитано из сохранения · слот {slot}",
+    "er.estado.arquivo": "Прочитано из выбранного файла · слот {slot}",
+    "er.estado.antigo": "Сохранение недоступно, показано последнее чтение",
+    "er.estado.semSave": "Сохранение Elden Ring на этом компьютере не найдено",
+    "er.estado.semLeitura": "Сохранение ещё не прочитано",
+    "er.save.escolher": "Выбрать файл сохранения",
+    "er.save.trocar": "Сменить файл сохранения",
+    "er.save.dica": "Выберите ER0000.sl2 (папка EldenRing в Roaming), чтобы прочитать прогресс. Ничто не покидает этот браузер.",
+    "er.save.erro": "Не удалось прочитать этот файл как сохранение Elden Ring.",
+    "er.filtro.todos": "Все",
+    "er.filtro.tem": "Есть",
+    "er.filtro.falta": "Нет",
+    "er.filtro.derrotados": "Побеждены",
+    "er.filtro.vivos": "Живы",
+    "er.filtro.achados": "Найдены",
+    "er.filtro.faltam": "Не найдены",
+    "er.filtro.tipo": "Все типы",
+    "er.filtro.regiao": "Все регионы",
+    "er.busca": "Поиск по названию",
+    "er.vazio": "Ничего не подходит под эти фильтры.",
+    "er.carregando": "Загрузка…",
+    "er.falhou": "Не удалось загрузить список.",
+    "er.det.descricao": "Описание",
+    "er.det.obter": "Как получить",
+    "er.det.onde": "Расположение",
+    "er.det.requisitos": "Требования",
+    "er.det.efeito": "Эффект",
+    "er.det.tem": "В инвентаре",
+    "er.det.falta": "Ещё не получено",
+    "er.det.derrotado": "Побеждён",
+    "er.det.vivo": "Ещё не побеждён",
+    "er.det.achado": "Место благодати найдено",
+    "er.det.naoAchado": "Место благодати ещё не найдено",
+    "er.det.drops": "Награда",
+    "er.det.graca": "Ближайшее место благодати",
+    "er.det.missao": "Связанный квест",
+    "er.det.itens": "Связанные предметы",
+    "er.det.inicio": "Где начинается",
+    "er.det.passos": "Шаги",
+    "er.det.aviso": "Внимание",
+    "er.det.final": "Связанная концовка",
+    "er.det.requisitosFinal": "Что нужно",
+    "er.det.voltar": "Назад к списку",
+    "er.det.escolha": "Выберите запись, чтобы увидеть подробности.",
+    "er.det.mapa": "Фрагменты карты",
+    "er.det.areas": "Области",
+    "er.det.chefes": "Боссы",
+    "er.final.feito": "Получена",
+    "er.final.possivel": "Ещё возможна",
+    "er.final.pronto": "Можно выбрать",
+    "er.final.impossivel": "Невозможна в этом прохождении",
+    "er.final.chama": "Пламя безумия принято и не исцелено: осталась только концовка Владыки пламени безумия.",
+    "er.final.queimou": "Древо Эрд сожжено без Пламени безумия: эта концовка закрыта в этом прохождении.",
+    "er.rota.final": "Концовка",
+    "er.rota.build": "Билд оружия",
+    "er.mapa.resumo": "мест благодати: {gracas} · боссов: {chefes}",
+    "er.mapa.total": "мест благодати: {gracas} · боссов: {chefes}",
+    "jogos.soSave": "Для этой игры читается сохранение.",
     "nav.rotulo": "Навигация",
     "nav.voltar": "Назад",
     "nav.avancar": "Вперёд",
@@ -5045,6 +5902,86 @@ const I18N = {
   },
 
   pl: {
+    "er.grupo.equip": "Ekwipunek",
+    "er.grupo.magia": "Magia",
+    "er.grupo.mundo": "Świat i mapy",
+    "er.grupo.guias": "Poradniki i buildy",
+    "er.bloco.armas": "Broń",
+    "er.bloco.armaduras": "Pancerze",
+    "er.bloco.talismas": "Talizmany",
+    "er.bloco.cinzas-de-guerra": "Popioły wojny",
+    "er.bloco.escudos": "Tarcze",
+    "er.bloco.encantamentos": "Inkantacje",
+    "er.bloco.feiticos": "Czary",
+    "er.bloco.magias": "Cała magia",
+    "er.bloco.cinzas-espirituais": "Popioły duchów",
+    "er.bloco.mapa": "Mapa",
+    "er.bloco.chefes": "Bossowie",
+    "er.bloco.locais": "Miejsca",
+    "er.bloco.npcs": "NPC",
+    "er.bloco.finais": "Zakończenia",
+    "er.bloco.missoes": "Zadania poboczne",
+    "er.bloco.rotas": "Proponowane trasy",
+    "er.mortes": "Śmierci",
+    "er.mortes.nota": "Wszystkie śmierci tej postaci, odczytane z zapisu, także te sprzed instalacji aplikacji.",
+    "er.estado.lido": "Odczytano z zapisu · slot {slot}",
+    "er.estado.arquivo": "Odczytano z wybranego pliku · slot {slot}",
+    "er.estado.antigo": "Zapis niedostępny, pokazano ostatni odczyt",
+    "er.estado.semSave": "Nie znaleziono zapisu Elden Ring na tym komputerze",
+    "er.estado.semLeitura": "Zapis nie został jeszcze odczytany",
+    "er.save.escolher": "Wybierz plik zapisu",
+    "er.save.trocar": "Zmień plik zapisu",
+    "er.save.dica": "Wybierz ER0000.sl2 (folder EldenRing w Roaming), aby odczytać postęp. Nic nie opuszcza tej przeglądarki.",
+    "er.save.erro": "Nie udało się odczytać tego pliku jako zapisu Elden Ring.",
+    "er.filtro.todos": "Wszystko",
+    "er.filtro.tem": "Posiadane",
+    "er.filtro.falta": "Brakujące",
+    "er.filtro.derrotados": "Pokonani",
+    "er.filtro.vivos": "Żywi",
+    "er.filtro.achados": "Odnalezione",
+    "er.filtro.faltam": "Nieodnalezione",
+    "er.filtro.tipo": "Wszystkie typy",
+    "er.filtro.regiao": "Wszystkie regiony",
+    "er.busca": "Szukaj po nazwie",
+    "er.vazio": "Nic nie pasuje do tych filtrów.",
+    "er.carregando": "Wczytywanie…",
+    "er.falhou": "Nie udało się wczytać listy.",
+    "er.det.descricao": "Opis",
+    "er.det.obter": "Jak zdobyć",
+    "er.det.onde": "Lokalizacja",
+    "er.det.requisitos": "Wymagania",
+    "er.det.efeito": "Efekt",
+    "er.det.tem": "W ekwipunku",
+    "er.det.falta": "Jeszcze nie zdobyto",
+    "er.det.derrotado": "Pokonany",
+    "er.det.vivo": "Jeszcze niepokonany",
+    "er.det.achado": "Miejsce łaski odnalezione",
+    "er.det.naoAchado": "Miejsce łaski jeszcze nieodnalezione",
+    "er.det.drops": "Łup",
+    "er.det.graca": "Najbliższe miejsce łaski",
+    "er.det.missao": "Powiązane zadanie",
+    "er.det.itens": "Powiązane przedmioty",
+    "er.det.inicio": "Gdzie się zaczyna",
+    "er.det.passos": "Kroki",
+    "er.det.aviso": "Uwaga",
+    "er.det.final": "Powiązane zakończenie",
+    "er.det.requisitosFinal": "Czego potrzeba",
+    "er.det.voltar": "Wróć do listy",
+    "er.det.escolha": "Wybierz pozycję, aby zobaczyć szczegóły.",
+    "er.det.mapa": "Fragmenty mapy",
+    "er.det.areas": "Obszary",
+    "er.det.chefes": "Bossowie",
+    "er.final.feito": "Osiągnięte",
+    "er.final.possivel": "Nadal możliwe",
+    "er.final.pronto": "Gotowe do wyboru",
+    "er.final.impossivel": "Niemożliwe w tym przejściu",
+    "er.final.chama": "Płomień Szaleństwa został przyjęty i nie wyleczony: zostaje tylko zakończenie Władcy Płomienia Szaleństwa.",
+    "er.final.queimou": "Drzewo Ziemi spłonęło bez Płomienia Szaleństwa: to zakończenie jest zamknięte w tym przejściu.",
+    "er.rota.final": "Zakończenie",
+    "er.rota.build": "Build broni",
+    "er.mapa.resumo": "miejsca łaski: {gracas} · bossowie: {chefes}",
+    "er.mapa.total": "miejsca łaski: {gracas} · bossowie: {chefes}",
+    "jogos.soSave": "W tej grze odczytywany jest zapis.",
     "nav.rotulo": "Nawigacja",
     "nav.voltar": "Wstecz",
     "nav.avancar": "Dalej",
@@ -5273,6 +6210,86 @@ const I18N = {
   },
 
   tr: {
+    "er.grupo.equip": "Ekipman",
+    "er.grupo.magia": "Büyü",
+    "er.grupo.mundo": "Dünya ve haritalar",
+    "er.grupo.guias": "Rehberler ve buildler",
+    "er.bloco.armas": "Silahlar",
+    "er.bloco.armaduras": "Zırhlar",
+    "er.bloco.talismas": "Tılsımlar",
+    "er.bloco.cinzas-de-guerra": "Savaş Külleri",
+    "er.bloco.escudos": "Kalkanlar",
+    "er.bloco.encantamentos": "Dualar",
+    "er.bloco.feiticos": "Büyücülükler",
+    "er.bloco.magias": "Tüm büyüler",
+    "er.bloco.cinzas-espirituais": "Ruh Külleri",
+    "er.bloco.mapa": "Harita",
+    "er.bloco.chefes": "Bosslar",
+    "er.bloco.locais": "Konumlar",
+    "er.bloco.npcs": "NPC'ler",
+    "er.bloco.finais": "Sonlar",
+    "er.bloco.missoes": "Yan görevler",
+    "er.bloco.rotas": "Önerilen rotalar",
+    "er.mortes": "Ölümler",
+    "er.mortes.nota": "Bu karakterin kayıttan okunan tüm ölümleri, uygulama kurulmadan öncekiler dahil.",
+    "er.estado.lido": "Kayıttan okundu · yuva {slot}",
+    "er.estado.arquivo": "Seçilen dosyadan okundu · yuva {slot}",
+    "er.estado.antigo": "Kayıt kullanılamıyor, son okuma gösteriliyor",
+    "er.estado.semSave": "Bu bilgisayarda Elden Ring kaydı bulunamadı",
+    "er.estado.semLeitura": "Kayıt henüz okunmadı",
+    "er.save.escolher": "Kayıt dosyası seç",
+    "er.save.trocar": "Kayıt dosyasını değiştir",
+    "er.save.dica": "İlerlemeni okumak için ER0000.sl2 dosyasını seç (Roaming içindeki EldenRing klasörü). Hiçbir şey bu tarayıcıdan çıkmaz.",
+    "er.save.erro": "Bu dosya Elden Ring kaydı olarak okunamadı.",
+    "er.filtro.todos": "Tümü",
+    "er.filtro.tem": "Sahip olunan",
+    "er.filtro.falta": "Eksik",
+    "er.filtro.derrotados": "Yenilen",
+    "er.filtro.vivos": "Yenilmeyen",
+    "er.filtro.achados": "Bulunan",
+    "er.filtro.faltam": "Bulunmayan",
+    "er.filtro.tipo": "Tüm türler",
+    "er.filtro.regiao": "Tüm bölgeler",
+    "er.busca": "Ada göre ara",
+    "er.vazio": "Bu filtrelere uyan bir şey yok.",
+    "er.carregando": "Yükleniyor…",
+    "er.falhou": "Liste yüklenemedi.",
+    "er.det.descricao": "Açıklama",
+    "er.det.obter": "Nasıl alınır",
+    "er.det.onde": "Konum",
+    "er.det.requisitos": "Gereksinimler",
+    "er.det.efeito": "Etki",
+    "er.det.tem": "Envanterinde",
+    "er.det.falta": "Henüz alınmadı",
+    "er.det.derrotado": "Yenildi",
+    "er.det.vivo": "Henüz yenilmedi",
+    "er.det.achado": "Lütuf Mekânı bulundu",
+    "er.det.naoAchado": "Lütuf Mekânı henüz bulunmadı",
+    "er.det.drops": "Ganimet",
+    "er.det.graca": "En yakın Lütuf Mekânı",
+    "er.det.missao": "İlgili görev",
+    "er.det.itens": "İlgili eşyalar",
+    "er.det.inicio": "Nerede başlar",
+    "er.det.passos": "Adımlar",
+    "er.det.aviso": "Dikkat",
+    "er.det.final": "İlgili son",
+    "er.det.requisitosFinal": "Gerekenler",
+    "er.det.voltar": "Listeye dön",
+    "er.det.escolha": "Ayrıntıları görmek için bir kayıt seç.",
+    "er.det.mapa": "Harita parçaları",
+    "er.det.areas": "Bölgeler",
+    "er.det.chefes": "Bosslar",
+    "er.final.feito": "Ulaşıldı",
+    "er.final.possivel": "Hâlâ mümkün",
+    "er.final.pronto": "Seçmeye hazır",
+    "er.final.impossivel": "Bu oyunda imkânsız",
+    "er.final.chama": "Çılgınlık Alevi kabul edildi ve iyileştirilmedi: yalnızca Çılgın Alev Lordu sonu kaldı.",
+    "er.final.queimou": "Erdtree, Çılgınlık Alevi olmadan yakıldı: bu son bu oyunda kapandı.",
+    "er.rota.final": "Son",
+    "er.rota.build": "Silah buildi",
+    "er.mapa.resumo": "{gracas} lütuf · {chefes} boss",
+    "er.mapa.total": "{gracas} lütuf · {chefes} boss",
+    "jogos.soSave": "Bu oyun için kayıt okunur.",
     "nav.rotulo": "Gezinme",
     "nav.voltar": "Geri",
     "nav.avancar": "İleri",
@@ -5501,6 +6518,86 @@ const I18N = {
   },
 
   ja: {
+    "er.grupo.equip": "装備",
+    "er.grupo.magia": "魔法",
+    "er.grupo.mundo": "世界とマップ",
+    "er.grupo.guias": "攻略とビルド",
+    "er.bloco.armas": "武器",
+    "er.bloco.armaduras": "防具",
+    "er.bloco.talismas": "タリスマン",
+    "er.bloco.cinzas-de-guerra": "戦灰",
+    "er.bloco.escudos": "盾",
+    "er.bloco.encantamentos": "祈祷",
+    "er.bloco.feiticos": "魔術",
+    "er.bloco.magias": "すべての魔法",
+    "er.bloco.cinzas-espirituais": "遺灰",
+    "er.bloco.mapa": "マップ",
+    "er.bloco.chefes": "ボス",
+    "er.bloco.locais": "場所",
+    "er.bloco.npcs": "NPC",
+    "er.bloco.finais": "エンディング",
+    "er.bloco.missoes": "サブクエスト",
+    "er.bloco.rotas": "おすすめルート",
+    "er.mortes": "死亡数",
+    "er.mortes.nota": "セーブから読み取ったこのキャラクターの全死亡数。アプリ導入前の分も含みます。",
+    "er.estado.lido": "セーブから読み取り · スロット {slot}",
+    "er.estado.arquivo": "選んだファイルから読み取り · スロット {slot}",
+    "er.estado.antigo": "セーブを読めないため、前回の読み取りを表示中",
+    "er.estado.semSave": "このPCにElden Ringのセーブが見つかりません",
+    "er.estado.semLeitura": "セーブはまだ読み取られていません",
+    "er.save.escolher": "セーブファイルを選ぶ",
+    "er.save.trocar": "セーブファイルを変更",
+    "er.save.dica": "進行状況を読むには ER0000.sl2（Roaming 内の EldenRing フォルダー）を選んでください。データはこのブラウザの外に出ません。",
+    "er.save.erro": "このファイルはElden Ringのセーブとして読めませんでした。",
+    "er.filtro.todos": "すべて",
+    "er.filtro.tem": "所持",
+    "er.filtro.falta": "未所持",
+    "er.filtro.derrotados": "撃破",
+    "er.filtro.vivos": "未撃破",
+    "er.filtro.achados": "発見済み",
+    "er.filtro.faltam": "未発見",
+    "er.filtro.tipo": "すべての種類",
+    "er.filtro.regiao": "すべての地域",
+    "er.busca": "名前で検索",
+    "er.vazio": "条件に合うものがありません。",
+    "er.carregando": "読み込み中…",
+    "er.falhou": "リストを読み込めませんでした。",
+    "er.det.descricao": "説明",
+    "er.det.obter": "入手方法",
+    "er.det.onde": "場所",
+    "er.det.requisitos": "必要能力値",
+    "er.det.efeito": "効果",
+    "er.det.tem": "所持しています",
+    "er.det.falta": "未入手",
+    "er.det.derrotado": "撃破済み",
+    "er.det.vivo": "未撃破",
+    "er.det.achado": "祝福を発見済み",
+    "er.det.naoAchado": "祝福は未発見",
+    "er.det.drops": "ドロップ",
+    "er.det.graca": "最寄りの祝福",
+    "er.det.missao": "関連クエスト",
+    "er.det.itens": "関連アイテム",
+    "er.det.inicio": "開始地点",
+    "er.det.passos": "手順",
+    "er.det.aviso": "注意",
+    "er.det.final": "関連エンディング",
+    "er.det.requisitosFinal": "必要なこと",
+    "er.det.voltar": "リストに戻る",
+    "er.det.escolha": "項目を選ぶと詳細が表示されます。",
+    "er.det.mapa": "地図の断片",
+    "er.det.areas": "エリア",
+    "er.det.chefes": "ボス",
+    "er.final.feito": "達成",
+    "er.final.possivel": "まだ可能",
+    "er.final.pronto": "選択可能",
+    "er.final.impossivel": "この周回では不可能",
+    "er.final.chama": "狂い火を受け入れ、治していないため、狂い火の王エンディングしか残っていません。",
+    "er.final.queimou": "狂い火なしで黄金樹が燃やされたため、この周回ではこのエンディングは閉ざされました。",
+    "er.rota.final": "エンディング",
+    "er.rota.build": "武器ビルド",
+    "er.mapa.resumo": "祝福 {gracas} · ボス {chefes}",
+    "er.mapa.total": "祝福 {gracas} · ボス {chefes}",
+    "jogos.soSave": "このゲームはセーブを読み取ります。",
     "nav.rotulo": "ナビゲーション",
     "nav.voltar": "戻る",
     "nav.avancar": "進む",
@@ -5729,6 +6826,86 @@ const I18N = {
   },
 
   ko: {
+    "er.grupo.equip": "장비",
+    "er.grupo.magia": "마법",
+    "er.grupo.mundo": "세계와 지도",
+    "er.grupo.guias": "공략과 빌드",
+    "er.bloco.armas": "무기",
+    "er.bloco.armaduras": "방어구",
+    "er.bloco.talismas": "탈리스만",
+    "er.bloco.cinzas-de-guerra": "전회",
+    "er.bloco.escudos": "방패",
+    "er.bloco.encantamentos": "기도",
+    "er.bloco.feiticos": "마술",
+    "er.bloco.magias": "모든 마법",
+    "er.bloco.cinzas-espirituais": "영혼의 재",
+    "er.bloco.mapa": "지도",
+    "er.bloco.chefes": "보스",
+    "er.bloco.locais": "장소",
+    "er.bloco.npcs": "NPC",
+    "er.bloco.finais": "엔딩",
+    "er.bloco.missoes": "서브 퀘스트",
+    "er.bloco.rotas": "추천 루트",
+    "er.mortes": "사망 횟수",
+    "er.mortes.nota": "세이브에서 읽은 이 캐릭터의 모든 사망 횟수입니다. 앱 설치 전의 사망도 포함됩니다.",
+    "er.estado.lido": "세이브에서 읽음 · 슬롯 {slot}",
+    "er.estado.arquivo": "선택한 파일에서 읽음 · 슬롯 {slot}",
+    "er.estado.antigo": "세이브를 읽을 수 없어 마지막 기록을 표시합니다",
+    "er.estado.semSave": "이 컴퓨터에서 Elden Ring 세이브를 찾지 못했습니다",
+    "er.estado.semLeitura": "세이브를 아직 읽지 않았습니다",
+    "er.save.escolher": "세이브 파일 선택",
+    "er.save.trocar": "세이브 파일 변경",
+    "er.save.dica": "진행 상황을 읽으려면 ER0000.sl2(Roaming 안의 EldenRing 폴더)를 선택하세요. 데이터는 이 브라우저 밖으로 나가지 않습니다.",
+    "er.save.erro": "이 파일을 Elden Ring 세이브로 읽을 수 없습니다.",
+    "er.filtro.todos": "전체",
+    "er.filtro.tem": "보유",
+    "er.filtro.falta": "미보유",
+    "er.filtro.derrotados": "처치",
+    "er.filtro.vivos": "미처치",
+    "er.filtro.achados": "발견",
+    "er.filtro.faltam": "미발견",
+    "er.filtro.tipo": "모든 종류",
+    "er.filtro.regiao": "모든 지역",
+    "er.busca": "이름으로 검색",
+    "er.vazio": "필터에 맞는 항목이 없습니다.",
+    "er.carregando": "불러오는 중…",
+    "er.falhou": "목록을 불러오지 못했습니다.",
+    "er.det.descricao": "설명",
+    "er.det.obter": "얻는 방법",
+    "er.det.onde": "위치",
+    "er.det.requisitos": "요구 능력치",
+    "er.det.efeito": "효과",
+    "er.det.tem": "인벤토리에 있음",
+    "er.det.falta": "아직 얻지 못함",
+    "er.det.derrotado": "처치함",
+    "er.det.vivo": "아직 처치하지 않음",
+    "er.det.achado": "축복 발견",
+    "er.det.naoAchado": "축복 미발견",
+    "er.det.drops": "보상",
+    "er.det.graca": "가장 가까운 축복",
+    "er.det.missao": "관련 퀘스트",
+    "er.det.itens": "관련 아이템",
+    "er.det.inicio": "시작 위치",
+    "er.det.passos": "단계",
+    "er.det.aviso": "주의",
+    "er.det.final": "관련 엔딩",
+    "er.det.requisitosFinal": "필요한 것",
+    "er.det.voltar": "목록으로",
+    "er.det.escolha": "항목을 선택하면 자세한 내용이 표시됩니다.",
+    "er.det.mapa": "지도 조각",
+    "er.det.areas": "지역",
+    "er.det.chefes": "보스",
+    "er.final.feito": "달성",
+    "er.final.possivel": "아직 가능",
+    "er.final.pronto": "선택 가능",
+    "er.final.impossivel": "이번 회차에서는 불가능",
+    "er.final.chama": "광기의 불길을 받아들이고 치유하지 않았기 때문에 광기의 불길의 왕 엔딩만 남았습니다.",
+    "er.final.queimou": "광기의 불길 없이 황금 나무를 불태웠기 때문에 이번 회차에서는 이 엔딩이 닫혔습니다.",
+    "er.rota.final": "엔딩",
+    "er.rota.build": "무기 빌드",
+    "er.mapa.resumo": "축복 {gracas} · 보스 {chefes}",
+    "er.mapa.total": "축복 {gracas} · 보스 {chefes}",
+    "jogos.soSave": "이 게임은 세이브를 읽습니다.",
     "nav.rotulo": "탐색",
     "nav.voltar": "뒤로",
     "nav.avancar": "앞으로",
@@ -5957,6 +7134,86 @@ const I18N = {
   },
 
   "zh-CN": {
+    "er.grupo.equip": "装备",
+    "er.grupo.magia": "法术",
+    "er.grupo.mundo": "世界与地图",
+    "er.grupo.guias": "攻略与配装",
+    "er.bloco.armas": "武器",
+    "er.bloco.armaduras": "防具",
+    "er.bloco.talismas": "护符",
+    "er.bloco.cinzas-de-guerra": "战灰",
+    "er.bloco.escudos": "盾牌",
+    "er.bloco.encantamentos": "祷告",
+    "er.bloco.feiticos": "魔法",
+    "er.bloco.magias": "全部法术",
+    "er.bloco.cinzas-espirituais": "骨灰",
+    "er.bloco.mapa": "地图",
+    "er.bloco.chefes": "首领",
+    "er.bloco.locais": "地点",
+    "er.bloco.npcs": "NPC",
+    "er.bloco.finais": "结局",
+    "er.bloco.missoes": "支线任务",
+    "er.bloco.rotas": "推荐路线",
+    "er.mortes": "死亡次数",
+    "er.mortes.nota": "从存档读取的此角色全部死亡次数，包括安装应用之前的。",
+    "er.estado.lido": "已从存档读取 · 槽位 {slot}",
+    "er.estado.arquivo": "已从所选文件读取 · 槽位 {slot}",
+    "er.estado.antigo": "存档不可用，显示上次读取结果",
+    "er.estado.semSave": "此电脑上未找到 Elden Ring 存档",
+    "er.estado.semLeitura": "尚未读取存档",
+    "er.save.escolher": "选择存档文件",
+    "er.save.trocar": "更换存档文件",
+    "er.save.dica": "选择 ER0000.sl2（位于 Roaming 中的 EldenRing 文件夹）以读取进度。数据不会离开此浏览器。",
+    "er.save.erro": "无法将此文件读取为 Elden Ring 存档。",
+    "er.filtro.todos": "全部",
+    "er.filtro.tem": "已拥有",
+    "er.filtro.falta": "未拥有",
+    "er.filtro.derrotados": "已击败",
+    "er.filtro.vivos": "未击败",
+    "er.filtro.achados": "已发现",
+    "er.filtro.faltam": "未发现",
+    "er.filtro.tipo": "所有类型",
+    "er.filtro.regiao": "所有地区",
+    "er.busca": "按名称搜索",
+    "er.vazio": "没有符合筛选条件的项目。",
+    "er.carregando": "加载中…",
+    "er.falhou": "无法加载列表。",
+    "er.det.descricao": "说明",
+    "er.det.obter": "获取方式",
+    "er.det.onde": "位置",
+    "er.det.requisitos": "能力需求",
+    "er.det.efeito": "效果",
+    "er.det.tem": "已在物品栏中",
+    "er.det.falta": "尚未获得",
+    "er.det.derrotado": "已击败",
+    "er.det.vivo": "尚未击败",
+    "er.det.achado": "已发现赐福",
+    "er.det.naoAchado": "尚未发现赐福",
+    "er.det.drops": "掉落",
+    "er.det.graca": "最近的赐福",
+    "er.det.missao": "相关任务",
+    "er.det.itens": "相关物品",
+    "er.det.inicio": "起点",
+    "er.det.passos": "步骤",
+    "er.det.aviso": "注意",
+    "er.det.final": "相关结局",
+    "er.det.requisitosFinal": "所需条件",
+    "er.det.voltar": "返回列表",
+    "er.det.escolha": "选择一项以查看详情。",
+    "er.det.mapa": "地图碎片",
+    "er.det.areas": "区域",
+    "er.det.chefes": "首领",
+    "er.final.feito": "已达成",
+    "er.final.possivel": "仍可达成",
+    "er.final.pronto": "可以选择",
+    "er.final.impossivel": "本周目无法达成",
+    "er.final.chama": "已接受癫火且未治愈：只剩下癫火之王结局。",
+    "er.final.queimou": "未接受癫火便烧毁了黄金树：本周目此结局已关闭。",
+    "er.rota.final": "结局",
+    "er.rota.build": "武器配装",
+    "er.mapa.resumo": "赐福 {gracas} · 首领 {chefes}",
+    "er.mapa.total": "赐福 {gracas} · 首领 {chefes}",
+    "jogos.soSave": "此游戏会读取存档。",
     "nav.rotulo": "导航",
     "nav.voltar": "后退",
     "nav.avancar": "前进",
@@ -7367,7 +8624,7 @@ function renderJogos() {
     linha.appendChild(estado);
 
     // Ressalva no hover.
-    linha.title = g.leitura === "completa" ? t("jogos.completa") : t("jogos.soAbertura");
+    linha.title = g.leitura !== "completa" ? t("jogos.soAbertura") : g.chave === CHAVE_ER ? t("jogos.soSave") : t("jogos.completa");
 
     if (daMaquina) {
       linha.addEventListener("click", () => {
@@ -7718,6 +8975,15 @@ function renderSyncLine() {
   const aberto = dot.getAttribute("aria-expanded") === "true";
   dot.className = "sync-dot";
   dot.setAttribute("aria-expanded", aberto ? "true" : "false");
+  // Na página do Elden Ring a linha fala do save dele.
+  if (naPaginaEr()) {
+    const s = erSync;
+    const bom = !!(s && s.ok && !s.stale);
+    dot.classList.add(bom ? "on" : "off");
+    text.textContent = !s && !NO_NAVEGADOR ? t("sinc.parado")
+      : bom ? t("sinc.ok", { slot: s.fonte && typeof s.fonte.slot === "number" ? s.fonte.slot : "?" }) : erLegenda();
+    return;
+  }
   if (!sync) {
     dot.classList.add("off");
     // O serviço sobe sozinho no login; esta linha indica PC desligado/dormindo ou serviço parado.
@@ -7891,10 +9157,12 @@ function aplicarVista() {
   const corpo = document.body;
   if (corpo && corpo.classList) {
     const antes = naTelaDeJogos();
+    const eraEr = corpo.classList.contains("jogo-er");
     corpo.classList.toggle("vista-hub", v === "hub");
     corpo.classList.toggle("vista-bibli", v === "bibli");
+    corpo.classList.toggle("jogo-er", naPaginaEr());
     // Cada lado guarda o próprio tema.
-    if (antes !== naTelaDeJogos() && typeof applyTheme === "function" && document.getElementById("themeToggle")) {
+    if ((antes !== naTelaDeJogos() || eraEr !== naPaginaEr()) && typeof applyTheme === "function" && document.getElementById("themeToggle")) {
       applyTheme(guardado(chaveDoTema()));
     }
   }
@@ -7902,6 +9170,8 @@ function aplicarVista() {
   const bibli = document.getElementById("bibli");
   if (hub) hub.hidden = v !== "hub";
   if (bibli) bibli.hidden = v !== "bibli";
+  const er = document.getElementById("er");
+  if (er) er.hidden = !naPaginaEr();
   atualizarNavegacao(v);
   const lugar = v + "|" + (typeof location !== "undefined" ? location.hash : "");
   if (aplicarVista.lugar !== undefined && aplicarVista.lugar !== lugar) transicaoDeTela();
@@ -8009,6 +9279,7 @@ function fazerPinos(g) {
 
 /* Sincronizado: o tracker lê este jogo e a leitura é recente. */
 function sincronizado(g) {
+  if (g && g.chave === CHAVE_ER) return !!(erSync && erSync.ok && !erSync.stale);
   return !!(g && g.leitura === "completa" && sync && sync.ok && !sync.stale);
 }
 
@@ -8146,7 +9417,7 @@ function vistos() {
   try { const v = JSON.parse(guardado(VISTO_CHAVE) || "null"); return Array.isArray(v) ? v : null; } catch (e) { return null; }
 }
 function temNovidade(g) {
-  if (!g || g.leitura !== "completa") return false;
+  if (!g || g.leitura !== "completa" || g.chave === CHAVE_ER) return false;
   const agora = desbloqueados();
   if (!agora) return false;
   const antes = vistos();
@@ -8327,7 +9598,7 @@ function renderHub() {
   if (!lista) return;
   // Só redesenha quando algo mudou, para não recarregar artes nem perder a rolagem do trilho.
   // O idioma faz parte da assinatura.
-  const assinatura = v + "|" + JSON.stringify(lista) + "|" + daMaquinaLocal() + "|" + idiomaAtual;
+  const assinatura = v + "|" + JSON.stringify(lista) + "|" + daMaquinaLocal() + "|" + idiomaAtual + "|" + sincronizado({ chave: CHAVE_ER });
   if (renderHub.ultima === assinatura) return;
   renderHub.ultima = assinatura;
 
@@ -8724,7 +9995,7 @@ function atualizarNavegacao(v) {
   liga("navAvancar", () => { if (typeof history !== "undefined") history.forward(); });
   liga("navInicio", () => irPara(""));
   if (typeof window !== "undefined" && window.addEventListener) {
-    const trocou = () => { aplicarVista(); renderHub(); };
+    const trocou = () => { aplicarVista(); renderHub(); renderEr(); renderSyncLine(); };
     window.addEventListener("hashchange", trocou);
     window.addEventListener("popstate", trocou);
   }
@@ -8810,14 +10081,933 @@ if (typeof window !== "undefined") {
 
 /* ------------------------------------------------------------ checklists */
 
+/* =============================================================== Elden Ring */
+
+/* Página do Elden Ring. O conjunto de dados (app/eldenring) só é baixado com a
+   página aberta. A leitura do save vem do elden.json do serviço ou, na extensão
+   do navegador, do arquivo de save escolhido pela pessoa. Nomes do jogo nunca
+   são traduzidos; os textos próprios têm inglês e português. */
+const CHAVE_ER = "steam-1245620";
+const NO_NAVEGADOR = typeof location !== "undefined" && /^(chrome|moz)-extension:$/.test(location.protocol || "");
+let erSync = null;
+let erCarimbo = null;
+let erConsulta = 0;
+const erDados = {};
+const erPedidos = {};
+
+function jogoAtual() {
+  if (vistaAtual() !== "jogo") return null;
+  const h = (typeof location !== "undefined" && location.hash || "").replace(/^#/, "");
+  return h || "sekiro";
+}
+function naPaginaEr() { return jogoAtual() === CHAVE_ER; }
+function listaTemEr() {
+  const l = listaDeJogos();
+  return !!(l && l.some((g) => g.chave === CHAVE_ER));
+}
+function erEsc(s) {
+  return String(s === undefined || s === null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+/** Texto próprio {en, pt}: português no pt-BR, inglês nos demais. Texto do jogo vem como string. */
+function erTexto(v) {
+  if (!v) return "";
+  if (typeof v === "string") return v;
+  return (idiomaAtual === "pt-BR" ? v.pt : v.en) || v.en || v.pt || "";
+}
+function erSemAcento(s) {
+  return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+/* ------------------------------------------------------------ dados e leitura */
+
+function erCarregar(nome) {
+  if (erDados[nome]) return Promise.resolve(erDados[nome]);
+  if (erPedidos[nome]) return erPedidos[nome];
+  if (typeof fetch !== "function") return Promise.resolve(null);
+  const p = fetch("app/eldenring/" + nome + ".json")
+    .then((r) => (r && r.ok ? r.json() : null))
+    // Confere o formato: um arquivo trocado não vira lista.
+    .then((j) => (j && j.formato === 1 ? j : null))
+    .catch(() => null)
+    .then((j) => {
+      delete erPedidos[nome];
+      if (j) erDados[nome] = j;
+      return j;
+    });
+  erPedidos[nome] = p;
+  return p;
+}
+
+async function erLer() {
+  if (NO_NAVEGADOR || typeof fetch !== "function") return;
+  erConsulta = Date.now();
+  let j = null;
+  try {
+    const r = await fetch("elden.json?t=" + Date.now(), { cache: "no-store" });
+    j = await r.json();
+  } catch (e) {
+    j = null;
+  }
+  if (j && j.jogo === "eldenring") erAplicar(j);
+  // Sem elden.json ainda (save nunca lido), o servidor responde {ok:false}.
+  else if (j && j.ok === false) erAplicar({ jogo: "eldenring", ok: false, error: j.error || "not-generated-yet" });
+}
+
+function erAplicar(j) {
+  const c = JSON.stringify([j.ok, j.generatedAt, j.error, !!j.stale]);
+  if (c === erCarimbo) return;
+  erCarimbo = c;
+  erSync = j;
+  renderEr();
+  renderSyncLine();
+  if (vistaAtual() === "hub") renderHub();
+}
+
+/** Conjuntos do save: posse por tipo de item e flags marcadas. */
+function erTem() {
+  if (!erSync || !erSync.ok) return null;
+  if (erTem.de === erSync) return erTem.cache;
+  const it = erSync.itens || {};
+  const s = (a) => new Set(Array.isArray(a) ? a : []);
+  erTem.cache = { armas: s(it.armas), armaduras: s(it.armaduras), talismas: s(it.talismas), cinzas: s(it.cinzas), bens: s(it.bens), flags: s(erSync.flags) };
+  erTem.de = erSync;
+  return erTem.cache;
+}
+
+/* ------------------------------------------------------------ blocos */
+
+const ER_GRUPOS = [
+  ["equip", ["armas", "armaduras", "talismas", "cinzas-de-guerra", "escudos"]],
+  ["magia", ["encantamentos", "feiticos", "magias", "cinzas-espirituais"]],
+  ["mundo", ["mapa", "chefes", "locais", "npcs"]],
+  ["guias", ["finais", "missoes", "rotas"]],
+];
+// arq: arquivo da lista; listas: chaves dentro dele; tem: conjunto do save que marca a linha.
+const ER_BLOCO = {
+  armas: { arq: "armas", listas: ["armas"], tem: "armas" },
+  escudos: { arq: "armas", listas: ["escudos"], tem: "armas" },
+  armaduras: { arq: "armaduras", listas: ["armaduras"], tem: "armaduras" },
+  talismas: { arq: "talismas", listas: ["talismas"], tem: "talismas" },
+  "cinzas-de-guerra": { arq: "cinzas", listas: ["cinzas-de-guerra"], tem: "cinzas" },
+  "cinzas-espirituais": { arq: "cinzas", listas: ["cinzas-espirituais"], tem: "bens" },
+  feiticos: { arq: "magias", listas: ["feiticos"], tem: "bens" },
+  encantamentos: { arq: "magias", listas: ["encantamentos"], tem: "bens" },
+  magias: { arq: "magias", listas: ["feiticos", "encantamentos"], tem: "bens" },
+  chefes: { arq: "mundo", listas: ["chefes"], tem: "flags" },
+  locais: { arq: "mundo", listas: ["gracas"], tem: "flags" },
+  mapa: { arq: "mundo" },
+  npcs: { arq: "pessoas" },
+  missoes: { arq: "pessoas" },
+  finais: { arq: "geral" },
+  rotas: { arq: "mundo" },
+};
+// Arquivo de cada categoria de item, para os elos entre blocos.
+const ER_ARQ_DA_CAT = { armas: "armas", escudos: "armas", armaduras: "armaduras", talismas: "talismas",
+  "cinzas-de-guerra": "cinzas", "cinzas-espirituais": "cinzas", feiticos: "magias", encantamentos: "magias" };
+
+/** Estado de um final no save: feito, pronto, possivel ou impossivel:<motivo>. */
+function erEstadoFinal(f) {
+  const s = erTem();
+  if (!s) return null;
+  const tem = (i) => s.flags.has(i);
+  if (f.flag && tem(f.flag)) return "feito";
+  // Chama Frenética recebida e não anulada; Árvore queimada sem a chama.
+  const chama = tem(108) && !tem(116);
+  const queimou = tem(300) || tem(118);
+  for (const b of f.bloqueio || []) {
+    if (b === "chama" && chama) return "impossivel:chama";
+    if (b === "queimou-sem-chama" && queimou && !tem(108)) return "impossivel:queimou";
+  }
+  if (Array.isArray(f.pronto) && f.pronto.length && f.pronto.every(tem)) return "pronto";
+  return "possivel";
+}
+
+function erMetrica(b) {
+  const g = erDados.geral;
+  if (!g || !g.ids) return null;
+  const s = erTem();
+  const ids = (k) => g.ids[k] || [];
+  const conta = (lista, conj) => (conj ? lista.reduce((n, i) => n + (conj.has(i) ? 1 : 0), 0) : null);
+  switch (b) {
+    case "magias": {
+      const l = ids("feiticos").concat(ids("encantamentos"));
+      return { tem: conta(l, s && s.bens), total: l.length };
+    }
+    case "mapa": return { tem: conta(ids("mapas"), s && s.flags), total: ids("mapas").length };
+    case "chefes": case "locais": return { tem: conta(ids(b), s && s.flags), total: ids(b).length };
+    case "npcs": case "missoes": case "rotas": return { tem: null, total: g.contagens[b] || 0 };
+    case "finais": return { tem: s ? g.finais.filter((f) => erEstadoFinal(f) === "feito").length : null, total: g.finais.length };
+    default: return { tem: conta(ids(b), s && s[ER_BLOCO[b].tem]), total: ids(b).length };
+  }
+}
+
+function erMontarGrupos() {
+  const caixa = document.getElementById("erGrupos");
+  if (!caixa || caixa.dataset.montado) return;
+  caixa.dataset.montado = "1";
+  for (const [grupo, blocos] of ER_GRUPOS) {
+    const sec = document.createElement("section");
+    sec.className = "er-grupo";
+    const h = document.createElement("h2");
+    h.className = "er-grupo-titulo";
+    h.dataset.erGrupo = grupo;
+    sec.appendChild(h);
+    const lista = document.createElement("div");
+    lista.className = "er-blocos";
+    for (const b of blocos) {
+      const bt = document.createElement("button");
+      bt.type = "button";
+      bt.className = "er-bloco";
+      bt.dataset.er = b;
+      bt.setAttribute("aria-haspopup", "dialog");
+      bt.setAttribute("aria-expanded", "false");
+      bt.innerHTML = '<span class="er-bloco-nome"></span><span class="er-bloco-num"></span><i class="er-barra"><b></b></i>';
+      bt.addEventListener("click", () => erAbrir(b, null, bt));
+      lista.appendChild(bt);
+    }
+    sec.appendChild(lista);
+    caixa.appendChild(sec);
+  }
+}
+
+function erLegenda() {
+  if (!erSync) return NO_NAVEGADOR ? t("er.save.dica") : t("er.estado.semLeitura");
+  if (!erSync.ok) {
+    if (NO_NAVEGADOR) return t("er.save.erro");
+    return t(erSync.error === "no-save-found" ? "er.estado.semSave" : "er.estado.semLeitura");
+  }
+  if (erSync.stale) return t("er.estado.antigo");
+  const slot = erSync.fonte && typeof erSync.fonte.slot === "number" ? erSync.fonte.slot : "?";
+  return t(NO_NAVEGADOR ? "er.estado.arquivo" : "er.estado.lido", { slot });
+}
+
+function renderEr() {
+  if (typeof document === "undefined") return;
+  const sec = document.getElementById("er");
+  if (!sec) return;
+  const ativo = naPaginaEr();
+  sec.hidden = !ativo;
+  if (!ativo) return;
+  erMontarGrupos();
+  if (!erDados.geral) erCarregar("geral").then((j) => { if (j) renderEr(); });
+  if (!NO_NAVEGADOR && Date.now() - erConsulta > 4000) erLer();
+  const ok = !!(erSync && erSync.ok);
+  const sub = document.getElementById("erSub");
+  if (sub) sub.textContent = erLegenda();
+  const escolher = document.getElementById("erEscolher");
+  if (escolher) {
+    escolher.hidden = !NO_NAVEGADOR;
+    escolher.textContent = t(ok ? "er.save.trocar" : "er.save.escolher");
+  }
+  const num = document.getElementById("erMortesNum");
+  if (num) num.textContent = ok && typeof erSync.mortes === "number" ? decimal(erSync.mortes, 0) : "—";
+  const nota = document.getElementById("erMortesNota");
+  if (nota) nota.textContent = ok ? t("er.mortes.nota") : erLegenda();
+  for (const h of document.querySelectorAll(".er-grupo-titulo")) h.textContent = t("er.grupo." + h.dataset.erGrupo);
+  for (const bt of document.querySelectorAll(".er-bloco")) {
+    const b = bt.dataset.er;
+    const nome = bt.querySelector(".er-bloco-nome");
+    const n = bt.querySelector(".er-bloco-num");
+    const barra = bt.querySelector(".er-barra > b");
+    if (nome) nome.textContent = t("er.bloco." + b);
+    const m = erMetrica(b);
+    if (n) n.textContent = !m ? "" : m.tem === null ? decimal(m.total, 0) : decimal(m.tem, 0) + " / " + decimal(m.total, 0);
+    if (barra) barra.style.width = m && m.tem && m.total ? Math.round((100 * m.tem) / m.total) + "%" : "0";
+  }
+  const j = document.getElementById("erJanela");
+  if (j && j.open && erJ.bloco && erJ.todas.length) {
+    erJ.todas = erLinhasDe(erJ.bloco);
+    const titulo = document.getElementById("erJanelaTitulo");
+    if (titulo) titulo.textContent = t("er.bloco." + erJ.bloco);
+    erMontarFerramentas();
+    erDesenharLista(true);
+    erDesenharDetalhe(true);
+  }
+}
+
+/* ------------------------------------------------------------ linhas das listas */
+
+const erJ = { bloco: null, filtro: "todos", dlc: false, tipo: "", busca: "", pagina: 0, sel: null, todas: [], linhas: [], folhas: 1, detPag: 0 };
+
+function erNomeRegiao(id) {
+  const g = erDados.geral;
+  const r = g && g.regioes.find((x) => x.id === id);
+  return r ? r.n : "";
+}
+/** "Região · lugar", sem repetir quando o lugar é a própria região. */
+function erLugar(regiao, lugar) {
+  const n = erNomeRegiao(regiao);
+  return [n, lugar && lugar !== n ? lugar : ""].filter(Boolean).join(" · ");
+}
+function erArquivosDe(bloco) {
+  const a = ["geral", ER_BLOCO[bloco].arq];
+  if (bloco === "npcs" || bloco === "missoes" || bloco === "finais") a.push("pessoas");
+  if (bloco === "mapa" || bloco === "rotas") a.push("mundo");
+  return [...new Set(a)];
+}
+/** Registro de um item pela referência [categoria, id], se o arquivo já veio. */
+function erItem(ref) {
+  if (!ref) return null;
+  const arq = erDados[ER_ARQ_DA_CAT[ref[0]]];
+  const lista = arq && arq[ref[0]];
+  return lista ? lista.find((r) => r.i === ref[1]) || null : null;
+}
+function erTemItem(cat, id) {
+  const s = erTem();
+  if (!s) return null;
+  const conj = s[(ER_BLOCO[cat] || {}).tem];
+  return conj ? conj.has(id) : null;
+}
+
+function erLinhasDe(bloco) {
+  const g = erDados.geral, m = erDados.mundo, p = erDados.pessoas;
+  const s = erTem();
+  const linha = (o) => Object.assign({ marca: null, apagada: false, dlc: false, tipo: "", sub: "" }, o);
+  const def = ER_BLOCO[bloco];
+  if (def.listas && def.tem !== "flags") {
+    const out = [];
+    for (const chave of def.listas) {
+      for (const r of erDados[def.arq][chave] || []) {
+        const reg = erNomeRegiao(r.r);
+        out.push(linha({ id: chave + ":" + r.i, cat: chave, reg: r, nome: r.n, tipo: r.t || "", dlc: !!r.dlc,
+          sub: [r.t, reg].filter(Boolean).join(" · "), marca: s ? s[def.tem].has(r.i) : null }));
+      }
+    }
+    return out;
+  }
+  if (bloco === "chefes") {
+    return m.chefes.map((c) => linha({ id: c.i, reg: c, nome: c.n, tipo: c.r || "", dlc: !!c.dlc,
+      sub: erLugar(c.r, c.l), marca: s ? s.flags.has(c.i) : null }));
+  }
+  if (bloco === "locais") {
+    return m.gracas.map((x) => linha({ id: x.i, reg: x, nome: x.n, tipo: x.r || "",
+      dlc: !!(g.regioes.find((r) => r.id === x.r) || {}).dlc, sub: x.l, marca: s ? s.flags.has(x.i) : null }));
+  }
+  if (bloco === "mapa") {
+    return g.regioes.map((r) => {
+      const gr = m.gracas.filter((x) => x.r === r.id);
+      const ch = m.chefes.filter((x) => x.r === r.id);
+      const achou = s ? gr.filter((x) => s.flags.has(x.i)).length : null;
+      const venceu = s ? ch.filter((x) => s.flags.has(x.i)).length : null;
+      const sub = s ? t("er.mapa.resumo", { gracas: achou + "/" + gr.length, chefes: venceu + "/" + ch.length })
+        : t("er.mapa.total", { gracas: gr.length, chefes: ch.length });
+      return linha({ id: r.id, reg: r, nome: r.n, dlc: !!r.dlc, sub, marca: s ? gr.length > 0 && achou === gr.length : null });
+    });
+  }
+  if (bloco === "npcs") {
+    return p.npcs.map((n) => {
+      const q = p.missoes.find((x) => x.id === n.q);
+      return linha({ id: n.id, reg: n, nome: n.n, dlc: !!n.dlc, sub: q ? q.n : "" });
+    });
+  }
+  if (bloco === "missoes") {
+    return p.missoes.map((q) => linha({ id: q.id, reg: q, nome: q.n, dlc: !!q.dlc, sub: q.inicio || "" }));
+  }
+  if (bloco === "finais") {
+    return g.finais.map((f) => {
+      const e = erEstadoFinal(f);
+      return linha({ id: f.id, reg: f, nome: f.n, sub: e ? t("er.final." + e.split(":")[0]) : "",
+        marca: e ? e === "feito" : null, apagada: !!(e && e.indexOf("impossivel") === 0) });
+    });
+  }
+  if (bloco === "rotas") {
+    return g.rotas.map((r) => linha({ id: r.id, reg: r, nome: erTexto(r.n), tipo: r.tipo, dlc: !!r.dlc, sub: t("er.rota." + r.tipo),
+      apagada: r.tipo === "final" && (erEstadoFinal(g.finais.find((f) => f.id === r.final) || {}) || "").indexOf("impossivel") === 0 }));
+  }
+  return [];
+}
+
+/* Filtros por bloco: o seletor muda de sentido (tipo, região ou rota). */
+function erOpcoesDoSeletor(bloco) {
+  if (bloco === "chefes" || bloco === "locais") {
+    return [["", t("er.filtro.regiao")]].concat(erDados.geral.regioes.map((r) => [r.id, r.n]));
+  }
+  if (bloco === "rotas") {
+    return [["", t("er.filtro.tipo")], ["final", t("er.rota.final")], ["cem", t("er.rota.cem")], ["build", t("er.rota.build")]];
+  }
+  if (!ER_BLOCO[bloco].listas) return null;
+  const tipos = [...new Set(erJ.todas.map((l) => l.tipo).filter(Boolean))].sort();
+  return [["", t("er.filtro.tipo")]].concat(tipos.map((x) => [x, x]));
+}
+function erChips(bloco) {
+  const t2 = erTem();
+  const c = [["todos", t("er.filtro.todos")]];
+  if (t2 && ER_BLOCO[bloco].tem) {
+    const par = bloco === "chefes" ? ["derrotados", "vivos"] : bloco === "locais" ? ["achados", "faltam"] : ["tem", "falta"];
+    c.push([par[0], t("er.filtro." + par[0])], [par[1], t("er.filtro." + par[1])]);
+  }
+  return c;
+}
+
+function erMontarFerramentas() {
+  const chips = document.getElementById("erChips");
+  if (chips) {
+    chips.innerHTML = "";
+    const lista = erChips(erJ.bloco);
+    if (!lista.some((c) => c[0] === erJ.filtro)) erJ.filtro = "todos";
+    for (const [id, rotulo] of lista) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "er-chip";
+      b.textContent = rotulo;
+      b.setAttribute("aria-pressed", erJ.filtro === id ? "true" : "false");
+      b.addEventListener("click", () => { erJ.filtro = id; erJ.pagina = 0; erMontarFerramentas(); erDesenharLista(false); });
+      chips.appendChild(b);
+    }
+    if (erJ.todas.some((l) => l.dlc)) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "er-chip";
+      b.textContent = "DLC";
+      b.title = t("er.det.dlc");
+      b.setAttribute("aria-pressed", erJ.dlc ? "true" : "false");
+      b.addEventListener("click", () => { erJ.dlc = !erJ.dlc; erJ.pagina = 0; erMontarFerramentas(); erDesenharLista(false); });
+      chips.appendChild(b);
+    } else {
+      erJ.dlc = false;
+    }
+  }
+  const sel = document.getElementById("erTipo");
+  if (sel) {
+    const ops = erOpcoesDoSeletor(erJ.bloco);
+    sel.hidden = !ops;
+    sel.innerHTML = "";
+    for (const [v, r] of ops || []) {
+      const o = document.createElement("option");
+      o.value = v;
+      o.textContent = r;
+      if (v === erJ.tipo) o.selected = true;
+      sel.appendChild(o);
+    }
+  }
+}
+
+function erFiltradas() {
+  const q = erSemAcento(erJ.busca.trim());
+  return erJ.todas.filter((l) => {
+    if (erJ.dlc && !l.dlc) return false;
+    if (erJ.tipo && l.tipo !== erJ.tipo) return false;
+    if (erJ.filtro !== "todos") {
+      const quer = ["tem", "derrotados", "achados"].includes(erJ.filtro);
+      if (l.marca !== quer) return false;
+    }
+    if (q && erSemAcento(l.nome).indexOf(q) < 0 && erSemAcento(l.sub).indexOf(q) < 0) return false;
+    return true;
+  });
+}
+
+/* ------------------------------------------------------------ janela */
+
+function erRem() {
+  try { return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16; } catch (e) { return 16; }
+}
+
+/** Lista paginada pelo espaço que sobra: só as linhas da página entram no DOM. */
+function erDesenharLista(manter) {
+  const ol = document.getElementById("erLista");
+  if (!ol || !erJ.bloco) return;
+  const linhas = erFiltradas();
+  erJ.linhas = linhas;
+  const altura = Number(ol.clientHeight) || 0;
+  const linhaPx = erRem() * 2.35 + 2;
+  erJ.porFolha = altura > 0 ? Math.max(1, Math.floor((altura - 16) / linhaPx)) : 12;
+  erJ.folhas = Math.max(1, Math.ceil(linhas.length / erJ.porFolha));
+  if (!manter) erJ.pagina = 0;
+  erJ.pagina = Math.max(0, Math.min(erJ.folhas - 1, erJ.pagina));
+  ol.innerHTML = "";
+  if (!linhas.length) {
+    ol.innerHTML = '<li class="er-vazio">' + erEsc(t("er.vazio")) + "</li>";
+  }
+  for (const l of linhas.slice(erJ.pagina * erJ.porFolha, (erJ.pagina + 1) * erJ.porFolha)) {
+    const li = document.createElement("li");
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "er-linha" + (l.apagada ? " apagada" : "");
+    if (erJ.sel === l.id) b.setAttribute("aria-current", "true");
+    const marca = l.marca === null ? "nada" : l.marca ? "tem" : "";
+    b.innerHTML = '<i class="er-marca ' + marca + '"></i><span class="er-linha-nome" translate="no">' + erEsc(l.nome) +
+      (l.dlc ? '<span class="er-dlc">DLC</span>' : "") + '</span><span class="er-linha-sub">' + erEsc(l.sub) + "</span>";
+    b.addEventListener("click", () => { erJ.sel = l.id; erJ.detPag = 0; erDesenharLista(true); erDesenharDetalhe(false); });
+    li.appendChild(b);
+    ol.appendChild(li);
+  }
+  const pag = document.getElementById("erPaginas");
+  if (pag) {
+    pag.hidden = erJ.folhas < 2;
+    const num = pag.querySelector(".folha-num");
+    if (num) num.textContent = (erJ.pagina + 1) + " / " + erJ.folhas;
+    const a = pag.querySelector(".folha-antes"), d = pag.querySelector(".folha-depois");
+    if (a) a.disabled = erJ.pagina === 0;
+    if (d) d.disabled = erJ.pagina >= erJ.folhas - 1;
+  }
+  const j = document.getElementById("erJanela");
+  if (j) j.classList.toggle("vendo-detalhe", erJ.sel !== null && !naMesa());
+}
+
+function erFolhear(d) {
+  const p = Math.max(0, Math.min(erJ.folhas - 1, erJ.pagina + d));
+  if (p === erJ.pagina) return;
+  erJ.pagina = p;
+  erDesenharLista(true);
+}
+
+/* Elos entre blocos: itens, chefes, missões e finais citados abrem o próprio registro. */
+function erElo(rotulo, bloco, id, tem) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "er-elo" + (tem ? " tem" : "");
+  b.setAttribute("translate", "no");
+  b.textContent = rotulo;
+  if (bloco) b.addEventListener("click", () => erAbrir(bloco, id));
+  else b.disabled = true;
+  return b;
+}
+function erSecao(conteudo, titulo, doJogo) {
+  const s = document.createElement("section");
+  s.className = "er-det-sec";
+  const h = document.createElement("h4");
+  h.textContent = titulo;
+  s.appendChild(h);
+  if (typeof conteudo === "string") {
+    const p = document.createElement("p");
+    p.textContent = conteudo;
+    // Texto do jogo fica como o jogo escreve, sem tradução.
+    if (doJogo) { p.className = "er-texto-jogo"; p.setAttribute("translate", "no"); }
+    s.appendChild(p);
+  } else if (conteudo) {
+    s.appendChild(conteudo);
+  }
+  return s;
+}
+function erListaDe(textos, tag) {
+  const l = document.createElement(tag || "ul");
+  for (const x of textos) {
+    const li = document.createElement("li");
+    li.textContent = x;
+    l.appendChild(li);
+  }
+  return l;
+}
+function erCaixaDeElos(elos) {
+  const d = document.createElement("div");
+  d.className = "er-elos";
+  for (const e of elos) d.appendChild(e);
+  return d;
+}
+/** Elos de itens por nome, com a referência [cat, id] quando o item está nas listas. */
+function erElosDeItens(nomes, refs) {
+  return (nomes || []).map((n, k) => {
+    const ref = refs && refs[k];
+    return ref ? erElo(n, ref[0], ref[0] + ":" + ref[1], erTemItem(ref[0], ref[1])) : erElo(n, null);
+  });
+}
+function erEstado(texto, classe) {
+  const s = document.createElement("span");
+  s.className = "er-estado" + (classe ? " " + classe : "");
+  s.textContent = texto;
+  return s;
+}
+
+function erDesenharDetalhe(manter) {
+  const caixa = document.getElementById("erDetalhe");
+  if (!caixa) return;
+  caixa.innerHTML = "";
+  const l = erJ.todas.find((x) => x.id === erJ.sel);
+  if (!l) {
+    const p = document.createElement("p");
+    p.className = "er-det-vazio";
+    p.textContent = erJ.todas.length ? t("er.det.escolha") : "";
+    caixa.appendChild(p);
+    return;
+  }
+  const voltar = document.createElement("button");
+  voltar.type = "button";
+  voltar.className = "er-bt er-det-voltar";
+  voltar.textContent = "‹ " + t("er.det.voltar");
+  voltar.addEventListener("click", () => { erJ.sel = null; erDesenharLista(true); erDesenharDetalhe(false); });
+  caixa.appendChild(voltar);
+  const c = document.createElement("div");
+  c.className = "er-det-conteudo";
+  caixa.appendChild(c);
+  const h = document.createElement("h3");
+  h.setAttribute("translate", "no");
+  h.textContent = l.nome;
+  c.appendChild(h);
+  const meta = document.createElement("div");
+  meta.className = "er-det-meta";
+  c.appendChild(meta);
+  const r = l.reg;
+  const b = erJ.bloco;
+  const t2 = erTem();
+  const metaTexto = (x) => { const s = document.createElement("span"); s.textContent = x; meta.appendChild(s); };
+
+  if (ER_BLOCO[b].listas && ER_BLOCO[b].tem !== "flags") {
+    if (r.t) metaTexto(r.t);
+    if (r.dlc) metaTexto(t("er.det.dlc"));
+    if (l.marca !== null) meta.appendChild(erEstado(t(l.marca ? "er.det.tem" : "er.det.falta"), l.marca ? "tem" : ""));
+    if (Array.isArray(r.q)) {
+      const q = document.createElement("div");
+      q.className = "er-req";
+      ["STR", "DEX", "INT", "FAI", "ARC"].forEach((nome, k) => {
+        if (!r.q[k]) return;
+        const s = document.createElement("span");
+        s.innerHTML = "<b>" + nome + "</b>" + erEsc(r.q[k]);
+        q.appendChild(s);
+      });
+      c.appendChild(erSecao(q, t("er.det.requisitos")));
+    }
+    if (r.e) c.appendChild(erSecao(erTexto(r.e), t("er.det.efeito")));
+    if (r.d) c.appendChild(erSecao(erTexto(r.d), t("er.det.descricao"), typeof r.d === "string"));
+    if (r.r) c.appendChild(erSecao(erNomeRegiao(r.r), t("er.det.onde")));
+    if (Array.isArray(r.o) && r.o.length) c.appendChild(erSecao(erListaDe(r.o.map(erTexto)), t("er.det.obter")));
+  } else if (b === "chefes") {
+    if (r.l) metaTexto(r.l);
+    if (r.dlc) metaTexto(t("er.det.dlc"));
+    if (l.marca !== null) meta.appendChild(erEstado(t(l.marca ? "er.det.derrotado" : "er.det.vivo"), l.marca ? "tem" : ""));
+    c.appendChild(erSecao(erTexto(r.d), t("er.det.descricao")));
+    c.appendChild(erSecao(erLugar(r.r, r.l), t("er.det.onde")));
+    if (r.g) c.appendChild(erSecao(r.g, t("er.det.graca")));
+    if (r.x && r.x.length) c.appendChild(erSecao(erCaixaDeElos(erElosDeItens(r.x, r.xr)), t("er.det.drops")));
+  } else if (b === "locais") {
+    if (l.marca !== null) meta.appendChild(erEstado(t(l.marca ? "er.det.achado" : "er.det.naoAchado"), l.marca ? "tem" : ""));
+    c.appendChild(erSecao(erLugar(r.r, r.l), t("er.det.onde")));
+    const perto = erDados.mundo.chefes.filter((x) => x.g === r.n);
+    if (perto.length) c.appendChild(erSecao(erCaixaDeElos(perto.map((x) => erElo(x.n, "chefes", x.i, t2 && t2.flags.has(x.i)))), t("er.det.chefes")));
+  } else if (b === "mapa") {
+    if (r.dlc) metaTexto(t("er.det.dlc"));
+    metaTexto(l.sub);
+    const mapas = erDados.mundo.mapas.filter((x) => x.r === r.id);
+    if (mapas.length) {
+      c.appendChild(erSecao(erCaixaDeElos(mapas.map((x) => {
+        const e = erElo(x.n, null);
+        if (t2 && t2.flags.has(x.i)) e.classList.add("tem");
+        return e;
+      })), t("er.det.mapa")));
+    }
+    if (r.a && r.a.length) c.appendChild(erSecao(r.a.join(" · "), t("er.det.areas")));
+    const ch = erDados.mundo.chefes.filter((x) => x.r === r.id && x.k !== "campo" && x.k !== "masmorra");
+    if (ch.length) c.appendChild(erSecao(erCaixaDeElos(ch.map((x) => erElo(x.n, "chefes", x.i, t2 && t2.flags.has(x.i)))), t("er.det.chefes")));
+  } else if (b === "npcs") {
+    if (r.dlc) metaTexto(t("er.det.dlc"));
+    c.appendChild(erSecao(erTexto(r.d), t("er.det.descricao")));
+    c.appendChild(erSecao(erTexto(r.l), t("er.det.onde")));
+    const q = erDados.pessoas.missoes.find((x) => x.id === r.q);
+    if (q) c.appendChild(erSecao(erCaixaDeElos([erElo(q.n, "missoes", q.id)]), t("er.det.missao")));
+    if (r.x && r.x.length) c.appendChild(erSecao(erCaixaDeElos(erElosDeItens(r.x, r.xr)), t("er.det.itens")));
+  } else if (b === "missoes") {
+    if (r.dlc) metaTexto(t("er.det.dlc"));
+    c.appendChild(erSecao(erTexto(r.d), t("er.det.descricao")));
+    if (r.inicio) c.appendChild(erSecao(r.inicio, t("er.det.inicio")));
+    const passos = erTexto(r.passos);
+    if (Array.isArray(passos) && passos.length) c.appendChild(erSecao(erListaDe(passos, "ol"), t("er.det.passos")));
+    if (r.aviso) c.appendChild(erSecao(erTexto(r.aviso), t("er.det.aviso")));
+    if (r.x && r.x.length) c.appendChild(erSecao(erCaixaDeElos(erElosDeItens(r.x, r.xr)), t("er.det.itens")));
+    const f = r.final && erDados.geral.finais.find((x) => x.id === r.final);
+    if (f) c.appendChild(erSecao(erCaixaDeElos([erElo(f.n, "finais", f.id)]), t("er.det.final")));
+  } else if (b === "finais") {
+    const e = erEstadoFinal(r);
+    if (e) {
+      const [estado, motivo] = e.split(":");
+      meta.appendChild(erEstado(t("er.final." + estado), estado === "feito" ? "tem" : estado === "impossivel" ? "perigo" : ""));
+      if (motivo) c.appendChild(erSecao(t("er.final." + motivo), t("er.final.impossivel")));
+    }
+    c.appendChild(erSecao(erTexto(r.d), t("er.det.descricao")));
+    const req = erTexto(r.req);
+    if (Array.isArray(req)) c.appendChild(erSecao(erListaDe(req, "ol"), t("er.det.requisitosFinal")));
+    const q = r.quest && erDados.pessoas.missoes.find((x) => x.id === r.quest);
+    if (q) c.appendChild(erSecao(erCaixaDeElos([erElo(q.n, "missoes", q.id)]), t("er.det.missao")));
+  } else if (b === "rotas") {
+    metaTexto(t("er.rota." + r.tipo));
+    if (r.dlc) metaTexto(t("er.det.dlc"));
+    if (r.d) c.appendChild(erSecao(erTexto(r.d), t("er.det.descricao")));
+    const ol = document.createElement("ol");
+    const faltam = new Set();
+    for (const passo of r.passos || []) {
+      const li = document.createElement("li");
+      li.textContent = erTexto(passo.t) + (passo.r ? " (" + erNomeRegiao(passo.r) + ")" : "");
+      const elos = [];
+      for (const id of passo.c || []) {
+        const ch = erDados.mundo.chefes.find((x) => x.i === id);
+        if (ch) elos.push(erElo(ch.n, "chefes", ch.i, t2 && t2.flags.has(ch.i)));
+      }
+      for (const ref of passo.i || []) {
+        const it = erItem(ref);
+        if (!it) { faltam.add(ER_ARQ_DA_CAT[ref[0]]); continue; }
+        elos.push(erElo(it.n, ref[0], ref[0] + ":" + ref[1], erTemItem(ref[0], ref[1])));
+      }
+      if (elos.length) li.appendChild(erCaixaDeElos(elos));
+      ol.appendChild(li);
+    }
+    c.appendChild(erSecao(ol, t("er.det.passos")));
+    // Nomes dos itens chegam com os arquivos das categorias citadas.
+    if (faltam.size) Promise.all([...faltam].map(erCarregar)).then((ok) => { if (ok.every(Boolean) && erJ.sel === l.id) erDesenharDetalhe(true); });
+  }
+  erPaginarDetalhe(manter);
+}
+
+/** O detalhe que não cabe vira páginas (computador), sem linha cortada no pé; no celular ele rola. */
+function erPaginarDetalhe(manter) {
+  const caixa = document.getElementById("erDetalhe");
+  const c = caixa && caixa.querySelector(".er-det-conteudo");
+  let f = caixa && caixa.querySelector(".er-det-folhas");
+  if (!c) return;
+  if (!manter) erJ.detPag = 0;
+  c.style.maxHeight = "";
+  c.scrollTop = 0;
+  const alto = Number(c.clientHeight) || 0;
+  const quebras = naMesa() && alto > 0 && Number(c.scrollHeight) > alto + 1 ? erQuebras(c, alto) : [0];
+  const total = quebras.length;
+  erJ.detFolhas = total;
+  erJ.detPag = Math.max(0, Math.min(erJ.detPag, total - 1));
+  const ini = quebras[erJ.detPag];
+  if (total > 1) {
+    const fim = erJ.detPag + 1 < total ? quebras[erJ.detPag + 1] : ini + alto;
+    c.style.maxHeight = Math.max(1, Math.min(alto, fim - ini)) + "px";
+  }
+  c.scrollTop = ini;
+  if (total < 2) {
+    if (f) f.remove();
+    return;
+  }
+  if (!f) {
+    f = document.createElement("div");
+    f.className = "er-det-folhas";
+    f.innerHTML = '<button type="button" class="det-antes" aria-label="Previous">‹</button><span class="det-num"></span><button type="button" class="det-depois" aria-label="Next">›</button>';
+    f.querySelector(".det-antes").addEventListener("click", () => { erJ.detPag--; erPaginarDetalhe(true); });
+    f.querySelector(".det-depois").addEventListener("click", () => { erJ.detPag++; erPaginarDetalhe(true); });
+    caixa.appendChild(f);
+  }
+  f.querySelector(".det-num").textContent = (erJ.detPag + 1) + " / " + total;
+  f.querySelector(".det-antes").disabled = erJ.detPag === 0;
+  f.querySelector(".det-depois").disabled = erJ.detPag >= total - 1;
+}
+
+/** Começo de cada página do detalhe: a página quebra antes do bloco que passaria do pé. */
+function erQuebras(c, alto) {
+  const base = c.getBoundingClientRect().top;
+  const pos = (e) => { const r = e.getBoundingClientRect(); return [r.top - base, r.bottom - base]; };
+  const blocos = [];
+  for (const sec of c.children) {
+    const [a, b] = pos(sec);
+    if (b - a <= alto * 0.45 || !sec.classList.contains("er-det-sec")) { blocos.push([a, b]); continue; }
+    // Seção longa: cada item vale por si e o título vai junto com o primeiro.
+    let topo = a;
+    for (const e of sec.querySelectorAll(":scope > p, :scope > div, li")) {
+      const [x, y] = pos(e);
+      blocos.push([Math.min(topo, x), y]);
+      topo = Infinity;
+    }
+  }
+  const total = Number(c.scrollHeight);
+  const q = [0];
+  let ini = 0;
+  while (ini + alto < total - 1 && q.length < 60) {
+    const lim = ini + alto;
+    const corta = blocos.find(([a, b]) => a > ini + 1 && a < lim && b > lim + 1);
+    ini = corta ? corta[0] : lim;
+    q.push(ini);
+  }
+  return q;
+}
+
+function erLigarJanela(j) {
+  if (j.dataset.erLigada) return;
+  j.dataset.erLigada = "1";
+  ligarJanela(j, null);
+  const pag = document.getElementById("erPaginas");
+  if (pag) {
+    pag.querySelector(".folha-antes").addEventListener("click", () => erFolhear(-1));
+    pag.querySelector(".folha-depois").addEventListener("click", () => erFolhear(1));
+  }
+  // Roda do mouse: na lista folheia a lista; no detalhe, o detalhe.
+  let ultima = 0;
+  j.addEventListener("wheel", (ev) => {
+    if (!naMesa()) return;
+    const noDetalhe = ev.target && ev.target.closest && ev.target.closest(".er-detalhe");
+    if (noDetalhe ? (erJ.detFolhas || 1) < 2 : erJ.folhas < 2) return;
+    ev.preventDefault();
+    const agora = Date.now();
+    if (agora - ultima < 350 || !ev.deltaY) return;
+    ultima = agora;
+    if (noDetalhe) { erJ.detPag = Math.max(0, Math.min((erJ.detFolhas || 1) - 1, erJ.detPag + (ev.deltaY > 0 ? 1 : -1))); erPaginarDetalhe(true); }
+    else erFolhear(ev.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
+  j.addEventListener("keydown", (ev) => {
+    if (ev.target && /^(INPUT|SELECT)$/.test(ev.target.tagName)) return;
+    if (ev.key === "ArrowRight" || ev.key === "PageDown") { ev.preventDefault(); erFolhear(1); }
+    else if (ev.key === "ArrowLeft" || ev.key === "PageUp") { ev.preventDefault(); erFolhear(-1); }
+  });
+  const busca = document.getElementById("erBusca");
+  let espera = null;
+  if (busca) busca.addEventListener("input", () => {
+    clearTimeout(espera);
+    espera = setTimeout(() => { erJ.busca = busca.value || ""; erJ.pagina = 0; erDesenharLista(false); }, 220);
+  });
+  const sel = document.getElementById("erTipo");
+  if (sel) sel.addEventListener("change", () => { erJ.tipo = sel.value; erJ.pagina = 0; erDesenharLista(false); });
+  j.addEventListener("close", () => { erJ.sel = null; j.classList.remove("vendo-detalhe"); });
+}
+
+/** Abre a janela de um bloco; com `id`, já mostra o registro (elos entre blocos). */
+async function erAbrir(bloco, id, botao) {
+  const j = document.getElementById("erJanela");
+  if (!j || !ER_BLOCO[bloco]) return;
+  erLigarJanela(j);
+  if (erJ.bloco !== bloco) {
+    erJ.filtro = "todos"; erJ.tipo = ""; erJ.busca = ""; erJ.dlc = false; erJ.pagina = 0;
+    const busca = document.getElementById("erBusca");
+    if (busca) busca.value = "";
+  }
+  erJ.bloco = bloco;
+  erJ.sel = id === undefined ? null : id;
+  erJ.detPag = 0;
+  erJ.todas = [];
+  const titulo = document.getElementById("erJanelaTitulo");
+  if (titulo) titulo.textContent = t("er.bloco." + bloco);
+  if (!j.open) abrirJanela(j, botao || null);
+  const ol = document.getElementById("erLista");
+  if (ol) ol.innerHTML = '<li class="er-vazio">' + erEsc(t("er.carregando")) + "</li>";
+  const det = document.getElementById("erDetalhe");
+  if (det) det.innerHTML = "";
+  const prontos = await Promise.all(erArquivosDe(bloco).map(erCarregar));
+  if (erJ.bloco !== bloco) return;
+  if (prontos.some((x) => !x)) {
+    if (ol) ol.innerHTML = '<li class="er-vazio">' + erEsc(t("er.falhou")) + "</li>";
+    return;
+  }
+  erJ.todas = erLinhasDe(bloco);
+  erMontarFerramentas();
+  erDesenharLista(false);
+  if (erJ.sel !== null) {
+    const k = erJ.linhas.findIndex((x) => x.id === erJ.sel);
+    if (k < 0) { erJ.filtro = "todos"; erJ.tipo = ""; erJ.busca = ""; erJ.dlc = false; erMontarFerramentas(); erDesenharLista(false); }
+    const k2 = erJ.linhas.findIndex((x) => x.id === erJ.sel);
+    if (k2 >= 0) { erJ.pagina = Math.floor(k2 / erJ.porFolha); erDesenharLista(true); }
+  }
+  erDesenharDetalhe(false);
+}
+
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  window.addEventListener("resize", () => {
+    const j = typeof document !== "undefined" && document.getElementById("erJanela");
+    if (j && j.open && erJ.bloco && erJ.todas.length) { erDesenharLista(true); erPaginarDetalhe(true); }
+  });
+}
+
+/* ------------------------------------------------------------ save no navegador */
+
+/* Na extensão não há serviço: a pessoa escolhe o ER0000.sl2 (ou .co2) e a página
+   lê o arquivo com o mesmo leitor do serviço (ersave.js). Com o acesso ao
+   arquivo guardado, a página relê quando ele muda, enquanto estiver aberta. */
+const ER_BASE = "trackeroao-er";
+let erArquivo = null;
+let erModificado = 0;
+
+function erBanco() {
+  return new Promise((ok) => {
+    try {
+      const pedido = indexedDB.open(ER_BASE, 1);
+      pedido.onupgradeneeded = () => pedido.result.createObjectStore("acesso");
+      pedido.onsuccess = () => ok(pedido.result);
+      pedido.onerror = () => ok(null);
+    } catch (e) {
+      ok(null);
+    }
+  });
+}
+async function erGuardarAcesso(h) {
+  const db = await erBanco();
+  if (!db) return;
+  try { db.transaction("acesso", "readwrite").objectStore("acesso").put(h, "save"); } catch (e) { /* sem guardar */ }
+}
+async function erAcessoGuardado() {
+  const db = await erBanco();
+  if (!db) return null;
+  return new Promise((ok) => {
+    try {
+      const r = db.transaction("acesso").objectStore("acesso").get("save");
+      r.onsuccess = () => ok(r.result || null);
+      r.onerror = () => ok(null);
+    } catch (e) {
+      ok(null);
+    }
+  });
+}
+
+async function erLerArquivo(arquivo) {
+  if (typeof ERSave === "undefined" || !arquivo) return;
+  const g = erDados.geral || (await erCarregar("geral"));
+  if (!g) return;
+  let r = null;
+  try {
+    const res = ERSave.parse(await arquivo.arrayBuffer(), { previous: erLerArquivo.anterior || null });
+    erLerArquivo.anterior = { activeSlot: res.activeSlot, slots: res.slots.map((s) => ({ storedChecksum: s.storedChecksum, playSeconds: s.playSeconds })) };
+    r = ERSave.resumo(res, g.leitura);
+  } catch (e) {
+    r = null;
+  }
+  erModificado = arquivo.lastModified || 0;
+  const agora = new Date().toISOString();
+  erAplicar(r
+    ? { jogo: "eldenring", ok: true, generatedAt: agora, fonte: { slot: r.slot }, mortes: r.mortes,
+      itens: { armas: r.armas, armaduras: r.armaduras, talismas: r.talismas, cinzas: r.cinzas, bens: r.bens }, flags: r.flags }
+    : { jogo: "eldenring", ok: false, generatedAt: agora, error: "read-failed" });
+}
+
+async function erEscolherSave() {
+  if (typeof showOpenFilePicker === "function") {
+    try {
+      const [h] = await showOpenFilePicker({ multiple: false, types: [{ description: "Elden Ring save", accept: { "application/octet-stream": [".sl2", ".co2"] } }] });
+      erArquivo = h;
+      await erGuardarAcesso(h);
+      await erLerArquivo(await h.getFile());
+      return;
+    } catch (e) {
+      if (e && e.name === "AbortError") return;
+    }
+  }
+  const campo = document.getElementById("erArquivo");
+  if (campo) campo.click();
+}
+
+/** Relê o save escolhido quando o arquivo muda (só com a página aberta e visível). */
+async function erReler() {
+  if (!erArquivo || (typeof document !== "undefined" && document.hidden)) return;
+  try {
+    if (erArquivo.queryPermission && (await erArquivo.queryPermission({ mode: "read" })) !== "granted") return;
+    const f = await erArquivo.getFile();
+    if (f.lastModified !== erModificado) await erLerArquivo(f);
+  } catch (e) {
+    /* arquivo fora do lugar: fica a última leitura */
+  }
+}
+
+async function erIniciarNavegador() {
+  const bt = document.getElementById("erEscolher");
+  if (bt) bt.addEventListener("click", erEscolherSave);
+  const campo = document.getElementById("erArquivo");
+  if (campo) campo.addEventListener("change", () => { if (campo.files && campo.files[0]) erLerArquivo(campo.files[0]); });
+  const h = await erAcessoGuardado();
+  if (!h) return;
+  erArquivo = h;
+  try {
+    const perm = h.queryPermission ? await h.queryPermission({ mode: "read" }) : "granted";
+    if (perm === "granted") await erLerArquivo(await h.getFile());
+  } catch (e) {
+    /* pede de novo pelo botão */
+  }
+}
+
 function render() {
   renderSyncLine();
   renderAssinatura();
   renderEstados();
   renderJogos();
   // Com a página do jogo visível, o conteúdo conta como visto.
-  if (vistaAtual() === "jogo") marcarDesbloqueiosVistos();
+  if (vistaAtual() === "jogo" && !naPaginaEr()) marcarDesbloqueiosVistos();
   renderHub();
+  renderEr();
   renderDeaths();
   renderTempo();
   renderBossKills();
@@ -9232,7 +11422,7 @@ function applyTheme(t) {
   botao.title = efetivo === "light" ? tr("tema.paraEscuro") : tr("tema.paraClaro");
   botao.setAttribute("aria-label", botao.title);
   const cor = document.querySelector('meta[name="theme-color"]');
-  if (cor) cor.setAttribute("content", naTelaDeJogos() ? (efetivo === "light" ? "#f2f3f9" : "#090b12") : (efetivo === "light" ? "#ece4d3" : "#16130f"));
+  if (cor) cor.setAttribute("content", naTelaDeJogos() ? (efetivo === "light" ? "#f2f3f9" : "#090b12") : naPaginaEr() ? (efetivo === "light" ? "#f2ecdf" : "#0b0a08") : (efetivo === "light" ? "#ece4d3" : "#16130f"));
 }
 let savedTheme = null;
 savedTheme = guardado(chaveDoTema());
@@ -9331,14 +11521,32 @@ if (document.documentElement) document.documentElement.lang = idiomaAtual;
 traduzirMarcacao();
 ligarIdiomas();
 ligarCelular();
-render();
-pollProgress();
-pedirJogos();
-// Sem lista na leitura (sem save), a lista avulsa se renova sozinha.
-setInterval(() => { if (!(temSync() && sync.jogosVigiados)) pedirJogos(); }, 15000);
+if (NO_NAVEGADOR) {
+  // Extensão do navegador: sem serviço; só o Elden Ring, lido do arquivo escolhido.
+  jogosAvulsos = { lista: [{ chave: CHAVE_ER, nome: "ELDEN RING", appId: "1245620", leitura: "completa", progresso: "elden.json", vigiado: true, instalado: true, recente: 1 }] };
+  jogosPendente = false;
+  // Sem serviço não há biblioteca para varrer.
+  const atalhos = document.querySelector(".hub-atalhos");
+  if (atalhos) atalhos.hidden = true;
+  render();
+  erIniciarNavegador();
+} else {
+  render();
+  pollProgress();
+  pedirJogos();
+  erLer();
+  // Sem lista na leitura (sem save), a lista avulsa se renova sozinha.
+  setInterval(() => { if (!(temSync() && sync.jogosVigiados)) pedirJogos(); }, 15000);
+}
+// Elden Ring: a cada 5 s com a página dele aberta; na tela de jogos, a cada minuto.
+setInterval(() => {
+  if (document.hidden) return;
+  if (NO_NAVEGADOR) { if (naPaginaEr()) erReler(); return; }
+  if (naPaginaEr() || (vistaAtual() === "hub" && listaTemEr() && Date.now() - erConsulta > 60000)) erLer();
+}, 5000);
 /* Sem escolha local, vale a guardada pelo serviço (outro navegador ou bandeja).
    No link público a rota não existe e o idioma do sistema continua valendo. */
-if (guardado(IDIOMA_CHAVE) === null && typeof fetch === "function") {
+if (!NO_NAVEGADOR && guardado(IDIOMA_CHAVE) === null && typeof fetch === "function") {
   fetch("/idioma")
     .then((r) => (r && r.ok ? r.json() : null))
     .then((j) => {
@@ -9353,7 +11561,7 @@ const NA_REDE_LOCAL =
   location.protocol === "file:" || location.protocol === "trackeroao:" ||
   /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname) ||
   /\.local$/.test(location.hostname);
-setInterval(pollProgress, NA_REDE_LOCAL ? 5000 : 60000);
+if (!NO_NAVEGADOR) setInterval(pollProgress, NA_REDE_LOCAL ? 5000 : 60000);
 
 /* Service worker para instalar o link no celular. Só registra em https ou localhost. */
 if (typeof navigator !== "undefined" && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {

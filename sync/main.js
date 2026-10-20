@@ -20,6 +20,7 @@ const instalacao = require('./instalacao');
 const hibernar = require('./hibernar');
 const jogos = require('./jogos');
 const atualizar = require('./atualizar');
+const elden = require('./elden');
 
 // --------------------------------------------------------------------- log
 // Como tarefa agendada o processo roda oculto; o log espelha o console em arquivo.
@@ -368,6 +369,90 @@ function syncNow(reason) {
   }
 }
 
+// ----------------------------------------------------------- Elden Ring
+/*
+ * O save do Elden Ring (~29 MB) é relido após cada autosave com o jogo aberto,
+ * no máximo uma vez a cada ELDEN_INTERVALO_MS. Sai em elden.json; o
+ * progress.json do Sekiro não muda.
+ */
+const ELDEN_DEBOUNCE_MS = 2500;
+const ELDEN_INTERVALO_MS = 10000;
+let eldenHash = null;
+let eldenUltima = 0;
+
+function syncElden(reason) {
+  eldenUltima = Date.now();
+  if (!state.elden) state.elden = {};
+  let r;
+  try {
+    r = elden.construir({ file: sl2.acharSave(sl2.ELDEN), estado: state.elden });
+    parse.saveState(state);
+  } catch (err) {
+    r = { generatedAt: new Date().toISOString(), jogo: 'eldenring', ok: false, error: 'read-failed', message: 'read error' };
+  }
+  r = parse.finalizeProgress(elden.SAIDA, r, () => []);
+  const body = JSON.stringify(r);
+  const hash = crypto.createHash('md5').update(body.replace(/"generatedAt":"[^"]*"/, '')).digest('hex');
+  if (hash === eldenHash) return;
+  try {
+    parse.writeProgress(elden.SAIDA, r);
+  } catch (e) {
+    console.log('  [aviso] nao consegui gravar o elden.json: ' + e.message);
+    return;
+  }
+  eldenHash = hash;
+  const stamp = new Date().toLocaleTimeString();
+  if (r.ok && !r.stale) console.log(`  [${stamp}] Elden Ring, ${reason}: slot ${r.fonte.slot}, ${r.mortes} morte(s), ${r.flags.length} marca(s)`);
+  else console.log(`  [${stamp}] Elden Ring, ${reason}: ${(r.stale && r.stale.error) || r.message || r.error}`);
+}
+
+let watcherElden = null;
+let eldenTimer = null;
+
+function agendarElden() {
+  clearTimeout(eldenTimer);
+  const espera = Math.max(ELDEN_DEBOUNCE_MS, eldenUltima + ELDEN_INTERVALO_MS - Date.now());
+  eldenTimer = setTimeout(() => { eldenTimer = null; syncElden('autosave'); }, espera);
+}
+
+function vigiarElden() {
+  if (watcherElden) return;
+  const file = sl2.acharSave(sl2.ELDEN);
+  if (!file) {
+    console.log('  [watch] Elden Ring aberto, mas não achei o save ainda');
+    return;
+  }
+  const nomes = sl2.ELDEN.arquivos.map((n) => n.toLowerCase());
+  try {
+    watcherElden = fs.watch(path.dirname(file), { persistent: true }, (eventType, filename) => {
+      if (filename && !nomes.includes(path.basename(filename).toLowerCase())) return;
+      agendarElden();
+    });
+    watcherElden.on('error', () => pararElden());
+    console.log('  [watch] monitorando o save do Elden Ring');
+  } catch (err) {
+    console.log(`  [watch] não consegui monitorar o Elden Ring: ${err.message}`);
+    watcherElden = null;
+  }
+}
+
+function pararElden() {
+  if (!watcherElden) return;
+  try {
+    watcherElden.close();
+  } catch (e) {
+    /* already gone */
+  }
+  watcherElden = null;
+  clearTimeout(eldenTimer);
+  eldenTimer = null;
+}
+
+/** Jogos vigiados com leitor próprio, pela chave do catálogo. */
+function eElden(chave) {
+  return chave === 'steam-' + sl2.ELDEN.appId;
+}
+
 // -------------------------------------------------------------- the watcher
 let watcher = null;
 let debounceTimer = null;
@@ -453,6 +538,8 @@ function vigiarRede(obterUrl, intervalo, aoMudar) {
 
 // ------------------------------------------------------------------ the loop
 let gameWasRunning = null;
+// Chave do catálogo do jogo aberto (ou o nome do processo), para trocar de leitor.
+let chaveAberta = null;
 
 async function pollOnce() {
   let qual = null;
@@ -462,23 +549,38 @@ async function pollOnce() {
     qual = null;
   }
   const running = !!qual;
+  const g = running ? jogos.porProcesso(qual) : null;
+  const chave = running ? (g ? g.chave : qual) : null;
 
-  if (running !== gameWasRunning) {
+  if (running !== gameWasRunning || chave !== chaveAberta) {
+    const antes = chaveAberta;
     gameWasRunning = running;
+    chaveAberta = chave;
+    if (!running) console.log('\n  >> jogo fechado - só o poll leve continua rodando');
+    // Fecha a sessão do jogo anterior com uma última leitura.
+    if (antes !== null) {
+      if (eElden(antes)) {
+        pararElden();
+        syncElden('jogo fechado');
+      } else {
+        stopWatching();
+        syncNow('jogo fechado');
+      }
+    }
     if (running) {
-      const g = jogos.porProcesso(qual);
       const nome = g ? g.nome : qual;
       if (g) jogos.marcarAberto(g.chave);
       console.log('\n  >> ' + nome + ' aberto - sincronização ativa');
       abrirBandeja(nome);
-      startWatching();
-      syncNow('jogo aberto');
+      if (eElden(chave)) {
+        vigiarElden();
+        syncElden('jogo aberto');
+      } else {
+        startWatching();
+        syncNow('jogo aberto');
+      }
     } else {
-      console.log('\n  >> jogo fechado - só o poll leve continua rodando');
-      stopWatching();
-      // Última leitura da sessão; o ícone da bandeja continua aceso.
-      syncNow('jogo fechado');
-      // Atualização pendente roda na próxima volta.
+      // O ícone da bandeja continua aceso; atualização pendente roda na próxima volta.
       conferirLogo();
     }
   }
@@ -636,6 +738,9 @@ async function run() {
 
   // One read at startup so the page has data even with the game closed.
   syncNow('leitura inicial');
+  // Elden Ring: só relê se o save mudou desde a última leitura gravada.
+  const saveElden = sl2.acharSave(sl2.ELDEN);
+  if (saveElden && elden.precisaLer(saveElden)) syncElden('leitura inicial');
 
   // As duas portas atendem as mesmas ações locais.
   const acoes = {
@@ -737,4 +842,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { isGameRunning, jogoAberto, alvos, learnActiveSlot, syncNow, vigiarRede, vigiarInstalacao };
+module.exports = { isGameRunning, jogoAberto, alvos, learnActiveSlot, syncNow, syncElden, vigiarRede, vigiarInstalacao };

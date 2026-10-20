@@ -116,7 +116,7 @@ function daPropriaMaquina(req) {
 
 // Arquivos estáticos que a página usa. O resto da instalação (log, estado,
 // biblioteca, cópias do save) não é servido.
-const PUBLICO = /^\/(trackeroao\.html|progress\.json|sw\.js|manifest\.webmanifest|(icones|app|docs)\/[^\0]+)$/;
+const PUBLICO = /^\/(trackeroao\.html|progress\.json|elden\.json|sw\.js|manifest\.webmanifest|(icones|app|docs)\/[^\0]+)$/;
 
 function safeJoin(root, urlPath) {
   let decoded;
@@ -413,8 +413,8 @@ function createServer(options) {
 
     fs.stat(file, (err, st) => {
       if (err || !st.isFile()) {
-        // progress.json may not exist yet; answer in a form the page handles.
-        if (path.basename(file) === 'progress.json') {
+        // progress.json / elden.json may not exist yet; answer in a form the page handles.
+        if (/^(progress|elden)\.json$/.test(path.basename(file))) {
           res.writeHead(404, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
           res.end(JSON.stringify({ ok: false, error: 'not-generated-yet' }));
           return;

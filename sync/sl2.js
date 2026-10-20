@@ -1,10 +1,10 @@
 'use strict';
 /*
- * sl2.js - locate and read Sekiro's S0000.sl2 save file. READ ONLY.
+ * sl2.js - locate and read the BND4 saves of Sekiro (S0000.sl2) and
+ * Elden Ring (ER0000.sl2, or .co2 with the Seamless Co-op mod). READ ONLY.
  *
  * Format:
- *   - The file is a plain BND4 archive. Sekiro does NOT encrypt its save,
- *     unlike Dark Souls 3 / Elden Ring, so no AES key is needed.
+ *   - The file is a plain BND4 archive on PC (no AES key is needed).
  *   - Header: "BND4" magic, entry count at 0x0C, header size at 0x10 (0x40),
  *     version string at 0x18, per-entry header size at 0x20 (0x20 = 32).
  *   - 12 entries named USER_DATA000 .. USER_DATA011.
@@ -35,8 +35,13 @@ function existingDir(p) {
   }
 }
 
-/** Candidate "Sekiro" roots that contain per-SteamID subdirectories. */
-function sekiroRoots() {
+// Save locations per game: folder under AppData\Roaming, Steam app id (for
+// the Proton prefix), save file names and the env override.
+const SEKIRO = { pasta: 'Sekiro', appId: STEAM_APP_ID, arquivos: ['S0000.sl2'], env: 'SEKIRO_SAVE' };
+const ELDEN = { pasta: 'EldenRing', appId: '1245620', arquivos: ['ER0000.sl2', 'ER0000.co2'], env: 'ELDEN_SAVE' };
+
+/** Candidate roots of a game that contain per-SteamID subdirectories. */
+function raizes(jogo) {
   const roots = [];
   const push = (p) => {
     const d = p && existingDir(p);
@@ -44,7 +49,7 @@ function sekiroRoots() {
   };
 
   if (process.platform === 'win32') {
-    push(path.join(process.env.APPDATA || '', 'Sekiro'));
+    push(path.join(process.env.APPDATA || '', jogo.pasta));
   } else {
     // Steam Deck / Linux via Proton: the prefix mirrors the Windows layout.
     const home = os.homedir();
@@ -57,61 +62,25 @@ function sekiroRoots() {
     for (const steam of steamDirs) {
       push(
         path.join(
-          steam, 'steamapps', 'compatdata', STEAM_APP_ID, 'pfx', 'drive_c',
-          'users', 'steamuser', 'AppData', 'Roaming', 'Sekiro'
+          steam, 'steamapps', 'compatdata', jogo.appId, 'pfx', 'drive_c',
+          'users', 'steamuser', 'AppData', 'Roaming', jogo.pasta
         )
       );
     }
     // A Wine prefix the user set up by hand.
-    push(path.join(home, '.wine', 'drive_c', 'users', os.userInfo().username, 'AppData', 'Roaming', 'Sekiro'));
+    push(path.join(home, '.wine', 'drive_c', 'users', os.userInfo().username, 'AppData', 'Roaming', jogo.pasta));
   }
   return roots;
 }
 
-/**
- * Find S0000.sl2. Returns the most recently modified match, so that a machine
- * with several Steam accounts picks the one actually being played.
- * Returns null when nothing is found.
- */
-function findSavePath() {
-  // Override explícito: save fora do lugar padrão, ou testes sem save.
-  if (process.env.SEKIRO_SAVE) {
-    try {
-      if (fs.statSync(process.env.SEKIRO_SAVE).isFile()) return process.env.SEKIRO_SAVE;
-    } catch (e) {
-      return null;
-    }
-    return null;
-  }
-
-  const found = [];
-  for (const root of sekiroRoots()) {
-    let entries;
-    try {
-      entries = fs.readdirSync(root, { withFileTypes: true });
-    } catch (e) {
-      continue;
-    }
-    for (const ent of entries) {
-      if (!ent.isDirectory()) continue;
-      const candidate = path.join(root, ent.name, 'S0000.sl2');
-      try {
-        const st = fs.statSync(candidate);
-        if (st.isFile()) found.push({ file: candidate, mtime: st.mtimeMs, steamId: ent.name });
-      } catch (e) {
-        /* not this one */
-      }
-    }
-  }
-  if (!found.length) return null;
-  found.sort((a, b) => b.mtime - a.mtime);
-  return found[0].file;
+function sekiroRoots() {
+  return raizes(SEKIRO);
 }
 
-/** Every save file we can see, newest first. Useful for diagnostics. */
-function listSavePaths() {
+/** Every save file of a game we can see, newest first. */
+function listarSaves(jogo) {
   const out = [];
-  for (const root of sekiroRoots()) {
+  for (const root of raizes(jogo)) {
     let entries;
     try {
       entries = fs.readdirSync(root, { withFileTypes: true });
@@ -120,17 +89,48 @@ function listSavePaths() {
     }
     for (const ent of entries) {
       if (!ent.isDirectory()) continue;
-      const candidate = path.join(root, ent.name, 'S0000.sl2');
-      try {
-        const st = fs.statSync(candidate);
-        if (st.isFile()) out.push({ file: candidate, steamId: ent.name, mtime: st.mtimeMs, size: st.size });
-      } catch (e) {
-        /* skip */
+      for (const nome of jogo.arquivos) {
+        const candidate = path.join(root, ent.name, nome);
+        try {
+          const st = fs.statSync(candidate);
+          if (st.isFile()) out.push({ file: candidate, steamId: ent.name, mtime: st.mtimeMs, size: st.size });
+        } catch (e) {
+          /* not this one */
+        }
       }
     }
   }
   out.sort((a, b) => b.mtime - a.mtime);
   return out;
+}
+
+/**
+ * Find a game's save. Returns the most recently modified match, so that a
+ * machine with several Steam accounts picks the one actually being played.
+ * Returns null when nothing is found.
+ */
+function acharSave(jogo) {
+  // Override explícito: save fora do lugar padrão, ou testes sem save.
+  if (process.env[jogo.env]) {
+    try {
+      if (fs.statSync(process.env[jogo.env]).isFile()) return process.env[jogo.env];
+    } catch (e) {
+      return null;
+    }
+    return null;
+  }
+  const found = listarSaves(jogo);
+  return found.length ? found[0].file : null;
+}
+
+/** Find S0000.sl2 (Sekiro). */
+function findSavePath() {
+  return acharSave(SEKIRO);
+}
+
+/** Every Sekiro save file we can see, newest first. Useful for diagnostics. */
+function listSavePaths() {
+  return listarSaves(SEKIRO);
 }
 
 // -------------------------------------------------------------- BND4 parsing
@@ -290,6 +290,11 @@ module.exports = {
   findSavePath,
   listSavePaths,
   sekiroRoots,
+  SEKIRO,
+  ELDEN,
+  raizes,
+  listarSaves,
+  acharSave,
   parseBnd4,
   readSave,
   blockPayload,
