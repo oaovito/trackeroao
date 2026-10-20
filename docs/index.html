@@ -10718,7 +10718,8 @@ function erDesenharDetalhe(manter) {
   } else if (b === "locais") {
     if (l.marca !== null) meta.appendChild(erEstado(t(l.marca ? "er.det.achado" : "er.det.naoAchado"), l.marca ? "tem" : ""));
     c.appendChild(erSecao(erLugar(r.r, r.l), t("er.det.onde")));
-    const perto = erDados.mundo.chefes.filter((x) => x.g === r.n);
+    // Graças com o mesmo nome em regiões diferentes: só os chefes da mesma região.
+    const perto = erDados.mundo.chefes.filter((x) => x.g === r.n && (!x.r || !r.r || x.r === r.r));
     if (perto.length) c.appendChild(erSecao(erCaixaDeElos(perto.map((x) => erElo(x.n, "chefes", x.i, t2 && t2.flags.has(x.i)))), t("er.det.chefes")));
   } else if (b === "mapa") {
     if (r.dlc) metaTexto(t("er.det.dlc"));
