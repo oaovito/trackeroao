@@ -515,6 +515,13 @@
         return p && typeof p.playSeconds === 'number' && s.playSeconds > p.playSeconds;
       });
       if (longer.length === 1) return { index: longer[0].index, reason: 'playtime-increased' };
+      // Several slots saved since the last read: only those can be in use.
+      if (changed.length > 1) {
+        const pool = longer.length ? longer : changed;
+        const gain = (s) => (s.playSeconds || 0) - ((previous.slots[s.index] || {}).playSeconds || 0);
+        const best = pool.reduce((a, b) => (gain(b) > gain(a) ? b : a));
+        return { index: best.index, reason: 'most-played-since-previous' };
+      }
       if (changed.length === 0 && previous.activeSlot !== null && previous.activeSlot !== undefined &&
           live.some((s) => s.index === previous.activeSlot)) {
         return { index: previous.activeSlot, reason: 'unchanged-keep-previous' };

@@ -225,10 +225,11 @@ deixa e uma missão leva ao final a que conduz.
 
 O **contador de mortes** mostra o total gravado no próprio save, o que inclui
 as mortes anteriores à instalação do Trackeroao. Os **finais** são avaliados a
-partir das flags de evento do save: um final que deixou de ser possível no
-estado atual do jogo aparece esmaecido, com o motivo. É o caso, por exemplo,
-de aceitar a Chama Frenética sem curá-la, o que só deixa o final do Lorde da
-Chama Frenética, ou de queimar a Erdtree sem ela, o que fecha esse final. As
+partir das flags de evento do save: um final que não é possível no estado
+atual do jogo aparece esmaecido, com o motivo. Aceitar a Chama Frenética fecha
+os outros finais enquanto ela não for curada com a Miquella's Needle, e a cura
+reabre esses finais; curar a chama, ou queimar a Erdtree sem ela, fecha de vez
+o final do Lorde da Chama Frenética. As
 **rotas sugeridas** cobrem cada final, o 100% do jogo com a expansão e builds
 de armas específicas, com os chefes e itens de cada passo.
 
@@ -242,8 +243,10 @@ de armas específicas, com os chefes e itens de cada passo.
 
 O Elden Ring roda protegido pelo Easy Anti-Cheat; por isso, o Trackeroao não
 abre o processo do jogo e lê apenas o arquivo de save, em modo de leitura. O
-slot exibido é o do personagem que o jogo gravou por último; na primeira
-leitura, é o de maior tempo de jogo. Os textos de referência (nomes,
+slot exibido é o do personagem que o jogo gravou por último; quando mais de um
+slot foi gravado entre duas leituras, é o que mais ganhou tempo de jogo, e na
+primeira leitura é o de maior tempo de jogo. A extensão guarda essa escolha no
+navegador, junto com o acesso ao arquivo. Os textos de referência (nomes,
 descrições do jogo, localizações e requisitos) ficam em `docs/app/eldenring`,
 em oito arquivos carregados somente quando a página é aberta. Nomes de itens,
 chefes e lugares aparecem como o jogo os escreve; as descrições do jogo ficam

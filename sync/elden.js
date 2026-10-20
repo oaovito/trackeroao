@@ -6,6 +6,7 @@
  * opened (it runs under Easy Anti-Cheat).
  */
 
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const sl2 = require('./sl2');
@@ -25,6 +26,17 @@ function leitura(arquivo) {
   const l = { flags: g.leitura.flags, bens: g.leitura.bens };
   if (!arquivo) cacheLeitura = l;
   return l;
+}
+
+let cacheLeitor = null;
+
+/**
+ * Identifica quem montou o elden.json: o leitor (ersave.js) e a lista
+ * conferida. Uma atualização que troque qualquer um dos dois pede releitura.
+ */
+function leitor(l) {
+  if (!cacheLeitor) cacheLeitor = crypto.createHash('sha1').update(fs.readFileSync(path.join(__dirname, 'ersave.js'))).digest('hex');
+  return crypto.createHash('sha1').update(cacheLeitor).update(JSON.stringify(l)).digest('hex').slice(0, 16);
 }
 
 /** O que fica entre leituras para achar o slot em uso. */
@@ -61,7 +73,8 @@ function construir({ file, estado, dados }) {
     return falha(base, 'parse-failed', String(e.code || 'unknown layout'));
   }
   save = null;
-  const r = ERSave.resumo(res, leitura(dados));
+  const lista = leitura(dados);
+  const r = ERSave.resumo(res, lista);
   if (estado) estado.anterior = lembrar(res);
   if (!r) return falha(base, 'no-character', 'No character in the save.');
   return Object.assign(base, {
@@ -71,6 +84,8 @@ function construir({ file, estado, dados }) {
       escolha: res.activeSlotReason,
       arquivo: path.extname(file).slice(1).toLowerCase(),
       saveModified: new Date(st.mtimeMs).toISOString(),
+      tamanho: st.size,
+      leitor: leitor(lista),
     },
     mortes: r.mortes,
     itens: { armas: r.armas, armaduras: r.armaduras, talismas: r.talismas, cinzas: r.cinzas, bens: r.bens },
@@ -78,13 +93,19 @@ function construir({ file, estado, dados }) {
   });
 }
 
-/** Verdadeiro se o save mudou desde a última leitura gravada em `saida`. */
+/**
+ * Verdadeiro se a leitura gravada em `saida` não corresponde mais ao save
+ * (outro arquivo, outra data ou tamanho) ou ao leitor e à lista atuais.
+ */
 function precisaLer(file, saida) {
   if (!file) return false;
   try {
     const atual = JSON.parse(fs.readFileSync(saida || SAIDA, 'utf8'));
-    const lido = atual && atual.fonte && Date.parse(atual.fonte.saveModified);
-    return !(lido && Math.floor(fs.statSync(file).mtimeMs) <= lido);
+    const f = (atual && atual.fonte) || {};
+    const st = fs.statSync(file);
+    return !(atual.formato === FORMATO && f.leitor === leitor(leitura()) &&
+      Date.parse(f.saveModified) === Math.floor(st.mtimeMs) && f.tamanho === st.size &&
+      f.arquivo === path.extname(file).slice(1).toLowerCase());
   } catch (e) {
     return true;
   }

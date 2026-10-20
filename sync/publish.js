@@ -68,7 +68,8 @@ const PODAS = {
   jogosVigiados: (j) => (j && Array.isArray(j.lista) ? {
     escolheu: !!j.escolheu,
     lista: j.lista.map((g) => ({
-      chave: g.chave, nome: g.nome, leitura: g.leitura, vigiado: !!g.vigiado,
+      // Leitores com arquivo próprio (elden.json) não são publicados.
+      chave: g.chave, nome: g.nome, leitura: g.progresso && g.progresso !== 'progress.json' ? 'nenhuma' : g.leitura, vigiado: !!g.vigiado,
       instalado: g.instalado === undefined ? null : g.instalado,
       naSteam: !!g.naSteam, semSteam: !!g.semSteam, popular: g.popular || null,
       arte: g.arte || null,

@@ -1910,6 +1910,10 @@ check('o save do Elden Ring é lido: mortes, itens e flags do personagem', () =>
     assert(elden.precisaLer(arq, path.join(pasta, 'nao-existe.json')), 'sem leitura anterior, precisa ler');
     fs.writeFileSync(path.join(pasta, 'elden.json'), JSON.stringify(r));
     assert(!elden.precisaLer(arq, path.join(pasta, 'elden.json')), 'releria um save que não mudou');
+    // Uma atualização que troca o leitor ou a lista conferida pede releitura.
+    const velho = Object.assign({}, r, { fonte: Object.assign({}, r.fonte, { leitor: 'anterior' }) });
+    fs.writeFileSync(path.join(pasta, 'elden.json'), JSON.stringify(velho));
+    assert(elden.precisaLer(arq, path.join(pasta, 'elden.json')), 'não releu depois de trocar o leitor');
     // Save corrompido: erro claro, sem caminho.
     const ruim = saveEldenDeTeste(1);
     ruim[0x300 + 0x20] ^= 0xff;
@@ -1922,6 +1926,38 @@ check('o save do Elden Ring é lido: mortes, itens e flags do personagem', () =>
   } finally {
     fs.rmSync(pasta, { recursive: true, force: true });
   }
+});
+
+check('com vários slots gravados desde a última leitura, o slot em uso sai de um deles', () => {
+  const ERSave = require('./ersave');
+  const ENTRADA = 0x280010, UD10 = 0x19003a0;
+  // Save com um personagem por slot, horas de jogo dadas e dados distintos em cada um.
+  const montar = (horas, marca) => {
+    const buf = Buffer.from(saveEldenDeTeste(5));
+    for (let i = 1; i < horas.length; i++) buf.copy(buf, 0x300 + i * ENTRADA, 0x300, 0x300 + ENTRADA);
+    for (let i = 0; i < horas.length; i++) {
+      buf[UD10 + 0x1964 + i] = 1;
+      buf.copy(buf, UD10 + 0x196e + i * 0x24c, UD10 + 0x196e, UD10 + 0x196e + 0x24c);
+      buf.writeUInt32LE(horas[i] * 3600, UD10 + 0x196e + i * 0x24c + 0x26);
+      buf[0x300 + i * ENTRADA + 0x19] = i;
+      buf[0x300 + i * ENTRADA + 0x1a] = marca ? marca[i] : 0;
+    }
+    for (let i = 0; i < 11; i++) {
+      const ini = i < 10 ? 0x300 + i * ENTRADA : UD10, tam = i < 10 ? ENTRADA : 0x60010;
+      buf.set(crypto.createHash('md5').update(buf.subarray(ini + 16, ini + tam)).digest(), ini);
+    }
+    return buf;
+  };
+  const lembrar = (res) => ({ activeSlot: res.activeSlot, slots: res.slots.map((s) => ({ storedChecksum: s.storedChecksum, playSeconds: s.playSeconds })) });
+  // Slot 0 com 500 h parado; a pessoa jogava o slot 1 e depois o 2.
+  const antes = lembrar(ERSave.parse(montar([500, 30, 10])));
+  antes.activeSlot = 1;
+  const depois = ERSave.parse(montar([500, 31, 10.5], [0, 7, 9]), { previous: antes });
+  assert(depois.activeSlot === 1, 'escolheu o slot ' + depois.activeSlot + ' (' + depois.activeSlotReason + ')');
+  // Só o slot 2 mudou: ele é o slot em uso.
+  const so2 = ERSave.parse(montar([500, 30, 10.5], [0, 0, 9]), { previous: antes });
+  assert(so2.activeSlot === 2, 'com só o slot 2 gravado, escolheu ' + so2.activeSlot);
+  return 'dois slots gravados: fica o que mais jogou; um slot gravado: fica ele';
 });
 
 check('o save do Elden Ring é achado pela pasta do jogo ou pela variável ELDEN_SAVE', () => {
