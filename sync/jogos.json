@@ -18,6 +18,7 @@
     "'leitura' diz ate onde o suporte vai:",
     "  completa - le o save (o Sekiro tambem le a memoria)",
     "  nenhuma  - o tracker so percebe que o jogo abriu e fechou",
+    "  pagina   - sem leitura do save; o progresso e marcado na pagina (marcas.json)",
     "'progresso' e o arquivo que a pagina le para o jogo; sem ele, progress.json.",
     "Um jogo com 'nenhuma' ainda serve para acender a aplicacao na bandeja, que",
     "e o que o item de menu promete: aparecer quando o jogo escolhido comecar."
@@ -37,6 +38,13 @@
       "appId": "1245620",
       "leitura": "completa",
       "progresso": "elden.json"
+    },
+    {
+      "chave": "steam-2680010",
+      "nome": "The First Berserker: Khazan",
+      "processos": ["BBQ-Win64-Shipping.exe"],
+      "appId": "2680010",
+      "leitura": "pagina"
     }
   ]
 }

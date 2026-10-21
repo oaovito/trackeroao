@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="Trackeroao">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Cormorant+Garamond:wght@500;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Shippori+Mincho:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Unbounded:wght@500;600;700;800&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Cormorant+Garamond:wght@500;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Cinzel:wght@900&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500&family=Shippori+Mincho:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Unbounded:wght@500;600;700;800&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
     --ink: #16130f;
@@ -3238,6 +3238,309 @@
     .er-det-folhas { display: none; }
     .er-linha-sub { max-width: 9rem; }
   }
+  /* ============================================================ Khazan
+     Página própria de The First Berserker: Khazan: ferro escuro, osso e
+     vermelho-sangue, cortes diagonais nos cantos, barras em forma de lâmina
+     e o quadro de missões como eixo. KHAZAN em Cinzel, rótulos em Barlow
+     Condensed e texto em Barlow. O progresso é marcado pelo jogador. */
+  body.jogo-kz {
+    --kz-bg: #0c0b0d;
+    --kz-painel: rgba(24, 22, 26, 0.86);
+    --kz-painel-forte: #141316;
+    --kz-osso: #ebe5da;
+    --kz-apagado: rgba(235, 229, 218, 0.6);
+    --kz-linha: rgba(235, 229, 218, 0.14);
+    --kz-sangue: #c41a24;
+    --kz-sangue-rgb: 196, 26, 36;
+    --kz-brasa: #ff5a3a;
+    --kz-aco: #9aa3ad;
+    --kz-ouro: #c99a52;
+    --kz-feito: #e8e1d4;
+    --kz-falta: rgba(235, 229, 218, 0.2);
+    --kz-corte: 12px;
+    --kz-marca: 'Cinzel', 'Trajan Pro', Georgia, serif;
+    --kz-rotulo: 'Barlow Condensed', 'Arial Narrow', 'Segoe UI', sans-serif;
+    --bg: var(--kz-bg);
+    --bg-panel: var(--kz-painel-forte);
+    --text: var(--kz-osso);
+    --text-dim: var(--kz-apagado);
+    --line: var(--kz-linha);
+    --gold: var(--kz-sangue);
+    --font-display: var(--kz-marca);
+    --font-body: 'Barlow', 'Segoe UI', system-ui, sans-serif;
+    background: var(--kz-bg);
+    /* Fumaça carmesim do Netherworld nos cantos e granulado leve. */
+    background-image:
+      radial-gradient(ellipse 55% 45% at 100% 0%, rgba(var(--kz-sangue-rgb), 0.2), rgba(var(--kz-sangue-rgb), 0) 70%),
+      radial-gradient(ellipse 50% 40% at 0% 100%, rgba(var(--kz-sangue-rgb), 0.13), rgba(var(--kz-sangue-rgb), 0) 70%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)'/%3E%3C/svg%3E");
+    color: var(--kz-osso);
+    font-family: var(--font-body);
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] body.jogo-kz {
+    --kz-bg: #e9e4da;
+    --kz-painel: rgba(247, 244, 238, 0.88);
+    --kz-painel-forte: #f5f2ec;
+    --kz-osso: #1b1a1d;
+    --kz-apagado: rgba(27, 26, 29, 0.62);
+    --kz-linha: rgba(27, 26, 29, 0.16);
+    --kz-sangue: #a3141c;
+    --kz-sangue-rgb: 163, 20, 28;
+    --kz-brasa: #c4381c;
+    --kz-aco: #4f5862;
+    --kz-ouro: #8a6422;
+    --kz-feito: #1b1a1d;
+    --kz-falta: rgba(27, 26, 29, 0.18);
+    color-scheme: light;
+  }
+  body.jogo-kz::before, body.jogo-kz::after, .jogo-kz .topbar::before, .jogo-kz .kaiden-cena { display: none !important; }
+  .jogo-kz .wrap > :not(.topbar):not(#kz):not(.made-by) { display: none !important; }
+  .jogo-kz .wrap { max-width: 82rem; }
+  .jogo-kz ::selection { background: var(--kz-sangue); color: #fff; }
+  .jogo-kz .made-by { margin-top: 18px; }
+
+  .kz { display: flex; flex-direction: column; gap: 14px; }
+  .kz-topo { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .kz-marca-jogo { display: flex; flex-direction: column; gap: 2px; }
+  .kz-sobre {
+    font-family: var(--kz-rotulo); font-weight: 600; font-size: clamp(0.66rem, 1.5vh, 0.86rem);
+    letter-spacing: 0.42em; text-transform: uppercase; color: var(--kz-sangue);
+  }
+  body.jogo-kz .kz h1.kz-titulo {
+    margin: 0; font-family: var(--kz-marca); font-weight: 900; text-transform: uppercase; text-align: left; text-indent: 0;
+    font-size: clamp(2rem, 6.4vh, 3.6rem); letter-spacing: 0.12em; line-height: 0.95; color: var(--kz-osso);
+  }
+  .kz-sub { font-family: var(--kz-rotulo); font-size: 0.86rem; letter-spacing: 0.08em; color: var(--kz-apagado); margin-top: 4px; }
+
+  /* Painel com o canto cortado na diagonal. */
+  .kz-resumo, .kz-grupo {
+    background: var(--kz-painel); border: 0;
+    clip-path: polygon(0 0, calc(100% - var(--kz-corte)) 0, 100% var(--kz-corte), 100% 100%, var(--kz-corte) 100%, 0 calc(100% - var(--kz-corte)));
+  }
+  .kz-corpo-pagina { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+
+  /* Quadro de missões: o número grande e as três coletas. */
+  .kz-resumo { display: flex; flex-direction: column; gap: 12px; padding: 14px 18px; position: relative; }
+  .kz-resumo::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--kz-sangue); }
+  .kz-missoes { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .kz-missoes-num {
+    font-family: var(--kz-rotulo); font-weight: 700; font-size: clamp(2.4rem, 8vh, 4.4rem); line-height: 0.9;
+    color: var(--kz-osso); font-variant-numeric: tabular-nums;
+  }
+  .kz-missoes-num small { font-size: 0.42em; color: var(--kz-apagado); font-weight: 500; margin-left: 4px; }
+  .kz-missoes-rot { font-family: var(--kz-rotulo); font-weight: 600; font-size: 0.86rem; letter-spacing: 0.24em; text-transform: uppercase; color: var(--kz-sangue); }
+  .kz-coletas { display: flex; flex-direction: column; gap: 10px; }
+  .kz-coleta { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; align-items: baseline; }
+  .kz-coleta-nome { font-family: var(--kz-rotulo); font-weight: 600; font-size: 0.82rem; letter-spacing: 0.16em; text-transform: uppercase; }
+  .kz-coleta-num { font-family: var(--kz-rotulo); font-size: 0.9rem; color: var(--kz-apagado); font-variant-numeric: tabular-nums; }
+  .kz-coleta .kz-barra { grid-column: 1 / -1; }
+  .kz-nota { font-size: 0.78rem; color: var(--kz-apagado); line-height: 1.4; margin: 0; }
+
+  /* Barra em forma de lâmina: pontas em ângulo. */
+  .kz-barra {
+    display: block; height: 5px; background: var(--kz-falta); overflow: hidden;
+    clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+  }
+  .kz-barra > b { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--kz-sangue), var(--kz-brasa)); }
+  .kz-barra.ouro > b { background: var(--kz-ouro); }
+
+  .kz-grupos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .kz-grupo { display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; padding: 12px 14px; }
+  /* Título com o risco vermelho na frente. */
+  .kz-grupo h2 {
+    margin: 0 0 2px; display: flex; align-items: center; gap: 8px; white-space: nowrap;
+    font-family: var(--kz-rotulo); font-weight: 700; font-size: 0.92rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--kz-osso);
+  }
+  .kz-grupo h2::before { content: ""; flex: 0 0 auto; width: 14px; height: 4px; background: var(--kz-sangue); transform: skewX(-35deg); }
+  .kz-blocos { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; flex: 1 1 auto; min-height: 0; }
+  .kz-bloco {
+    position: relative; appearance: none; cursor: pointer; font: inherit; color: inherit; text-align: left;
+    display: grid; grid-template-columns: minmax(0, 1fr) 1.2rem; align-items: center; align-content: center; gap: 3px 10px;
+    padding: 8px 10px; min-height: 0; border: 0; border-left: 2px solid var(--kz-linha);
+    background: rgba(255, 255, 255, 0.025);
+  }
+  :root[data-theme="light"] .kz-bloco { background: rgba(0, 0, 0, 0.03); }
+  .kz-bloco:hover, .kz-bloco:focus-visible {
+    outline: none; border-left-color: var(--kz-sangue);
+    background: linear-gradient(90deg, rgba(var(--kz-sangue-rgb), 0.22), rgba(var(--kz-sangue-rgb), 0) 85%);
+  }
+  .kz-bloco-nome { font-family: var(--kz-rotulo); font-weight: 600; font-size: 1rem; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kz-bloco-num { grid-column: 1; grid-row: 2; font-family: var(--kz-rotulo); font-size: 0.86rem; color: var(--kz-apagado); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .kz-bloco .kz-barra { grid-column: 1; grid-row: 3; margin-top: 2px; height: 3px; }
+  /* "+" de abrir num quadrado de canto cortado. */
+  .kz-bloco::after {
+    content: ""; grid-column: 2; grid-row: 1 / span 3; justify-self: end; width: 1.2rem; height: 1.2rem;
+    background:
+      linear-gradient(var(--kz-sangue), var(--kz-sangue)) center / 50% 2px no-repeat,
+      linear-gradient(var(--kz-sangue), var(--kz-sangue)) center / 2px 50% no-repeat,
+      rgba(var(--kz-sangue-rgb), 0.14);
+    clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+    transition: transform 0.25s ease;
+  }
+  .kz-bloco[aria-expanded="true"]::after { transform: rotate(45deg); }
+
+  /* --- janela de lista e detalhe --- */
+  .kz-janela {
+    width: min(76rem, calc(100vw - 2rem)); height: min(52rem, calc(100dvh - 2rem)); max-height: none; max-width: none;
+    border-radius: 0; border: 0; background: var(--kz-painel-forte);
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+  }
+  .kz-janela .janela-topo { flex-wrap: wrap; gap: 10px 14px; padding: 12px 18px; border-bottom: 2px solid var(--kz-sangue); }
+  .kz-janela .janela-titulo {
+    display: flex; align-items: center; gap: 8px; font-family: var(--kz-rotulo); font-weight: 700;
+    font-size: 1.08rem; letter-spacing: 0.2em; color: var(--kz-osso);
+  }
+  .kz-janela .janela-titulo::before { content: ""; width: 14px; height: 4px; background: var(--kz-sangue); transform: skewX(-35deg); }
+  .kz-janela .janela-paginas {
+    display: flex; align-items: center; gap: 10px; margin-left: auto;
+    font-family: var(--kz-rotulo); font-size: 0.9rem; letter-spacing: 0.1em; color: var(--kz-apagado); font-variant-numeric: tabular-nums;
+  }
+  .kz-janela .janela-paginas button, .kz-det-folhas button {
+    appearance: none; background: none; border: 1px solid var(--kz-linha); color: var(--kz-osso);
+    width: 1.8rem; height: 1.8rem; cursor: pointer; font-size: 1rem; line-height: 1;
+  }
+  .kz-janela .janela-paginas button:disabled, .kz-det-folhas button:disabled { opacity: 0.3; cursor: default; }
+  .kz-janela .janela-paginas button:not(:disabled):hover, .kz-det-folhas button:not(:disabled):hover { border-color: var(--kz-sangue); color: var(--kz-sangue); }
+  .kz-ferramentas { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 18px; border-bottom: 1px solid var(--kz-linha); flex: 0 0 auto; }
+  .kz-ferramentas input[type="search"], .kz-ferramentas select {
+    font: inherit; font-size: 0.88rem; color: var(--kz-osso); background: var(--kz-painel);
+    border: 1px solid var(--kz-linha); border-radius: 0; padding: 0.38rem 0.8rem; min-width: 0;
+  }
+  .kz-ferramentas input[type="search"]:focus, .kz-ferramentas select:focus { outline: none; border-color: var(--kz-sangue); }
+  .kz-ferramentas input[type="search"] { flex: 1 1 12rem; }
+  .kz-ferramentas select { flex: 0 1 14rem; }
+  .kz-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+  .kz-chip {
+    appearance: none; cursor: pointer; font-family: var(--kz-rotulo); font-weight: 600; font-size: 0.86rem; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 0.32rem 0.8rem; border: 1px solid var(--kz-linha); background: none; color: var(--kz-apagado);
+  }
+  .kz-chip:hover, .kz-chip:focus-visible { color: var(--kz-osso); outline: none; }
+  .kz-chip[aria-pressed="true"] { background: var(--kz-sangue); border-color: var(--kz-sangue); color: #fff; }
+  .kz-miolo { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); flex: 1 1 auto; min-height: 0; }
+  .kz-lista { list-style: none; margin: 0; padding: 8px 10px; overflow: hidden; min-height: 0; border-right: 1px solid var(--kz-linha); }
+  .kz-linha {
+    appearance: none; width: 100%; cursor: pointer; font: inherit; color: inherit; text-align: left; background: none;
+    display: grid; grid-template-columns: 1rem minmax(0, 1fr) auto; align-items: center; gap: 10px;
+    height: 2.35rem; padding: 0 8px; border: 0; border-left: 2px solid transparent;
+  }
+  .kz-linha:hover, .kz-linha:focus-visible { outline: none; background: linear-gradient(90deg, rgba(var(--kz-sangue-rgb), 0.14), rgba(var(--kz-sangue-rgb), 0) 80%); }
+  .kz-linha[aria-current="true"] { border-left-color: var(--kz-sangue); background: linear-gradient(90deg, rgba(var(--kz-sangue-rgb), 0.26), rgba(var(--kz-sangue-rgb), 0) 85%); }
+  /* Marca de feito: um corte inclinado. */
+  .kz-feita { width: 0.5rem; height: 0.95rem; justify-self: center; border: 1px solid var(--kz-falta); transform: skewX(-20deg); }
+  .kz-feita.sim { background: var(--kz-sangue); border-color: var(--kz-sangue); }
+  .kz-linha-nome { font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kz-linha-sub { font-family: var(--kz-rotulo); font-size: 0.84rem; color: var(--kz-apagado); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 16rem; }
+  .kz-linha.feita .kz-linha-nome { color: var(--kz-apagado); }
+  .kz-vazio { padding: 18px 10px; color: var(--kz-apagado); font-size: 0.9rem; }
+  .kz-detalhe { position: relative; min-height: 0; overflow: hidden; padding: 16px 20px 44px; display: flex; flex-direction: column; }
+  .kz-det-conteudo { min-height: 0; flex: 1 1 auto; overflow: hidden; }
+  .kz-det-conteudo h3 {
+    margin: 0 0 6px; font-family: var(--kz-rotulo); font-weight: 700; font-size: 1.5rem; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--kz-osso); line-height: 1.1;
+  }
+  .kz-det-meta { font-family: var(--kz-rotulo); font-size: 0.9rem; letter-spacing: 0.04em; color: var(--kz-apagado); margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  .kz-det-meta .chefe { color: var(--kz-sangue); text-transform: uppercase; font-weight: 600; letter-spacing: 0.1em; }
+  .kz-marcar {
+    appearance: none; cursor: pointer; align-self: flex-start; margin: 2px 0 6px;
+    font-family: var(--kz-rotulo); font-weight: 700; font-size: 0.9rem; letter-spacing: 0.16em; text-transform: uppercase;
+    padding: 0.42rem 1rem 0.42rem 0.9rem; border: 0; color: var(--kz-osso); background: rgba(var(--kz-sangue-rgb), 0.18);
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+  }
+  .kz-marcar:hover, .kz-marcar:focus-visible { outline: none; background: rgba(var(--kz-sangue-rgb), 0.32); }
+  .kz-marcar[aria-pressed="true"] { background: var(--kz-sangue); color: #fff; }
+  .kz-marcar:disabled { cursor: default; opacity: 0.55; }
+  .kz-det-sec { margin: 10px 0 0; }
+  .kz-det-sec h4 { margin: 0 0 4px; font-family: var(--kz-rotulo); font-size: 0.82rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--kz-sangue); }
+  .kz-det-sec p, .kz-det-sec li { margin: 0; font-size: 0.92rem; line-height: 1.45; }
+  .kz-det-sec ul { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: 3px; }
+  .kz-contas { display: flex; flex-wrap: wrap; gap: 6px 16px; font-family: var(--kz-rotulo); font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+  .kz-contas b { color: var(--kz-osso); font-weight: 700; margin-right: 4px; }
+  .kz-contas .ouro b { color: var(--kz-ouro); }
+  .kz-elos { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .kz-elo {
+    appearance: none; cursor: pointer; font-family: var(--kz-rotulo); font-weight: 600; font-size: 0.86rem; letter-spacing: 0.04em;
+    padding: 0.18rem 0.6rem; border: 1px solid var(--kz-linha); background: none; color: var(--kz-osso);
+  }
+  .kz-elo.feito { border-color: var(--kz-sangue); }
+  .kz-elo:hover, .kz-elo:focus-visible { outline: none; border-color: var(--kz-sangue); color: var(--kz-sangue); }
+  .kz-det-vazio { color: var(--kz-apagado); font-size: 0.92rem; margin: auto 0; text-align: center; }
+  .kz-det-folhas { position: absolute; right: 14px; bottom: 10px; display: flex; gap: 8px; align-items: center; font-family: var(--kz-rotulo); font-size: 0.86rem; color: var(--kz-apagado); font-variant-numeric: tabular-nums; }
+  .kz-det-folhas button { width: 1.6rem; height: 1.6rem; }
+  .kz-det-voltar { display: none; }
+  .kz-bt {
+    appearance: none; cursor: pointer; font-family: var(--kz-rotulo); font-weight: 600; font-size: 0.9rem; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 0.4rem 0.9rem; border: 1px solid var(--kz-linha); background: none; color: var(--kz-osso);
+  }
+
+  /* Computador: grade da altura da janela, sem rolagem. */
+  @media (min-width: 641px) and (min-height: 480px) {
+    body.jogo-kz:not(.vista-hub):not(.vista-bibli) .wrap {
+      grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
+    }
+    body.jogo-kz:not(.vista-hub):not(.vista-bibli) .wrap > * { grid-row: 2; grid-column: 1; }
+    body.jogo-kz:not(.vista-hub):not(.vista-bibli) .wrap > .topbar { grid-row: 1; }
+    body.jogo-kz:not(.vista-hub):not(.vista-bibli) .wrap > .made-by { grid-row: 3; margin-top: clamp(4px, 1vh, 12px); }
+    .kz { min-height: 0; height: 100%; gap: clamp(6px, 1.4vh, 16px); }
+    .kz-corpo-pagina { flex: 1 1 auto; min-height: 0; grid-template-columns: minmax(12rem, 0.9fr) minmax(0, 4fr); grid-template-rows: minmax(0, 1fr); gap: clamp(8px, 1.2vw, 16px); }
+    .kz-resumo { justify-content: center; gap: clamp(10px, 3vh, 28px); padding: clamp(12px, 2.4vh, 26px) 18px; }
+    .kz-missoes { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .kz-missoes-num { font-size: clamp(2.8rem, 12vh, 6.4rem); }
+    .kz-grupos { grid-template-columns: repeat(4, minmax(0, 1fr)); min-height: 0; gap: clamp(8px, 1vw, 14px); }
+    .kz-grupo { padding: clamp(8px, 1.4vh, 14px); }
+    .kz-grupo h2 { font-size: clamp(0.76rem, 0.6vw + 0.3rem, 0.92rem); letter-spacing: 0.16em; }
+    .kz-blocos { grid-auto-rows: minmax(0, 1fr); }
+    .kz-bloco { padding-block: clamp(4px, 1vh, 10px); }
+    .kz-bloco-nome { font-size: clamp(0.86rem, 2.1vh, 1.04rem); }
+    .kz-janela { height: calc(100dvh - 48px); width: min(76rem, calc(100vw - 48px)); }
+  }
+  /* Janela estreita: resumo em faixa acima e grupos em duas colunas. */
+  @media (min-width: 641px) and (min-height: 480px) and (max-width: 1099px) {
+    .kz-corpo-pagina { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .kz-resumo { flex-direction: row; align-items: center; padding: clamp(6px, 1.2vh, 14px) 18px; gap: 20px; }
+    .kz-missoes { flex: 0 0 auto; }
+    .kz-missoes-num { font-size: clamp(2rem, 6.5vh, 3.2rem); }
+    .kz-coletas { flex: 1 1 auto; flex-direction: row; gap: 16px; }
+    .kz-coleta { flex: 1 1 0; }
+    .kz-resumo .kz-nota { display: none; }
+    .kz-grupos { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+    .kz-blocos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  /* Celular: a lista ocupa a tela e o detalhe entra no lugar dela. */
+  @media (max-width: 640px) {
+    body.jogo-kz .wrap { padding-bottom: 1rem; }
+    .kz, .kz-corpo-pagina { gap: 8px; }
+    .kz-topo { align-items: center; }
+    body.jogo-kz .kz h1.kz-titulo { font-size: 1.9rem; }
+    .kz-sobre { font-size: 0.62rem; letter-spacing: 0.3em; }
+    .kz-sub { margin-top: 2px; font-size: 0.74rem; }
+    .kz-resumo { flex-direction: row; align-items: center; padding: 8px 12px; gap: 12px; }
+    .kz-missoes { flex-direction: column; align-items: flex-start; gap: 0; flex: 0 0 auto; }
+    .kz-missoes-num { font-size: 2.1rem; }
+    .kz-missoes-rot { font-size: 0.66rem; letter-spacing: 0.14em; }
+    .kz-coletas { flex: 1 1 auto; gap: 4px; }
+    .kz-coleta-nome { font-size: 0.68rem; letter-spacing: 0.1em; }
+    .kz-coleta-num { font-size: 0.74rem; }
+    .kz-resumo .kz-nota { display: none; }
+    .kz-grupos { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+    .kz-grupo { padding: 6px 10px; gap: 3px; }
+    .kz-grupo h2 { font-size: 0.74rem; margin-bottom: 0; }
+    .kz-blocos { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 4px; }
+    .kz-bloco { padding: 3px 8px; gap: 0 8px; }
+    .kz-bloco-nome { font-size: 0.86rem; }
+    .kz-bloco-num { font-size: 0.74rem; }
+    .kz-janela.vendo-detalhe .janela-paginas { display: none; }
+    .kz-janela { width: 100vw; height: 100dvh; max-width: 100vw; margin: 0; clip-path: none; }
+    .kz-miolo { grid-template-columns: minmax(0, 1fr); }
+    .kz-lista { border-right: 0; }
+    .kz-detalhe { display: none; padding-bottom: 16px; overflow-y: auto; }
+    .kz-det-conteudo { overflow: visible; }
+    .kz-janela.vendo-detalhe .kz-lista, .kz-janela.vendo-detalhe .kz-ferramentas { display: none; }
+    .kz-janela.vendo-detalhe .kz-detalhe { display: flex; }
+    .kz-det-voltar { display: inline-flex; align-self: flex-start; margin-bottom: 10px; }
+    .kz-det-folhas { display: none; }
+    .kz-linha-sub { max-width: 9rem; }
+  }
 </style>
 </head>
 <body>
@@ -3368,6 +3671,44 @@
       <div class="er-miolo">
         <ol class="er-lista" id="erLista"></ol>
         <article class="er-detalhe" id="erDetalhe" aria-live="polite"></article>
+      </div>
+    </dialog>
+  </section>
+
+  <!-- Khazan: quadro de missões e blocos; o progresso é marcado pelo jogador. -->
+  <section class="kz" id="kz" hidden>
+    <div class="kz-topo">
+      <div class="kz-marca-jogo" translate="no">
+        <span class="kz-sobre">The First Berserker</span>
+        <h1 class="kz-titulo">Khazan</h1>
+        <div class="kz-sub" id="kzSub"></div>
+      </div>
+    </div>
+    <div class="kz-corpo-pagina">
+      <div class="kz-resumo">
+        <div class="kz-missoes">
+          <span class="kz-missoes-num" id="kzMissoesNum">0</span>
+          <span class="kz-missoes-rot" data-i18n="kz.missoes">Missions cleared</span>
+        </div>
+        <div class="kz-coletas" id="kzColetas"></div>
+        <p class="kz-nota" id="kzNota"></p>
+      </div>
+      <div class="kz-grupos" id="kzGrupos"></div>
+    </div>
+    <dialog class="janela kz-janela" id="kzJanela" aria-labelledby="kzJanelaTitulo">
+      <div class="janela-topo">
+        <span class="janela-titulo" id="kzJanelaTitulo"></span>
+        <div class="janela-paginas" id="kzPaginas" hidden><button type="button" class="folha-antes" aria-label="Previous">‹</button><span class="folha-num"></span><button type="button" class="folha-depois" aria-label="Next">›</button></div>
+        <button class="janela-fecha" type="button" aria-label="Close" data-i18n-aria="janela.fechar">✕</button>
+      </div>
+      <div class="kz-ferramentas">
+        <input id="kzBusca" type="search" autocomplete="off" spellcheck="false" placeholder="Search by name" data-i18n-placeholder="er.busca" aria-label="Search by name" data-i18n-aria="er.busca">
+        <div class="kz-chips" id="kzChips"></div>
+        <select id="kzTipo" aria-label="All types" data-i18n-aria="er.filtro.tipo"></select>
+      </div>
+      <div class="kz-miolo">
+        <ol class="kz-lista" id="kzLista"></ol>
+        <article class="kz-detalhe" id="kzDetalhe" aria-live="polite"></article>
       </div>
     </dialog>
   </section>
@@ -3884,6 +4225,86 @@ const I18N = {
     "er.mapa.resumo": "{gracas} graces · {chefes} bosses",
     "er.mapa.total": "{gracas} graces · {chefes} bosses",
     "jogos.soSave": "The save is read for this game.",
+    "jogos.soMarcas": "Progress for this game is marked by you on its page.",
+    "kz.missoes": "Missions cleared",
+    "kz.nota": "Progress is marked by you; the save isn't read yet.",
+    "kz.origem.pc": "Marked by you · saved on this computer",
+    "kz.origem.leitura": "Marks from the computer · mark them there",
+    "kz.origem.aqui": "Marked by you · saved in this browser",
+    "kz.erroGravar": "Couldn't save the mark on the computer",
+    "kz.grupo.campanha": "Campaign",
+    "kz.grupo.combate": "Combat",
+    "kz.grupo.equipamento": "Gear",
+    "kz.grupo.coleta": "Collectibles",
+    "kz.bloco.missoes": "Main missions",
+    "kz.bloco.secundarias": "Bonus missions",
+    "kz.bloco.finais": "Endings and modes",
+    "kz.bloco.chefes": "Bosses",
+    "kz.bloco.armas": "Weapons",
+    "kz.bloco.habilidades": "Skills and Phantoms",
+    "kz.bloco.armaduras": "Armor sets",
+    "kz.bloco.materiais": "Boss materials",
+    "kz.bloco.achados": "Key items",
+    "kz.bloco.conquistas": "Achievements",
+    "kz.filtro.todos": "All",
+    "kz.filtro.feitos": "Done",
+    "kz.filtro.faltam": "Missing",
+    "kz.tipo.final": "Ending",
+    "kz.tipo.pos-jogo": "Post-game",
+    "kz.tipo.classe": "Weapon type",
+    "kz.chefe.principal": "Main boss",
+    "kz.chefe.secundario": "Side boss",
+    "kz.arvore.sistema": "System",
+    "kz.fonte.bau": "Chest",
+    "kz.fonte.chefe": "Boss",
+    "kz.fonte.presente": "Gift",
+    "kz.cat.chefe": "Bosses",
+    "kz.cat.colecionavel": "Collectibles",
+    "kz.cat.combate": "Combat",
+    "kz.cat.final": "Endings",
+    "kz.cat.historia": "Story",
+    "kz.cat.pos-jogo": "Post-game",
+    "kz.cat.progresso": "Progression",
+    "kz.cat.secundaria": "Bonus missions",
+    "kz.marcar.concluir": "Mark as cleared",
+    "kz.feito.concluir": "Cleared",
+    "kz.marcar.derrotar": "Mark as defeated",
+    "kz.feito.derrotar": "Defeated",
+    "kz.marcar.obter": "Mark as obtained",
+    "kz.feito.obter": "Obtained",
+    "kz.marcar.desbloquear": "Mark as unlocked",
+    "kz.feito.desbloquear": "Unlocked",
+    "kz.det.sobre": "About",
+    "kz.det.missao": "Mission",
+    "kz.det.quantos": "{n} {item} in this mission",
+    "kz.det.requer": "Requires",
+    "kz.det.libera": "How to unlock",
+    "kz.det.chefes": "Bosses",
+    "kz.det.recompensa": "Reward",
+    "kz.det.coletas": "Collectibles",
+    "kz.det.itens": "Items in this mission",
+    "kz.det.abre": "Unlocks",
+    "kz.det.conquista": "Achievement",
+    "kz.det.fases": "{n} phases",
+    "kz.det.onde": "Where",
+    "kz.det.drops": "Drops",
+    "kz.det.ligados": "Related",
+    "kz.det.como": "How to get it",
+    "kz.det.ramos": "Branches",
+    "kz.det.chave": "Key skills",
+    "kz.det.verdadeiro": "All 15 Golden Collection items are needed for the true ending.",
+    "kz.det.porque": "Why it matters",
+    "kz.det.requisitos": "Requirements",
+    "kz.det.dourados": "{n} of {total} marked",
+    "kz.det.grupos": "Groups",
+    "kz.bloco.dourados": "Golden Collection",
+    "kz.bloco.soulstones": "Soulstones",
+    "kz.bloco.jarlings": "Jarlings",
+    "kz.tipo.ultimate-challenge": "Ultimate Challenge",
+    "kz.arvore.phantom": "Phantom",
+    "kz.fonte.scroll": "Scroll",
+    "kz.fonte.ultimate-challenge": "Ultimate Challenge",
+    "kz.cat.crevice": "The Crevice",
     "er.det.dlc": "Shadow of the Erdtree",
     "er.rota.cem": "100%",
     "nav.rotulo": "Navigation",
@@ -4196,6 +4617,86 @@ const I18N = {
     "er.mapa.resumo": "{gracas} graças · {chefes} chefes",
     "er.mapa.total": "{gracas} graças · {chefes} chefes",
     "jogos.soSave": "O save é lido para este jogo.",
+    "jogos.soMarcas": "O progresso deste jogo é marcado por você na página dele.",
+    "kz.missoes": "Missões concluídas",
+    "kz.nota": "O progresso é marcado por você; o save ainda não é lido.",
+    "kz.origem.pc": "Marcado por você · guardado neste computador",
+    "kz.origem.leitura": "Marcas do computador · marque por lá",
+    "kz.origem.aqui": "Marcado por você · guardado neste navegador",
+    "kz.erroGravar": "Não deu para guardar a marca no computador",
+    "kz.grupo.campanha": "Campanha",
+    "kz.grupo.combate": "Combate",
+    "kz.grupo.equipamento": "Equipamento",
+    "kz.grupo.coleta": "Coletáveis",
+    "kz.bloco.missoes": "Missões principais",
+    "kz.bloco.secundarias": "Missões bônus",
+    "kz.bloco.finais": "Finais e modos",
+    "kz.bloco.chefes": "Chefes",
+    "kz.bloco.armas": "Armas",
+    "kz.bloco.habilidades": "Habilidades e Phantoms",
+    "kz.bloco.armaduras": "Sets de armadura",
+    "kz.bloco.materiais": "Materiais de chefe",
+    "kz.bloco.achados": "Itens-chave",
+    "kz.bloco.conquistas": "Conquistas",
+    "kz.filtro.todos": "Todos",
+    "kz.filtro.feitos": "Feitos",
+    "kz.filtro.faltam": "Faltam",
+    "kz.tipo.final": "Final",
+    "kz.tipo.pos-jogo": "Pós-jogo",
+    "kz.tipo.classe": "Tipo de arma",
+    "kz.chefe.principal": "Chefe principal",
+    "kz.chefe.secundario": "Chefe secundário",
+    "kz.arvore.sistema": "Sistema",
+    "kz.fonte.bau": "Baú",
+    "kz.fonte.chefe": "Chefe",
+    "kz.fonte.presente": "Presente",
+    "kz.cat.chefe": "Chefes",
+    "kz.cat.colecionavel": "Coletáveis",
+    "kz.cat.combate": "Combate",
+    "kz.cat.final": "Finais",
+    "kz.cat.historia": "História",
+    "kz.cat.pos-jogo": "Pós-jogo",
+    "kz.cat.progresso": "Progressão",
+    "kz.cat.secundaria": "Missões bônus",
+    "kz.marcar.concluir": "Marcar como concluída",
+    "kz.feito.concluir": "Concluída",
+    "kz.marcar.derrotar": "Marcar como derrotado",
+    "kz.feito.derrotar": "Derrotado",
+    "kz.marcar.obter": "Marcar como obtido",
+    "kz.feito.obter": "Obtido",
+    "kz.marcar.desbloquear": "Marcar como desbloqueado",
+    "kz.feito.desbloquear": "Desbloqueado",
+    "kz.det.sobre": "Sobre",
+    "kz.det.missao": "Missão",
+    "kz.det.quantos": "{n} {item} nesta missão",
+    "kz.det.requer": "Requer",
+    "kz.det.libera": "Como liberar",
+    "kz.det.chefes": "Chefes",
+    "kz.det.recompensa": "Recompensa",
+    "kz.det.coletas": "Coletáveis",
+    "kz.det.itens": "Itens nesta missão",
+    "kz.det.abre": "Libera",
+    "kz.det.conquista": "Conquista",
+    "kz.det.fases": "{n} fases",
+    "kz.det.onde": "Onde",
+    "kz.det.drops": "Drops",
+    "kz.det.ligados": "Ligados",
+    "kz.det.como": "Como conseguir",
+    "kz.det.ramos": "Ramos",
+    "kz.det.chave": "Habilidades-chave",
+    "kz.det.verdadeiro": "Os 15 itens da Golden Collection são necessários para o final verdadeiro.",
+    "kz.det.porque": "Por que importa",
+    "kz.det.requisitos": "Requisitos",
+    "kz.det.dourados": "{n} de {total} marcados",
+    "kz.det.grupos": "Grupos",
+    "kz.bloco.dourados": "Golden Collection",
+    "kz.bloco.soulstones": "Soulstones",
+    "kz.bloco.jarlings": "Jarlings",
+    "kz.tipo.ultimate-challenge": "Ultimate Challenge",
+    "kz.arvore.phantom": "Phantom",
+    "kz.fonte.scroll": "Scroll",
+    "kz.fonte.ultimate-challenge": "Ultimate Challenge",
+    "kz.cat.crevice": "The Crevice",
     "nav.rotulo": "Navegação",
     "nav.voltar": "Voltar",
     "nav.avancar": "Avançar",
@@ -4506,6 +5007,86 @@ const I18N = {
     "er.mapa.resumo": "{gracas} gracias · {chefes} jefes",
     "er.mapa.total": "{gracas} gracias · {chefes} jefes",
     "jogos.soSave": "Se lee la partida guardada de este juego.",
+    "jogos.soMarcas": "El progreso de este juego lo marcas tú en su página.",
+    "kz.missoes": "Misiones completadas",
+    "kz.nota": "El progreso lo marcas tú; la partida aún no se lee.",
+    "kz.origem.pc": "Marcado por ti · guardado en este ordenador",
+    "kz.origem.leitura": "Marcas del ordenador · márcalas allí",
+    "kz.origem.aqui": "Marcado por ti · guardado en este navegador",
+    "kz.erroGravar": "No se pudo guardar la marca en el ordenador",
+    "kz.grupo.campanha": "Campaña",
+    "kz.grupo.combate": "Combate",
+    "kz.grupo.equipamento": "Equipo",
+    "kz.grupo.coleta": "Coleccionables",
+    "kz.bloco.missoes": "Misiones principales",
+    "kz.bloco.secundarias": "Misiones extra",
+    "kz.bloco.finais": "Finales y modos",
+    "kz.bloco.chefes": "Jefes",
+    "kz.bloco.armas": "Armas",
+    "kz.bloco.habilidades": "Habilidades y Phantoms",
+    "kz.bloco.armaduras": "Conjuntos de armadura",
+    "kz.bloco.materiais": "Materiales de jefe",
+    "kz.bloco.achados": "Objetos clave",
+    "kz.bloco.conquistas": "Logros",
+    "kz.filtro.todos": "Todos",
+    "kz.filtro.feitos": "Hechos",
+    "kz.filtro.faltam": "Faltan",
+    "kz.tipo.final": "Final",
+    "kz.tipo.pos-jogo": "Posjuego",
+    "kz.tipo.classe": "Tipo de arma",
+    "kz.chefe.principal": "Jefe principal",
+    "kz.chefe.secundario": "Jefe secundario",
+    "kz.arvore.sistema": "Sistema",
+    "kz.fonte.bau": "Cofre",
+    "kz.fonte.chefe": "Jefe",
+    "kz.fonte.presente": "Regalo",
+    "kz.cat.chefe": "Jefes",
+    "kz.cat.colecionavel": "Coleccionables",
+    "kz.cat.combate": "Combate",
+    "kz.cat.final": "Finales",
+    "kz.cat.historia": "Historia",
+    "kz.cat.pos-jogo": "Posjuego",
+    "kz.cat.progresso": "Progresión",
+    "kz.cat.secundaria": "Misiones extra",
+    "kz.marcar.concluir": "Marcar como completada",
+    "kz.feito.concluir": "Completada",
+    "kz.marcar.derrotar": "Marcar como derrotado",
+    "kz.feito.derrotar": "Derrotado",
+    "kz.marcar.obter": "Marcar como obtenido",
+    "kz.feito.obter": "Obtenido",
+    "kz.marcar.desbloquear": "Marcar como desbloqueado",
+    "kz.feito.desbloquear": "Desbloqueado",
+    "kz.det.sobre": "Acerca de",
+    "kz.det.missao": "Misión",
+    "kz.det.quantos": "{n} {item} en esta misión",
+    "kz.det.requer": "Requiere",
+    "kz.det.libera": "Cómo desbloquear",
+    "kz.det.chefes": "Jefes",
+    "kz.det.recompensa": "Recompensa",
+    "kz.det.coletas": "Coleccionables",
+    "kz.det.itens": "Objetos en esta misión",
+    "kz.det.abre": "Desbloquea",
+    "kz.det.conquista": "Logro",
+    "kz.det.fases": "{n} fases",
+    "kz.det.onde": "Dónde",
+    "kz.det.drops": "Botín",
+    "kz.det.ligados": "Relacionados",
+    "kz.det.como": "Cómo conseguirlo",
+    "kz.det.ramos": "Ramas",
+    "kz.det.chave": "Habilidades clave",
+    "kz.det.verdadeiro": "Los 15 objetos de la Golden Collection son necesarios para el final verdadero.",
+    "kz.det.porque": "Por qué importa",
+    "kz.det.requisitos": "Requisitos",
+    "kz.det.dourados": "{n} de {total} marcados",
+    "kz.det.grupos": "Grupos",
+    "kz.bloco.dourados": "Golden Collection",
+    "kz.bloco.soulstones": "Soulstones",
+    "kz.bloco.jarlings": "Jarlings",
+    "kz.tipo.ultimate-challenge": "Ultimate Challenge",
+    "kz.arvore.phantom": "Phantom",
+    "kz.fonte.scroll": "Scroll",
+    "kz.fonte.ultimate-challenge": "Ultimate Challenge",
+    "kz.cat.crevice": "The Crevice",
     "nav.rotulo": "Navegación",
     "nav.voltar": "Atrás",
     "nav.avancar": "Adelante",
@@ -4816,6 +5397,86 @@ const I18N = {
     "er.mapa.resumo": "{gracas} sites de grâce · {chefes} boss",
     "er.mapa.total": "{gracas} sites de grâce · {chefes} boss",
     "jogos.soSave": "La sauvegarde de ce jeu est lue.",
+    "jogos.soMarcas": "La progression de ce jeu est cochée par vous sur sa page.",
+    "kz.missoes": "Missions terminées",
+    "kz.nota": "La progression est cochée par vous ; la sauvegarde n'est pas encore lue.",
+    "kz.origem.pc": "Coché par vous · enregistré sur cet ordinateur",
+    "kz.origem.leitura": "Coches de l'ordinateur · cochez là-bas",
+    "kz.origem.aqui": "Coché par vous · enregistré dans ce navigateur",
+    "kz.erroGravar": "Impossible d'enregistrer la coche sur l'ordinateur",
+    "kz.grupo.campanha": "Campagne",
+    "kz.grupo.combate": "Combat",
+    "kz.grupo.equipamento": "Équipement",
+    "kz.grupo.coleta": "Objets à collectionner",
+    "kz.bloco.missoes": "Missions principales",
+    "kz.bloco.secundarias": "Missions bonus",
+    "kz.bloco.finais": "Fins et modes",
+    "kz.bloco.chefes": "Boss",
+    "kz.bloco.armas": "Armes",
+    "kz.bloco.habilidades": "Compétences et Phantoms",
+    "kz.bloco.armaduras": "Ensembles d'armure",
+    "kz.bloco.materiais": "Matériaux de boss",
+    "kz.bloco.achados": "Objets clés",
+    "kz.bloco.conquistas": "Succès",
+    "kz.filtro.todos": "Tous",
+    "kz.filtro.feitos": "Faits",
+    "kz.filtro.faltam": "Manquants",
+    "kz.tipo.final": "Fin",
+    "kz.tipo.pos-jogo": "Après-jeu",
+    "kz.tipo.classe": "Type d'arme",
+    "kz.chefe.principal": "Boss principal",
+    "kz.chefe.secundario": "Boss secondaire",
+    "kz.arvore.sistema": "Système",
+    "kz.fonte.bau": "Coffre",
+    "kz.fonte.chefe": "Boss",
+    "kz.fonte.presente": "Cadeau",
+    "kz.cat.chefe": "Boss",
+    "kz.cat.colecionavel": "Objets à collectionner",
+    "kz.cat.combate": "Combat",
+    "kz.cat.final": "Fins",
+    "kz.cat.historia": "Histoire",
+    "kz.cat.pos-jogo": "Après-jeu",
+    "kz.cat.progresso": "Progression",
+    "kz.cat.secundaria": "Missions bonus",
+    "kz.marcar.concluir": "Marquer comme terminée",
+    "kz.feito.concluir": "Terminée",
+    "kz.marcar.derrotar": "Marquer comme vaincu",
+    "kz.feito.derrotar": "Vaincu",
+    "kz.marcar.obter": "Marquer comme obtenu",
+    "kz.feito.obter": "Obtenu",
+    "kz.marcar.desbloquear": "Marquer comme débloqué",
+    "kz.feito.desbloquear": "Débloqué",
+    "kz.det.sobre": "À propos",
+    "kz.det.missao": "Mission",
+    "kz.det.quantos": "{n} {item} dans cette mission",
+    "kz.det.requer": "Nécessite",
+    "kz.det.libera": "Comment débloquer",
+    "kz.det.chefes": "Boss",
+    "kz.det.recompensa": "Récompense",
+    "kz.det.coletas": "Objets à collectionner",
+    "kz.det.itens": "Objets de cette mission",
+    "kz.det.abre": "Débloque",
+    "kz.det.conquista": "Succès",
+    "kz.det.fases": "{n} phases",
+    "kz.det.onde": "Où",
+    "kz.det.drops": "Butin",
+    "kz.det.ligados": "Liés",
+    "kz.det.como": "Comment l'obtenir",
+    "kz.det.ramos": "Branches",
+    "kz.det.chave": "Compétences clés",
+    "kz.det.verdadeiro": "Les 15 objets de la Golden Collection sont nécessaires pour la vraie fin.",
+    "kz.det.porque": "Pourquoi c'est important",
+    "kz.det.requisitos": "Conditions",
+    "kz.det.dourados": "{n} sur {total} cochés",
+    "kz.det.grupos": "Groupes",
+    "kz.bloco.dourados": "Golden Collection",
+    "kz.bloco.soulstones": "Soulstones",
+    "kz.bloco.jarlings": "Jarlings",
+    "kz.tipo.ultimate-challenge": "Ultimate Challenge",
+    "kz.arvore.phantom": "Phantom",
+    "kz.fonte.scroll": "Scroll",
+    "kz.fonte.ultimate-challenge": "Ultimate Challenge",
+    "kz.cat.crevice": "The Crevice",
     "nav.rotulo": "Navigation",
     "nav.voltar": "Retour",
     "nav.avancar": "Suivant",
@@ -5126,6 +5787,86 @@ const I18N = {
     "er.mapa.resumo": "{gracas} Orte der Gnade · {chefes} Bosse",
     "er.mapa.total": "{gracas} Orte der Gnade · {chefes} Bosse",
     "jogos.soSave": "Für dieses Spiel wird der Spielstand gelesen.",
+    "jogos.soMarcas": "Den Fortschritt dieses Spiels hakst du auf seiner Seite ab.",
+    "kz.missoes": "Abgeschlossene Missionen",
+    "kz.nota": "Den Fortschritt hakst du ab; der Spielstand wird noch nicht gelesen.",
+    "kz.origem.pc": "Von dir abgehakt · auf diesem Computer gespeichert",
+    "kz.origem.leitura": "Häkchen vom Computer · dort abhaken",
+    "kz.origem.aqui": "Von dir abgehakt · in diesem Browser gespeichert",
+    "kz.erroGravar": "Das Häkchen konnte auf dem Computer nicht gespeichert werden",
+    "kz.grupo.campanha": "Kampagne",
+    "kz.grupo.combate": "Kampf",
+    "kz.grupo.equipamento": "Ausrüstung",
+    "kz.grupo.coleta": "Sammelobjekte",
+    "kz.bloco.missoes": "Hauptmissionen",
+    "kz.bloco.secundarias": "Bonusmissionen",
+    "kz.bloco.finais": "Enden und Modi",
+    "kz.bloco.chefes": "Bosse",
+    "kz.bloco.armas": "Waffen",
+    "kz.bloco.habilidades": "Fertigkeiten und Phantoms",
+    "kz.bloco.armaduras": "Rüstungssets",
+    "kz.bloco.materiais": "Boss-Materialien",
+    "kz.bloco.achados": "Schlüsselgegenstände",
+    "kz.bloco.conquistas": "Erfolge",
+    "kz.filtro.todos": "Alle",
+    "kz.filtro.feitos": "Erledigt",
+    "kz.filtro.faltam": "Fehlend",
+    "kz.tipo.final": "Ende",
+    "kz.tipo.pos-jogo": "Endgame",
+    "kz.tipo.classe": "Waffentyp",
+    "kz.chefe.principal": "Hauptboss",
+    "kz.chefe.secundario": "Nebenboss",
+    "kz.arvore.sistema": "System",
+    "kz.fonte.bau": "Truhe",
+    "kz.fonte.chefe": "Boss",
+    "kz.fonte.presente": "Geschenk",
+    "kz.cat.chefe": "Bosse",
+    "kz.cat.colecionavel": "Sammelobjekte",
+    "kz.cat.combate": "Kampf",
+    "kz.cat.final": "Enden",
+    "kz.cat.historia": "Story",
+    "kz.cat.pos-jogo": "Endgame",
+    "kz.cat.progresso": "Fortschritt",
+    "kz.cat.secundaria": "Bonusmissionen",
+    "kz.marcar.concluir": "Als abgeschlossen markieren",
+    "kz.feito.concluir": "Abgeschlossen",
+    "kz.marcar.derrotar": "Als besiegt markieren",
+    "kz.feito.derrotar": "Besiegt",
+    "kz.marcar.obter": "Als erhalten markieren",
+    "kz.feito.obter": "Erhalten",
+    "kz.marcar.desbloquear": "Als freigeschaltet markieren",
+    "kz.feito.desbloquear": "Freigeschaltet",
+    "kz.det.sobre": "Über",
+    "kz.det.missao": "Mission",
+    "kz.det.quantos": "{n} {item} in dieser Mission",
+    "kz.det.requer": "Benötigt",
+    "kz.det.libera": "Freischaltung",
+    "kz.det.chefes": "Bosse",
+    "kz.det.recompensa": "Belohnung",
+    "kz.det.coletas": "Sammelobjekte",
+    "kz.det.itens": "Gegenstände in dieser Mission",
+    "kz.det.abre": "Schaltet frei",
+    "kz.det.conquista": "Erfolg",
+    "kz.det.fases": "{n} Phasen",
+    "kz.det.onde": "Wo",
+    "kz.det.drops": "Beute",
+    "kz.det.ligados": "Verknüpft",
+    "kz.det.como": "So bekommst du es",
+    "kz.det.ramos": "Zweige",
+    "kz.det.chave": "Wichtige Fertigkeiten",
+    "kz.det.verdadeiro": "Alle 15 Gegenstände der Golden Collection sind für das wahre Ende nötig.",
+    "kz.det.porque": "Warum es zählt",
+    "kz.det.requisitos": "Voraussetzungen",
+    "kz.det.dourados": "{n} von {total} abgehakt",
+    "kz.det.grupos": "Gruppen",
+    "kz.bloco.dourados": "Golden Collection",
+    "kz.bloco.soulstones": "Soulstones",
+    "kz.bloco.jarlings": "Jarlings",
+    "kz.tipo.ultimate-challenge": "Ultimate Challenge",
+    "kz.arvore.phantom": "Phantom",
+    "kz.fonte.scroll": "Scroll",
+    "kz.fonte.ultimate-challenge": "Ultimate Challenge",
+    "kz.cat.crevice": "The Crevice",
     "nav.rotulo": "Navigation",
     "nav.voltar": "Zurück",
     "nav.avancar": "Vorwärts",
@@ -5436,6 +6177,86 @@ const I18N = {
     "er.mapa.resumo": "{gracas} luoghi di grazia · {chefes} boss",
     "er.mapa.total": "{gracas} luoghi di grazia · {chefes} boss",
     "jogos.soSave": "Di questo gioco viene letto il salvataggio.",
+    "jogos.soMarcas": "I progressi di questo gioco li segni tu nella sua pagina.",
+    "kz.missoes": "Missioni completate",
+    "kz.nota": "I progressi li segni tu; il salvataggio non viene ancora letto.",
+    "kz.origem.pc": "Segnato da te · salvato su questo computer",
+    "kz.origem.leitura": "Segni dal computer · segnali lì",
+    "kz.origem.aqui": "Segnato da te · salvato in questo browser",
+    "kz.erroGravar": "Impossibile salvare il segno sul computer",
+    "kz.grupo.campanha": "Campagna",
+    "kz.grupo.combate": "Combattimento",
+    "kz.grupo.equipamento": "Equipaggiamento",
+    "kz.grupo.coleta": "Collezionabili",
+    "kz.bloco.missoes": "Missioni principali",
+    "kz.bloco.secundarias": "Missioni bonus",
+    "kz.bloco.finais": "Finali e modalità",
+    "kz.bloco.chefes": "Boss",
+    "kz.bloco.armas": "Armi",
+    "kz.bloco.habilidades": "Abilità e Phantom",
+    "kz.bloco.armaduras": "Set di armatura",
+    "kz.bloco.materiais": "Materiali dei boss",
+    "kz.bloco.achados": "Oggetti chiave",
+    "kz.bloco.conquistas": "Obiettivi",
+    "kz.filtro.todos": "Tutti",
+    "kz.filtro.feitos": "Fatti",
+    "kz.filtro.faltam": "Mancanti",
+    "kz.tipo.final": "Finale",
+    "kz.tipo.pos-jogo": "Post-gioco",
+    "kz.tipo.classe": "Tipo di arma",
+    "kz.chefe.principal": "Boss principale",
+    "kz.chefe.secundario": "Boss secondario",
+    "kz.arvore.sistema": "Sistema",
+    "kz.fonte.bau": "Forziere",
+    "kz.fonte.chefe": "Boss",
+    "kz.fonte.presente": "Regalo",
+    "kz.cat.chefe": "Boss",
+    "kz.cat.colecionavel": "Collezionabili",
+    "kz.cat.combate": "Combattimento",
+    "kz.cat.final": "Finali",
+    "kz.cat.historia": "Storia",
+    "kz.cat.pos-jogo": "Post-gioco",
+    "kz.cat.progresso": "Progressione",
+    "kz.cat.secundaria": "Missioni bonus",
+    "kz.marcar.concluir": "Segna come completata",
+    "kz.feito.concluir": "Completata",
+    "kz.marcar.derrotar": "Segna come sconfitto",
+    "kz.feito.derrotar": "Sconfitto",
+    "kz.marcar.obter": "Segna come ottenuto",
+    "kz.feito.obter": "Ottenuto",
+    "kz.marcar.desbloquear": "Segna come sbloccato",
+    "kz.feito.desbloquear": "Sbloccato",
+    "kz.det.sobre": "Informazioni",
+    "kz.det.missao": "Missione",
+    "kz.det.quantos": "{n} {item} in questa missione",
+    "kz.det.requer": "Richiede",
+    "kz.det.libera": "Come sbloccare",
+    "kz.det.chefes": "Boss",
+    "kz.det.recompensa": "Ricompensa",
+    "kz.det.coletas": "Collezionabili",
+    "kz.det.itens": "Oggetti in questa missione",
+    "kz.det.abre": "Sblocca",
+    "kz.det.conquista": "Obiettivo",
+    "kz.det.fases": "{n} fasi",
+    "kz.det.onde": "Dove",
+    "kz.det.drops": "Bottino",
+    "kz.det.ligados": "Collegati",
+    "kz.det.como": "Come ottenerlo",
+    "kz.det.ramos": "Rami",
+    "kz.det.chave": "Abilità chiave",
+    "kz.det.verdadeiro": "Servono tutti i 15 oggetti della Golden Collection per il vero finale.",
+    "kz.det.porque": "Perché conta",
+    "kz.det.requisitos": "Requisiti",
+    "kz.det.dourados": "{n} di {total} segnati",
+    "kz.det.grupos": "Gruppi",
+    "kz.bloco.dourados": "Golden Collection",
+    "kz.bloco.soulstones": "Soulstones",
+    "kz.bloco.jarlings": "Jarlings",
+    "kz.tipo.ultimate-challenge": "Ultimate Challenge",
+    "kz.arvore.phantom": "Phantom",
+    "kz.fonte.scroll": "Scroll",
+    "kz.fonte.ultimate-challenge": "Ultimate Challenge",
+    "kz.cat.crevice": "The Crevice",
     "nav.rotulo": "Navigazione",
     "nav.voltar": "Indietro",
     "nav.avancar": "Avanti",
@@ -5746,6 +6567,86 @@ const I18N = {
     "er.mapa.resumo": "мест благодати: {gracas} · боссов: {chefes}",
     "er.mapa.total": "мест благодати: {gracas} · боссов: {chefes}",
     "jogos.soSave": "Для этой игры читается сохранение.",
+    "jogos.soMarcas": "Прогресс этой игры вы отмечаете на её странице.",
+    "kz.missoes": "Пройдено миссий",
+    "kz.nota": "Прогресс отмечаете вы; сохранение пока не читается.",
+    "kz.origem.pc": "Отмечено вами · хранится на этом компьютере",
+    "kz.origem.leitura": "Отметки с компьютера · отмечайте там",
+    "kz.origem.aqui": "Отмечено вами · хранится в этом браузере",
+    "kz.erroGravar": "Не удалось сохранить отметку на компьютере",
+    "kz.grupo.campanha": "Кампания",
+    "kz.grupo.combate": "Бой",
+    "kz.grupo.equipamento": "Снаряжение",
+    "kz.grupo.coleta": "Коллекционные предметы",
+    "kz.bloco.missoes": "Основные миссии",
+    "kz.bloco.secundarias": "Бонусные миссии",
+    "kz.bloco.finais": "Концовки и режимы",
+    "kz.bloco.chefes": "Боссы",
+    "kz.bloco.armas": "Оружие",
+    "kz.bloco.habilidades": "Навыки и Phantom",
+    "kz.bloco.armaduras": "Комплекты брони",
+    "kz.bloco.materiais": "Материалы боссов",
+    "kz.bloco.achados": "Ключевые предметы",
+    "kz.bloco.conquistas": "Достижения",
+    "kz.filtro.todos": "Все",
+    "kz.filtro.feitos": "Готово",
+    "kz.filtro.faltam": "Не хватает",
+    "kz.tipo.final": "Концовка",
+    "kz.tipo.pos-jogo": "Постгейм",
+    "kz.tipo.classe": "Тип оружия",
+    "kz.chefe.principal": "Главный босс",
+    "kz.chefe.secundario": "Побочный босс",
+    "kz.arvore.sistema": "Система",
+    "kz.fonte.bau": "Сундук",
+    "kz.fonte.chefe": "Босс",
+    "kz.fonte.presente": "Подарок",
+    "kz.cat.chefe": "Боссы",
+    "kz.cat.colecionavel": "Коллекционные предметы",
+    "kz.cat.combate": "Бой",
+    "kz.cat.final": "Концовки",
+    "kz.cat.historia": "Сюжет",
+    "kz.cat.pos-jogo": "Постгейм",
+    "kz.cat.progresso": "Прогресс",
+    "kz.cat.secundaria": "Бонусные миссии",
+    "kz.marcar.concluir": "Отметить как пройденную",
+    "kz.feito.concluir": "Пройдена",
+    "kz.marcar.derrotar": "Отметить как побеждённого",
+    "kz.feito.derrotar": "Побеждён",
+    "kz.marcar.obter": "Отметить как полученное",
+    "kz.feito.obter": "Получено",
+    "kz.marcar.desbloquear": "Отметить как открытое",
+    "kz.feito.desbloquear": "Открыто",
+    "kz.det.sobre": "Описание",
+    "kz.det.missao": "Миссия",
+    "kz.det.quantos": "{n} {item} в этой миссии",
+    "kz.det.requer": "Требуется",
+    "kz.det.libera": "Как открыть",
+    "kz.det.chefes": "Боссы",
+    "kz.det.recompensa": "Награда",
+    "kz.det.coletas": "Коллекционные предметы",
+    "kz.det.itens": "Предметы в этой миссии",
+    "kz.det.abre": "Открывает",
+    "kz.det.conquista": "Достижение",
+    "kz.det.fases": "Фаз: {n}",
+    "kz.det.onde": "Где",
+    "kz.det.drops": "Добыча",
+    "kz.det.ligados": "Связанное",
+    "kz.det.como": "Как получить",
+    "kz.det.ramos": "Ветви",
+    "kz.det.chave": "Ключевые навыки",
+    "kz.det.verdadeiro": "Для истинной концовки нужны все 15 предметов Golden Collection.",
+    "kz.det.porque": "Почему это важно",
+    "kz.det.requisitos": "Требования",
+    "kz.det.dourados": "Отмечено {n} из {total}",
+    "kz.det.grupos": "Группы",
+    "kz.bloco.dourados": "Golden Collection",
+    "kz.bloco.soulstones": "Soulstones",
+    "kz.bloco.jarlings": "Jarlings",
+    "kz.tipo.ultimate-challenge": "Ultimate Challenge",
+    "kz.arvore.phantom": "Phantom",
+    "kz.fonte.scroll": "Scroll",
+    "kz.fonte.ultimate-challenge": "Ultimate Challenge",
+    "kz.cat.crevice": "The Crevice",
     "nav.rotulo": "Навигация",
     "nav.voltar": "Назад",
     "nav.avancar": "Вперёд",
@@ -6056,6 +6957,86 @@ const I18N = {
     "er.mapa.resumo": "miejsca łaski: {gracas} · bossowie: {chefes}",
     "er.mapa.total": "miejsca łaski: {gracas} · bossowie: {chefes}",
     "jogos.soSave": "W tej grze odczytywany jest zapis.",
+    "jogos.soMarcas": "Postęp w tej grze zaznaczasz sam na jej stronie.",
+    "kz.missoes": "Ukończone misje",
+    "kz.nota": "Postęp zaznaczasz ty; zapis nie jest jeszcze odczytywany.",
+    "kz.origem.pc": "Zaznaczone przez ciebie · zapisane na tym komputerze",
+    "kz.origem.leitura": "Znaczniki z komputera · zaznaczaj tam",
+    "kz.origem.aqui": "Zaznaczone przez ciebie · zapisane w tej przeglądarce",
+    "kz.erroGravar": "Nie udało się zapisać znacznika na komputerze",
+    "kz.grupo.campanha": "Kampania",
+    "kz.grupo.combate": "Walka",
+    "kz.grupo.equipamento": "Ekwipunek",
+    "kz.grupo.coleta": "Znajdźki",
+    "kz.bloco.missoes": "Misje główne",
+    "kz.bloco.secundarias": "Misje dodatkowe",
+    "kz.bloco.finais": "Zakończenia i tryby",
+    "kz.bloco.chefes": "Bossowie",
+    "kz.bloco.armas": "Bronie",
+    "kz.bloco.habilidades": "Umiejętności i Phantomy",
+    "kz.bloco.armaduras": "Zestawy pancerzy",
+    "kz.bloco.materiais": "Materiały z bossów",
+    "kz.bloco.achados": "Przedmioty kluczowe",
+    "kz.bloco.conquistas": "Osiągnięcia",
+    "kz.filtro.todos": "Wszystkie",
+    "kz.filtro.feitos": "Zrobione",
+    "kz.filtro.faltam": "Brakuje",
+    "kz.tipo.final": "Zakończenie",
+    "kz.tipo.pos-jogo": "Po grze",
+    "kz.tipo.classe": "Rodzaj broni",
+    "kz.chefe.principal": "Główny boss",
+    "kz.chefe.secundario": "Poboczny boss",
+    "kz.arvore.sistema": "System",
+    "kz.fonte.bau": "Skrzynia",
+    "kz.fonte.chefe": "Boss",
+    "kz.fonte.presente": "Prezent",
+    "kz.cat.chefe": "Bossowie",
+    "kz.cat.colecionavel": "Znajdźki",
+    "kz.cat.combate": "Walka",
+    "kz.cat.final": "Zakończenia",
+    "kz.cat.historia": "Fabuła",
+    "kz.cat.pos-jogo": "Po grze",
+    "kz.cat.progresso": "Postęp",
+    "kz.cat.secundaria": "Misje dodatkowe",
+    "kz.marcar.concluir": "Oznacz jako ukończoną",
+    "kz.feito.concluir": "Ukończona",
+    "kz.marcar.derrotar": "Oznacz jako pokonanego",
+    "kz.feito.derrotar": "Pokonany",
+    "kz.marcar.obter": "Oznacz jako zdobyte",
+    "kz.feito.obter": "Zdobyte",
+    "kz.marcar.desbloquear": "Oznacz jako odblokowane",
+    "kz.feito.desbloquear": "Odblokowane",
+    "kz.det.sobre": "Opis",
+    "kz.det.missao": "Misja",
+    "kz.det.quantos": "{n} {item} w tej misji",
+    "kz.det.requer": "Wymaga",
+    "kz.det.libera": "Jak odblokować",
+    "kz.det.chefes": "Bossowie",
+    "kz.det.recompensa": "Nagroda",
+    "kz.det.coletas": "Znajdźki",
+    "kz.det.itens": "Przedmioty w tej misji",
+    "kz.det.abre": "Odblokowuje",
+    "kz.det.conquista": "Osiągnięcie",
+    "kz.det.fases": "Faz: {n}",
+    "kz.det.onde": "Gdzie",
+    "kz.det.drops": "Łupy",
+    "kz.det.ligados": "Powiązane",
+    "kz.det.como": "Jak zdobyć",
+    "kz.det.ramos": "Gałęzie",
+    "kz.det.chave": "Kluczowe umiejętności",
+    "kz.det.verdadeiro": "Do prawdziwego zakończenia potrzeba wszystkich 15 przedmiotów Golden Collection.",
+    "kz.det.porque": "Dlaczego to ważne",
+    "kz.det.requisitos": "Wymagania",
+    "kz.det.dourados": "Zaznaczono {n} z {total}",
+    "kz.det.grupos": "Grupy",
+    "kz.bloco.dourados": "Golden Collection",
+    "kz.bloco.soulstones": "Soulstones",
+    "kz.bloco.jarlings": "Jarlings",
+    "kz.tipo.ultimate-challenge": "Ultimate Challenge",
+    "kz.arvore.phantom": "Phantom",
+    "kz.fonte.scroll": "Scroll",
+    "kz.fonte.ultimate-challenge": "Ultimate Challenge",
+    "kz.cat.crevice": "The Crevice",
     "nav.rotulo": "Nawigacja",
     "nav.voltar": "Wstecz",
     "nav.avancar": "Dalej",
@@ -6366,6 +7347,86 @@ const I18N = {
     "er.mapa.resumo": "{gracas} lütuf · {chefes} boss",
     "er.mapa.total": "{gracas} lütuf · {chefes} boss",
     "jogos.soSave": "Bu oyun için kayıt okunur.",
+    "jogos.soMarcas": "Bu oyunun ilerlemesini sayfasında sen işaretlersin.",
+    "kz.missoes": "Tamamlanan görevler",
+    "kz.nota": "İlerlemeyi sen işaretlersin; kayıt henüz okunmuyor.",
+    "kz.origem.pc": "Senin işaretin · bu bilgisayarda saklanır",
+    "kz.origem.leitura": "Bilgisayardaki işaretler · orada işaretle",
+    "kz.origem.aqui": "Senin işaretin · bu tarayıcıda saklanır",
+    "kz.erroGravar": "İşaret bilgisayara kaydedilemedi",
+    "kz.grupo.campanha": "Kampanya",
+    "kz.grupo.combate": "Savaş",
+    "kz.grupo.equipamento": "Teçhizat",
+    "kz.grupo.coleta": "Koleksiyonlar",
+    "kz.bloco.missoes": "Ana görevler",
+    "kz.bloco.secundarias": "Bonus görevler",
+    "kz.bloco.finais": "Sonlar ve modlar",
+    "kz.bloco.chefes": "Bosslar",
+    "kz.bloco.armas": "Silahlar",
+    "kz.bloco.habilidades": "Yetenekler ve Phantom'lar",
+    "kz.bloco.armaduras": "Zırh setleri",
+    "kz.bloco.materiais": "Boss malzemeleri",
+    "kz.bloco.achados": "Anahtar eşyalar",
+    "kz.bloco.conquistas": "Başarımlar",
+    "kz.filtro.todos": "Tümü",
+    "kz.filtro.feitos": "Yapılan",
+    "kz.filtro.faltam": "Eksik",
+    "kz.tipo.final": "Son",
+    "kz.tipo.pos-jogo": "Oyun sonrası",
+    "kz.tipo.classe": "Silah türü",
+    "kz.chefe.principal": "Ana boss",
+    "kz.chefe.secundario": "Yan boss",
+    "kz.arvore.sistema": "Sistem",
+    "kz.fonte.bau": "Sandık",
+    "kz.fonte.chefe": "Boss",
+    "kz.fonte.presente": "Hediye",
+    "kz.cat.chefe": "Bosslar",
+    "kz.cat.colecionavel": "Koleksiyonlar",
+    "kz.cat.combate": "Savaş",
+    "kz.cat.final": "Sonlar",
+    "kz.cat.historia": "Hikâye",
+    "kz.cat.pos-jogo": "Oyun sonrası",
+    "kz.cat.progresso": "İlerleme",
+    "kz.cat.secundaria": "Bonus görevler",
+    "kz.marcar.concluir": "Tamamlandı olarak işaretle",
+    "kz.feito.concluir": "Tamamlandı",
+    "kz.marcar.derrotar": "Yenildi olarak işaretle",
+    "kz.feito.derrotar": "Yenildi",
+    "kz.marcar.obter": "Alındı olarak işaretle",
+    "kz.feito.obter": "Alındı",
+    "kz.marcar.desbloquear": "Açıldı olarak işaretle",
+    "kz.feito.desbloquear": "Açıldı",
+    "kz.det.sobre": "Hakkında",
+    "kz.det.missao": "Görev",
+    "kz.det.quantos": "Bu görevde {n} {item}",
+    "kz.det.requer": "Gerekli",
+    "kz.det.libera": "Nasıl açılır",
+    "kz.det.chefes": "Bosslar",
+    "kz.det.recompensa": "Ödül",
+    "kz.det.coletas": "Koleksiyonlar",
+    "kz.det.itens": "Bu görevdeki eşyalar",
+    "kz.det.abre": "Açar",
+    "kz.det.conquista": "Başarım",
+    "kz.det.fases": "{n} aşama",
+    "kz.det.onde": "Nerede",
+    "kz.det.drops": "Ganimet",
+    "kz.det.ligados": "İlgili",
+    "kz.det.como": "Nasıl alınır",
+    "kz.det.ramos": "Dallar",
+    "kz.det.chave": "Anahtar yetenekler",
+    "kz.det.verdadeiro": "Gerçek son için Golden Collection'daki 15 eşyanın hepsi gerekir.",
+    "kz.det.porque": "Neden önemli",
+    "kz.det.requisitos": "Gereksinimler",
+    "kz.det.dourados": "{total} içinden {n} işaretli",
+    "kz.det.grupos": "Gruplar",
+    "kz.bloco.dourados": "Golden Collection",
+    "kz.bloco.soulstones": "Soulstones",
+    "kz.bloco.jarlings": "Jarlings",
+    "kz.tipo.ultimate-challenge": "Ultimate Challenge",
+    "kz.arvore.phantom": "Phantom",
+    "kz.fonte.scroll": "Scroll",
+    "kz.fonte.ultimate-challenge": "Ultimate Challenge",
+    "kz.cat.crevice": "The Crevice",
     "nav.rotulo": "Gezinme",
     "nav.voltar": "Geri",
     "nav.avancar": "İleri",
@@ -6676,6 +7737,86 @@ const I18N = {
     "er.mapa.resumo": "祝福 {gracas} · ボス {chefes}",
     "er.mapa.total": "祝福 {gracas} · ボス {chefes}",
     "jogos.soSave": "このゲームはセーブを読み取ります。",
+    "jogos.soMarcas": "このゲームの進行は、ページで自分でチェックします。",
+    "kz.missoes": "クリアしたミッション",
+    "kz.nota": "進行は自分でチェックします。セーブはまだ読み取りません。",
+    "kz.origem.pc": "自分でチェック · このコンピューターに保存",
+    "kz.origem.leitura": "コンピューターのチェック · そちらでチェックしてください",
+    "kz.origem.aqui": "自分でチェック · このブラウザーに保存",
+    "kz.erroGravar": "コンピューターにチェックを保存できませんでした",
+    "kz.grupo.campanha": "キャンペーン",
+    "kz.grupo.combate": "戦闘",
+    "kz.grupo.equipamento": "装備",
+    "kz.grupo.coleta": "収集要素",
+    "kz.bloco.missoes": "メインミッション",
+    "kz.bloco.secundarias": "ボーナスミッション",
+    "kz.bloco.finais": "エンディングとモード",
+    "kz.bloco.chefes": "ボス",
+    "kz.bloco.armas": "武器",
+    "kz.bloco.habilidades": "スキルとPhantom",
+    "kz.bloco.armaduras": "防具セット",
+    "kz.bloco.materiais": "ボス素材",
+    "kz.bloco.achados": "重要アイテム",
+    "kz.bloco.conquistas": "実績",
+    "kz.filtro.todos": "すべて",
+    "kz.filtro.feitos": "済み",
+    "kz.filtro.faltam": "未",
+    "kz.tipo.final": "エンディング",
+    "kz.tipo.pos-jogo": "クリア後",
+    "kz.tipo.classe": "武器種",
+    "kz.chefe.principal": "メインボス",
+    "kz.chefe.secundario": "サブボス",
+    "kz.arvore.sistema": "システム",
+    "kz.fonte.bau": "宝箱",
+    "kz.fonte.chefe": "ボス",
+    "kz.fonte.presente": "プレゼント",
+    "kz.cat.chefe": "ボス",
+    "kz.cat.colecionavel": "収集要素",
+    "kz.cat.combate": "戦闘",
+    "kz.cat.final": "エンディング",
+    "kz.cat.historia": "ストーリー",
+    "kz.cat.pos-jogo": "クリア後",
+    "kz.cat.progresso": "進行",
+    "kz.cat.secundaria": "ボーナスミッション",
+    "kz.marcar.concluir": "クリア済みにする",
+    "kz.feito.concluir": "クリア済み",
+    "kz.marcar.derrotar": "撃破済みにする",
+    "kz.feito.derrotar": "撃破済み",
+    "kz.marcar.obter": "入手済みにする",
+    "kz.feito.obter": "入手済み",
+    "kz.marcar.desbloquear": "解除済みにする",
+    "kz.feito.desbloquear": "解除済み",
+    "kz.det.sobre": "概要",
+    "kz.det.missao": "ミッション",
+    "kz.det.quantos": "このミッションに{item}が{n}個",
+    "kz.det.requer": "必要条件",
+    "kz.det.libera": "解放条件",
+    "kz.det.chefes": "ボス",
+    "kz.det.recompensa": "報酬",
+    "kz.det.coletas": "収集要素",
+    "kz.det.itens": "このミッションのアイテム",
+    "kz.det.abre": "解放するもの",
+    "kz.det.conquista": "実績",
+    "kz.det.fases": "{n}フェーズ",
+    "kz.det.onde": "場所",
+    "kz.det.drops": "ドロップ",
+    "kz.det.ligados": "関連",
+    "kz.det.como": "入手方法",
+    "kz.det.ramos": "系統",
+    "kz.det.chave": "主要スキル",
+    "kz.det.verdadeiro": "真エンディングにはGolden Collectionの15個すべてが必要です。",
+    "kz.det.porque": "重要な理由",
+    "kz.det.requisitos": "条件",
+    "kz.det.dourados": "{total}件中{n}件チェック済み",
+    "kz.det.grupos": "グループ",
+    "kz.bloco.dourados": "Golden Collection",
+    "kz.bloco.soulstones": "Soulstones",
+    "kz.bloco.jarlings": "Jarlings",
+    "kz.tipo.ultimate-challenge": "Ultimate Challenge",
+    "kz.arvore.phantom": "Phantom",
+    "kz.fonte.scroll": "Scroll",
+    "kz.fonte.ultimate-challenge": "Ultimate Challenge",
+    "kz.cat.crevice": "The Crevice",
     "nav.rotulo": "ナビゲーション",
     "nav.voltar": "戻る",
     "nav.avancar": "進む",
@@ -6986,6 +8127,86 @@ const I18N = {
     "er.mapa.resumo": "축복 {gracas} · 보스 {chefes}",
     "er.mapa.total": "축복 {gracas} · 보스 {chefes}",
     "jogos.soSave": "이 게임은 세이브를 읽습니다.",
+    "jogos.soMarcas": "이 게임의 진행은 페이지에서 직접 체크합니다.",
+    "kz.missoes": "완료한 미션",
+    "kz.nota": "진행은 직접 체크합니다. 세이브는 아직 읽지 않습니다.",
+    "kz.origem.pc": "직접 체크 · 이 컴퓨터에 저장",
+    "kz.origem.leitura": "컴퓨터의 체크 · 그곳에서 체크하세요",
+    "kz.origem.aqui": "직접 체크 · 이 브라우저에 저장",
+    "kz.erroGravar": "컴퓨터에 체크를 저장하지 못했습니다",
+    "kz.grupo.campanha": "캠페인",
+    "kz.grupo.combate": "전투",
+    "kz.grupo.equipamento": "장비",
+    "kz.grupo.coleta": "수집품",
+    "kz.bloco.missoes": "메인 미션",
+    "kz.bloco.secundarias": "보너스 미션",
+    "kz.bloco.finais": "엔딩과 모드",
+    "kz.bloco.chefes": "보스",
+    "kz.bloco.armas": "무기",
+    "kz.bloco.habilidades": "스킬과 Phantom",
+    "kz.bloco.armaduras": "방어구 세트",
+    "kz.bloco.materiais": "보스 재료",
+    "kz.bloco.achados": "핵심 아이템",
+    "kz.bloco.conquistas": "도전 과제",
+    "kz.filtro.todos": "전체",
+    "kz.filtro.feitos": "완료",
+    "kz.filtro.faltam": "남음",
+    "kz.tipo.final": "엔딩",
+    "kz.tipo.pos-jogo": "엔드 콘텐츠",
+    "kz.tipo.classe": "무기 종류",
+    "kz.chefe.principal": "메인 보스",
+    "kz.chefe.secundario": "서브 보스",
+    "kz.arvore.sistema": "시스템",
+    "kz.fonte.bau": "상자",
+    "kz.fonte.chefe": "보스",
+    "kz.fonte.presente": "선물",
+    "kz.cat.chefe": "보스",
+    "kz.cat.colecionavel": "수집품",
+    "kz.cat.combate": "전투",
+    "kz.cat.final": "엔딩",
+    "kz.cat.historia": "스토리",
+    "kz.cat.pos-jogo": "엔드 콘텐츠",
+    "kz.cat.progresso": "진행",
+    "kz.cat.secundaria": "보너스 미션",
+    "kz.marcar.concluir": "완료로 표시",
+    "kz.feito.concluir": "완료",
+    "kz.marcar.derrotar": "처치로 표시",
+    "kz.feito.derrotar": "처치",
+    "kz.marcar.obter": "획득으로 표시",
+    "kz.feito.obter": "획득",
+    "kz.marcar.desbloquear": "해제로 표시",
+    "kz.feito.desbloquear": "해제",
+    "kz.det.sobre": "설명",
+    "kz.det.missao": "미션",
+    "kz.det.quantos": "이 미션의 {item} {n}개",
+    "kz.det.requer": "필요 조건",
+    "kz.det.libera": "해제 방법",
+    "kz.det.chefes": "보스",
+    "kz.det.recompensa": "보상",
+    "kz.det.coletas": "수집품",
+    "kz.det.itens": "이 미션의 아이템",
+    "kz.det.abre": "해제 대상",
+    "kz.det.conquista": "도전 과제",
+    "kz.det.fases": "{n}페이즈",
+    "kz.det.onde": "위치",
+    "kz.det.drops": "드롭",
+    "kz.det.ligados": "관련 항목",
+    "kz.det.como": "얻는 방법",
+    "kz.det.ramos": "계열",
+    "kz.det.chave": "핵심 스킬",
+    "kz.det.verdadeiro": "진엔딩에는 Golden Collection 15개가 모두 필요합니다.",
+    "kz.det.porque": "중요한 이유",
+    "kz.det.requisitos": "조건",
+    "kz.det.dourados": "{total}개 중 {n}개 체크",
+    "kz.det.grupos": "그룹",
+    "kz.bloco.dourados": "Golden Collection",
+    "kz.bloco.soulstones": "Soulstones",
+    "kz.bloco.jarlings": "Jarlings",
+    "kz.tipo.ultimate-challenge": "Ultimate Challenge",
+    "kz.arvore.phantom": "Phantom",
+    "kz.fonte.scroll": "Scroll",
+    "kz.fonte.ultimate-challenge": "Ultimate Challenge",
+    "kz.cat.crevice": "The Crevice",
     "nav.rotulo": "탐색",
     "nav.voltar": "뒤로",
     "nav.avancar": "앞으로",
@@ -7296,6 +8517,86 @@ const I18N = {
     "er.mapa.resumo": "赐福 {gracas} · 首领 {chefes}",
     "er.mapa.total": "赐福 {gracas} · 首领 {chefes}",
     "jogos.soSave": "此游戏会读取存档。",
+    "jogos.soMarcas": "此游戏的进度由你在页面上自行勾选。",
+    "kz.missoes": "已完成任务",
+    "kz.nota": "进度由你勾选；暂不读取存档。",
+    "kz.origem.pc": "由你勾选 · 保存在这台电脑上",
+    "kz.origem.leitura": "来自电脑的勾选 · 请在电脑上勾选",
+    "kz.origem.aqui": "由你勾选 · 保存在此浏览器中",
+    "kz.erroGravar": "无法将勾选保存到电脑",
+    "kz.grupo.campanha": "主线",
+    "kz.grupo.combate": "战斗",
+    "kz.grupo.equipamento": "装备",
+    "kz.grupo.coleta": "收集品",
+    "kz.bloco.missoes": "主线任务",
+    "kz.bloco.secundarias": "额外任务",
+    "kz.bloco.finais": "结局与模式",
+    "kz.bloco.chefes": "首领",
+    "kz.bloco.armas": "武器",
+    "kz.bloco.habilidades": "技能与 Phantom",
+    "kz.bloco.armaduras": "防具套装",
+    "kz.bloco.materiais": "首领素材",
+    "kz.bloco.achados": "关键道具",
+    "kz.bloco.conquistas": "成就",
+    "kz.filtro.todos": "全部",
+    "kz.filtro.feitos": "已完成",
+    "kz.filtro.faltam": "未完成",
+    "kz.tipo.final": "结局",
+    "kz.tipo.pos-jogo": "通关后",
+    "kz.tipo.classe": "武器类型",
+    "kz.chefe.principal": "主线首领",
+    "kz.chefe.secundario": "支线首领",
+    "kz.arvore.sistema": "系统",
+    "kz.fonte.bau": "宝箱",
+    "kz.fonte.chefe": "首领",
+    "kz.fonte.presente": "礼物",
+    "kz.cat.chefe": "首领",
+    "kz.cat.colecionavel": "收集品",
+    "kz.cat.combate": "战斗",
+    "kz.cat.final": "结局",
+    "kz.cat.historia": "剧情",
+    "kz.cat.pos-jogo": "通关后",
+    "kz.cat.progresso": "进度",
+    "kz.cat.secundaria": "额外任务",
+    "kz.marcar.concluir": "标记为已完成",
+    "kz.feito.concluir": "已完成",
+    "kz.marcar.derrotar": "标记为已击败",
+    "kz.feito.derrotar": "已击败",
+    "kz.marcar.obter": "标记为已获得",
+    "kz.feito.obter": "已获得",
+    "kz.marcar.desbloquear": "标记为已解锁",
+    "kz.feito.desbloquear": "已解锁",
+    "kz.det.sobre": "简介",
+    "kz.det.missao": "任务",
+    "kz.det.quantos": "本任务有 {n} 个 {item}",
+    "kz.det.requer": "需要",
+    "kz.det.libera": "解锁方式",
+    "kz.det.chefes": "首领",
+    "kz.det.recompensa": "奖励",
+    "kz.det.coletas": "收集品",
+    "kz.det.itens": "本任务中的道具",
+    "kz.det.abre": "解锁",
+    "kz.det.conquista": "成就",
+    "kz.det.fases": "{n} 个阶段",
+    "kz.det.onde": "位置",
+    "kz.det.drops": "掉落",
+    "kz.det.ligados": "相关",
+    "kz.det.como": "获取方式",
+    "kz.det.ramos": "分支",
+    "kz.det.chave": "核心技能",
+    "kz.det.verdadeiro": "真结局需要全部 15 件 Golden Collection 道具。",
+    "kz.det.porque": "为何重要",
+    "kz.det.requisitos": "条件",
+    "kz.det.dourados": "已勾选 {n}/{total}",
+    "kz.det.grupos": "组",
+    "kz.bloco.dourados": "Golden Collection",
+    "kz.bloco.soulstones": "Soulstones",
+    "kz.bloco.jarlings": "Jarlings",
+    "kz.tipo.ultimate-challenge": "Ultimate Challenge",
+    "kz.arvore.phantom": "Phantom",
+    "kz.fonte.scroll": "Scroll",
+    "kz.fonte.ultimate-challenge": "Ultimate Challenge",
+    "kz.cat.crevice": "The Crevice",
     "nav.rotulo": "导航",
     "nav.voltar": "后退",
     "nav.avancar": "前进",
@@ -8706,7 +10007,7 @@ function renderJogos() {
     linha.appendChild(estado);
 
     // Ressalva no hover.
-    linha.title = g.leitura !== "completa" ? t("jogos.soAbertura") : g.chave === CHAVE_ER ? t("jogos.soSave") : t("jogos.completa");
+    linha.title = g.leitura === "pagina" ? t("jogos.soMarcas") : g.leitura !== "completa" ? t("jogos.soAbertura") : g.chave === CHAVE_ER ? t("jogos.soSave") : t("jogos.completa");
 
     if (daMaquina) {
       linha.addEventListener("click", () => {
@@ -9057,6 +10358,12 @@ function renderSyncLine() {
   const aberto = dot.getAttribute("aria-expanded") === "true";
   dot.className = "sync-dot";
   dot.setAttribute("aria-expanded", aberto ? "true" : "false");
+  // Na página do Khazan a linha diz onde ficam as marcas.
+  if (naPaginaKz()) {
+    dot.classList.add(kzOrigem === "pc" ? "on" : "off");
+    text.textContent = kzLegenda();
+    return;
+  }
   // Na página do Elden Ring a linha fala do save dele.
   if (naPaginaEr()) {
     const s = erSync;
@@ -9222,9 +10529,11 @@ function vistaAtual() {
   const h = (typeof location !== "undefined" && location.hash || "").replace(/^#/, "");
   if (!lista) return jogosPendente && !h ? "hub" : "jogo";
   if (h === "all" || h === "steam") return "bibli";
-  if (h && lista.some((g) => g.chave === h && g.leitura === "completa")) return "jogo";
+  if (h && lista.some((g) => g.chave === h && temPagina(g))) return "jogo";
   return "hub";
 }
+/** Jogo com página própria: lido do save ou marcado pelo jogador. */
+function temPagina(g) { return !!g && (g.leitura === "completa" || g.leitura === "pagina"); }
 
 /* Tema próprio da tela de jogos, escuro por padrão e independente do da página do jogo. */
 const TEMA_JOGOS = "theme-jogos";
@@ -9240,11 +10549,13 @@ function aplicarVista() {
   if (corpo && corpo.classList) {
     const antes = naTelaDeJogos();
     const eraEr = corpo.classList.contains("jogo-er");
+    const eraKz = corpo.classList.contains("jogo-kz");
     corpo.classList.toggle("vista-hub", v === "hub");
     corpo.classList.toggle("vista-bibli", v === "bibli");
     corpo.classList.toggle("jogo-er", naPaginaEr());
+    corpo.classList.toggle("jogo-kz", naPaginaKz());
     // Cada lado guarda o próprio tema.
-    if ((antes !== naTelaDeJogos() || eraEr !== naPaginaEr()) && typeof applyTheme === "function" && document.getElementById("themeToggle")) {
+    if ((antes !== naTelaDeJogos() || eraEr !== naPaginaEr() || eraKz !== naPaginaKz()) && typeof applyTheme === "function" && document.getElementById("themeToggle")) {
       applyTheme(guardado(chaveDoTema()));
     }
   }
@@ -9254,6 +10565,8 @@ function aplicarVista() {
   if (bibli) bibli.hidden = v !== "bibli";
   const er = document.getElementById("er");
   if (er) er.hidden = !naPaginaEr();
+  const kz = document.getElementById("kz");
+  if (kz) kz.hidden = !naPaginaKz();
   atualizarNavegacao(v);
   const lugar = v + "|" + (typeof location !== "undefined" ? location.hash : "");
   if (aplicarVista.lugar !== undefined && aplicarVista.lugar !== lugar) {
@@ -9368,6 +10681,7 @@ function fazerPinos(g) {
 /* Sincronizado: o tracker lê este jogo e a leitura é recente. */
 function sincronizado(g) {
   if (g && g.chave === CHAVE_ER) return !!(erSync && erSync.ok && !erSync.stale);
+  if (g && g.chave === CHAVE_KZ) return false;
   return !!(g && g.leitura === "completa" && sync && sync.ok && !sync.stale);
 }
 
@@ -9648,7 +10962,7 @@ function mostrarNoPalco(g) {
   meta.appendChild(fazerPinos(g));
 
   const abre = document.getElementById("palcoAbre");
-  abre.hidden = g.leitura !== "completa";
+  abre.hidden = !temPagina(g);
   abre.onclick = () => irPara(g.chave);
 
   const jogar = document.getElementById("palcoJogar");
@@ -9708,13 +11022,13 @@ function renderHub() {
     // Destaque: o jogo jogado por último; sem essa informação, o primeiro instalado,
     // e sem instalados o que tem progresso.
     const destaque = lista.filter((g) => g.recente).sort((a, b) => a.recente - b.recente)[0] ||
-      mostrar[0] || lista.find((g) => g.leitura === "completa") || null;
+      mostrar[0] || lista.find(temPagina) || null;
     const conta = document.getElementById("hubConta");
     if (conta) conta.textContent = String(mostrar.length);
     const novos = jogosNovos(mostrar);
     for (const g of mostrar) {
       const card = document.createElement("div");
-      card.className = "jogo-card" + (g.leitura === "completa" ? " lido" : "");
+      card.className = "jogo-card" + (temPagina(g) ? " lido" : "");
       card.dataset.chave = g.chave;
       card.setAttribute("role", "button");
       card.setAttribute("aria-label", g.nome);
@@ -9731,7 +11045,7 @@ function renderHub() {
       card.appendChild(nome);
       const abrir = () => {
         if (conhecerJogo(g.chave)) { const m = card.querySelector(".marca-jogo-novo"); if (m) m.remove(); }
-        if (jogoEmFoco === g.chave && g.leitura === "completa") irPara(g.chave);
+        if (jogoEmFoco === g.chave && temPagina(g)) irPara(g.chave);
         else mostrarNoPalco(g);
       };
       card.addEventListener("click", abrir);
@@ -9766,7 +11080,7 @@ function renderHub() {
     const caixa = document.getElementById("bibliGrupos");
     if (!caixa) return;
     caixa.innerHTML = "";
-    const lido = lista.find((g) => g.leitura === "completa") || lista[0];
+    const lido = lista.find(temPagina) || lista[0];
     if (lido) {
       const probe = document.createElement("img");
       carregarImg(probe, enderecos(lido, ["heroi", "faixa"]), () => ambienteCom(null));
@@ -9815,7 +11129,7 @@ function renderHub() {
         nome.textContent = g.nome;
         linha.appendChild(nome);
         linha.appendChild(fazerPinos(g));
-        if (g.leitura === "completa") {
+        if (temPagina(g)) {
           const abre = document.createElement("button");
           abre.type = "button";
           abre.className = "bibli-abre";
@@ -9923,7 +11237,7 @@ function mostrarBusca(jogos, aviso) {
     nome.textContent = g.nome;
     linha.appendChild(nome);
     linha.appendChild(fazerPinos(g));
-    if (g.leitura === "completa") {
+    if (temPagina(g)) {
       const abre = document.createElement("button");
       abre.type = "button";
       abre.className = "bibli-abre";
@@ -10089,7 +11403,7 @@ function atualizarNavegacao(v) {
   liga("navAvancar", () => { if (typeof history !== "undefined") history.forward(); });
   liga("navInicio", () => irPara(""));
   if (typeof window !== "undefined" && window.addEventListener) {
-    const trocou = () => { aplicarVista(); renderHub(); renderEr(); renderSyncLine(); };
+    const trocou = () => { aplicarVista(); renderHub(); renderEr(); renderKz(); renderSyncLine(); };
     window.addEventListener("hashchange", trocou);
     window.addEventListener("popstate", trocou);
   }
@@ -11000,6 +12314,643 @@ if (typeof window !== "undefined" && typeof window.addEventListener === "functio
   });
 }
 
+/* ============================================================ Khazan
+   Página do The First Berserker: Khazan. O save do jogo ainda não tem leitura
+   conferida, então o progresso é marcado pelo jogador. As marcas ficam no
+   computador que roda o serviço (rota /marcas); sem serviço, neste navegador. */
+const CHAVE_KZ = "steam-2680010";
+const KZ_GRUPOS = [
+  ["campanha", ["missoes", "secundarias", "finais"]],
+  ["combate", ["chefes", "armas", "habilidades"]],
+  ["equipamento", ["armaduras", "materiais", "dourados"]],
+  ["coleta", ["soulstones", "jarlings", "achados", "conquistas"]],
+];
+const KZ_ACHADOS = ["disk-fragments", "bard", "ghost-items"];
+let kzDados = null;
+let kzPedido = null;
+let kzMarcas = new Set();
+let kzOrigem = null;
+let kzConsulta = 0;
+let kzAviso = "";
+const kzJ = { bloco: null, filtro: "todos", tipo: "", busca: "", pagina: 0, sel: null, todas: [], linhas: [], folhas: 1, porFolha: 12, detPag: 0, detFolhas: 1 };
+
+function naPaginaKz() { return jogoAtual() === CHAVE_KZ; }
+
+function kzCarregar() {
+  if (kzDados) return Promise.resolve(kzDados);
+  if (kzPedido) return kzPedido;
+  if (typeof fetch !== "function") return Promise.resolve(null);
+  kzPedido = fetch("app/khazan/dados.json")
+    .then((r) => (r && r.ok ? r.json() : null))
+    .then((j) => (j && j.formato === 1 ? j : null))
+    .catch(() => null)
+    .then((j) => { kzPedido = null; if (j) kzDados = j; return j; });
+  return kzPedido;
+}
+
+/* ------------------------------------------------------------ marcas */
+
+const KZ_LOCAL = "kz-marcas";
+function kzMarcasLocais() {
+  try { const l = JSON.parse(guardado(KZ_LOCAL) || "[]"); return Array.isArray(l) ? l : []; } catch (e) { return []; }
+}
+/** Lê as marcas do serviço; sem ele, as deste navegador. */
+async function kzLerMarcas() {
+  kzConsulta = Date.now();
+  let j = null;
+  if (!NO_NAVEGADOR && typeof fetch === "function") {
+    try {
+      const r = await fetch("/marcas?jogo=khazan&t=" + Date.now(), { cache: "no-store" });
+      j = r.ok ? await r.json() : null;
+    } catch (e) { j = null; }
+  }
+  const antes = JSON.stringify([kzOrigem, [...kzMarcas]]);
+  if (j && Array.isArray(j.marcas)) { kzOrigem = "pc"; kzMarcas = new Set(j.marcas); }
+  else if (kzOrigem !== "pc") { kzOrigem = "aqui"; kzMarcas = new Set(kzMarcasLocais()); }
+  if (antes !== JSON.stringify([kzOrigem, [...kzMarcas]])) renderKz();
+}
+/** Marcas do serviço só mudam no próprio computador, como a escolha de jogos. */
+function kzPodeMarcar() { return kzOrigem !== null && (kzOrigem !== "pc" || daMaquinaLocal()); }
+function kzMarcar(chave) {
+  if (!kzPodeMarcar()) return;
+  if (kzMarcas.has(chave)) kzMarcas.delete(chave); else kzMarcas.add(chave);
+  const lista = [...kzMarcas];
+  kzAviso = "";
+  if (kzOrigem === "pc") {
+    fetch("/marcas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jogo: "khazan", marcas: lista }) })
+      .then((r) => { if (!r.ok) throw new Error(String(r.status)); })
+      .catch(() => { kzAviso = t("kz.erroGravar"); renderKz(); });
+  } else {
+    guardar(KZ_LOCAL, JSON.stringify(lista));
+  }
+  renderKz();
+}
+function kzFeito(chave) { return kzMarcas.has(chave); }
+/** O que a marca quer dizer em cada bloco. */
+function kzVerbo(b) {
+  if (b === "missoes" || b === "secundarias" || b === "finais") return "concluir";
+  if (b === "chefes") return "derrotar";
+  if (b === "conquistas" || b === "habilidades") return "desbloquear";
+  return "obter";
+}
+
+/* ------------------------------------------------------------ consultas aos dados */
+
+function kzMissao(id) {
+  return kzDados && (kzDados.missoes.find((m) => m.id === id) || kzDados.secundarias.find((m) => m.id === id)) || null;
+}
+function kzBlocoDaMissao(id) { return kzDados.missoes.some((m) => m.id === id) ? "missoes" : "secundarias"; }
+function kzColecao(id) { return kzDados.colecionaveis.find((c) => c.id === id) || { itens: [] }; }
+function kzTodasMissoes() { return kzDados.missoes.concat(kzDados.secundarias); }
+function kzSoma(campo) {
+  return kzTodasMissoes().reduce((n, m) => n + (kzFeito(campo + ":" + m.id) ? m[campo] || 0 : 0), 0);
+}
+
+function kzMetrica(b) {
+  if (!kzDados) return null;
+  if (b === "soulstones" || b === "jarlings") return { tem: kzSoma(b), total: kzDados.totais[b] };
+  const l = kzLinhasDe(b);
+  return { tem: l.filter((x) => kzFeito(x.id)).length, total: l.length };
+}
+
+function kzLinhasDe(b) {
+  const d = kzDados;
+  if (!d) return [];
+  const linha = (cat, r, o) => Object.assign({ id: cat + ":" + r.id, cat, reg: r, nome: r.n, sub: "", tipo: "" }, o);
+  const nomeMissao = (id) => { const m = kzMissao(id); return m ? m.n : ""; };
+  const nomeChefe = (id) => { const c = d.chefes.find((x) => x.id === id); return c ? c.n : ""; };
+  switch (b) {
+    case "missoes":
+      return d.missoes.slice().sort((a, c) => a.ordem - c.ordem).map((m) => linha(b, m, { nome: m.ordem + ". " + m.n, sub: m.area, tipo: m.regiao }));
+    case "secundarias":
+      return d.secundarias.map((m) => linha(b, m, { sub: m.area, tipo: m.regiao }));
+    case "finais":
+      return d.finais.map((f) => linha(b, f, { tipo: f.tipo, sub: t("kz.tipo." + f.tipo) }));
+    case "chefes":
+      return d.chefes.map((c) => linha(b, c, { sub: nomeMissao(c.onde), tipo: c.tipo }));
+    case "armas":
+      return d.armas.map((a) => linha(b, a, { tipo: a.tipo, sub: a.tipo === "classe" ? t("kz.tipo.classe") : (d.armas.find((x) => x.id === a.tipo) || {}).n || "" }));
+    case "habilidades":
+      return d.habilidades.map((h) => linha(b, h, { tipo: h.arvore, sub: h.arvore === "sistema" || h.arvore === "phantom" ? t("kz.arvore." + h.arvore) : h.arvore }));
+    case "armaduras":
+      return d.armaduras.map((a) => linha(b, a, { tipo: a.fonte, sub: a.chefe ? nomeChefe(a.chefe) : t("kz.fonte." + a.fonte) }));
+    case "materiais":
+      return kzColecao("boss-materials").itens.map((i) => linha(b, i, { sub: nomeChefe(i.chefe) }));
+    case "dourados":
+      return kzColecao("golden-collection").itens.map((i) => linha(b, i, { sub: nomeMissao(i.onde) }));
+    case "soulstones": case "jarlings":
+      return kzTodasMissoes().filter((m) => m[b] > 0).map((m) => linha(b, m, { sub: "× " + m[b], tipo: m.regiao }));
+    case "achados":
+      return KZ_ACHADOS.flatMap((c) => { const col = kzColecao(c); return (col.itens || []).map((i) => linha(b, i, { tipo: c, sub: col.n + (i.onde ? " · " + nomeMissao(i.onde) : "") })); });
+    case "conquistas":
+      return d.conquistas.map((c) => linha(b, c, { tipo: c.categoria, sub: t("kz.cat." + c.categoria) }));
+    default: return [];
+  }
+}
+
+function kzOpcoes(b) {
+  const tipos = [...new Set(kzJ.todas.map((l) => l.tipo).filter(Boolean))];
+  if (tipos.length < 2) return null;
+  const rotulo = (x) => {
+    if (b === "chefes") return t("kz.chefe." + x);
+    if (b === "finais") return t("kz.tipo." + x);
+    if (b === "armaduras") return t("kz.fonte." + x);
+    if (b === "conquistas") return t("kz.cat." + x);
+    if (b === "armas") return x === "classe" ? t("kz.tipo.classe") : (kzDados.armas.find((a) => a.id === x) || {}).n || x;
+    if (b === "habilidades" && (x === "sistema" || x === "phantom")) return t("kz.arvore." + x);
+    if (b === "achados") return kzColecao(x).n || x;
+    return x;
+  };
+  return [["", t("er.filtro.tipo")]].concat(tipos.map((x) => [x, rotulo(x)]));
+}
+
+function kzFiltradas() {
+  const q = erSemAcento(kzJ.busca.trim());
+  return kzJ.todas.filter((l) => {
+    if (kzJ.tipo && l.tipo !== kzJ.tipo) return false;
+    if (kzJ.filtro !== "todos" && kzFeito(l.id) !== (kzJ.filtro === "feitos")) return false;
+    if (q && erSemAcento(l.nome).indexOf(q) < 0 && erSemAcento(l.sub).indexOf(q) < 0) return false;
+    return true;
+  });
+}
+
+/* ------------------------------------------------------------ página */
+
+function kzMontarGrupos() {
+  const caixa = document.getElementById("kzGrupos");
+  if (!caixa || caixa.dataset.montado) return;
+  caixa.dataset.montado = "1";
+  for (const [grupo, blocos] of KZ_GRUPOS) {
+    const sec = document.createElement("section");
+    sec.className = "kz-grupo";
+    const h = document.createElement("h2");
+    h.className = "kz-grupo-titulo";
+    h.dataset.kzGrupo = grupo;
+    sec.appendChild(h);
+    const lista = document.createElement("div");
+    lista.className = "kz-blocos";
+    for (const b of blocos) {
+      const bt = document.createElement("button");
+      bt.type = "button";
+      bt.className = "kz-bloco";
+      bt.dataset.kz = b;
+      bt.setAttribute("aria-haspopup", "dialog");
+      bt.setAttribute("aria-expanded", "false");
+      bt.innerHTML = '<span class="kz-bloco-nome"></span><span class="kz-bloco-num"></span><i class="kz-barra"><b></b></i>';
+      bt.addEventListener("click", () => kzAbrir(b, null, bt));
+      lista.appendChild(bt);
+    }
+    sec.appendChild(lista);
+    caixa.appendChild(sec);
+  }
+  const coletas = document.getElementById("kzColetas");
+  if (coletas) {
+    for (const c of ["soulstones", "jarlings", "dourados"]) {
+      const d = document.createElement("div");
+      d.className = "kz-coleta";
+      d.dataset.kz = c;
+      d.innerHTML = '<span class="kz-coleta-nome" translate="no"></span><span class="kz-coleta-num"></span><i class="kz-barra' + (c === "dourados" ? " ouro" : "") + '"><b></b></i>';
+      coletas.appendChild(d);
+    }
+  }
+}
+
+function kzLegenda() {
+  if (kzAviso) return kzAviso;
+  if (kzOrigem === "pc") return t(daMaquinaLocal() ? "kz.origem.pc" : "kz.origem.leitura");
+  return t("kz.origem.aqui");
+}
+
+function renderKz() {
+  if (typeof document === "undefined") return;
+  const sec = document.getElementById("kz");
+  if (!sec) return;
+  const ativo = naPaginaKz();
+  sec.hidden = !ativo;
+  if (!ativo) return;
+  kzMontarGrupos();
+  if (!kzDados) { kzCarregar().then((j) => { if (j) renderKz(); }); }
+  if (kzOrigem === null || Date.now() - kzConsulta > 15000) kzLerMarcas();
+  const sub = document.getElementById("kzSub");
+  if (sub) sub.textContent = kzLegenda();
+  const nota = document.getElementById("kzNota");
+  if (nota) nota.textContent = t("kz.nota");
+  const pct = (m) => (m && m.tem && m.total ? Math.round((100 * m.tem) / m.total) + "%" : "0");
+  const num = document.getElementById("kzMissoesNum");
+  if (num) {
+    const a = kzMetrica("missoes"), b = kzMetrica("secundarias");
+    num.innerHTML = a && b ? erEsc(decimal(a.tem + b.tem, 0)) + "<small>/ " + erEsc(decimal(a.total + b.total, 0)) + "</small>" : "—";
+  }
+  for (const c of document.querySelectorAll(".kz-coleta")) {
+    const m = kzMetrica(c.dataset.kz);
+    c.querySelector(".kz-coleta-nome").textContent = t("kz.bloco." + c.dataset.kz);
+    c.querySelector(".kz-coleta-num").textContent = m ? decimal(m.tem, 0) + " / " + decimal(m.total, 0) : "";
+    c.querySelector(".kz-barra > b").style.width = pct(m);
+  }
+  for (const h of document.querySelectorAll(".kz-grupo-titulo")) h.textContent = t("kz.grupo." + h.dataset.kzGrupo);
+  for (const bt of document.querySelectorAll(".kz-bloco")) {
+    const b = bt.dataset.kz;
+    const m = kzMetrica(b);
+    bt.querySelector(".kz-bloco-nome").textContent = t("kz.bloco." + b);
+    bt.querySelector(".kz-bloco-num").textContent = m ? decimal(m.tem, 0) + " / " + decimal(m.total, 0) : "";
+    bt.querySelector(".kz-barra > b").style.width = pct(m);
+  }
+  const j = document.getElementById("kzJanela");
+  if (j && j.open && kzJ.bloco && kzDados) {
+    kzJ.todas = kzLinhasDe(kzJ.bloco);
+    const titulo = document.getElementById("kzJanelaTitulo");
+    if (titulo) titulo.textContent = t("kz.bloco." + kzJ.bloco);
+    kzMontarFerramentas();
+    kzDesenharLista(true);
+    kzDesenharDetalhe(true);
+  }
+}
+
+/* ------------------------------------------------------------ janela */
+
+function kzMontarFerramentas() {
+  const chips = document.getElementById("kzChips");
+  if (chips) {
+    chips.innerHTML = "";
+    for (const id of ["todos", "feitos", "faltam"]) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "kz-chip";
+      b.textContent = t("kz.filtro." + id);
+      b.setAttribute("aria-pressed", kzJ.filtro === id ? "true" : "false");
+      b.addEventListener("click", () => { kzJ.filtro = id; kzJ.pagina = 0; kzMontarFerramentas(); kzDesenharLista(false); });
+      chips.appendChild(b);
+    }
+  }
+  const sel = document.getElementById("kzTipo");
+  if (sel) {
+    const ops = kzOpcoes(kzJ.bloco);
+    sel.hidden = !ops;
+    sel.innerHTML = "";
+    if (!ops) kzJ.tipo = "";
+    for (const [v, r] of ops || []) {
+      const o = document.createElement("option");
+      o.value = v;
+      o.textContent = r;
+      if (v === kzJ.tipo) o.selected = true;
+      sel.appendChild(o);
+    }
+  }
+}
+
+function kzDesenharLista(manter) {
+  const ol = document.getElementById("kzLista");
+  if (!ol || !kzJ.bloco) return;
+  const linhas = kzFiltradas();
+  kzJ.linhas = linhas;
+  const altura = Number(ol.clientHeight) || 0;
+  kzJ.porFolha = altura > 0 ? Math.max(1, Math.floor((altura - 16) / (erRem() * 2.35 + 2))) : 12;
+  kzJ.folhas = Math.max(1, Math.ceil(linhas.length / kzJ.porFolha));
+  if (!manter) kzJ.pagina = 0;
+  kzJ.pagina = Math.max(0, Math.min(kzJ.folhas - 1, kzJ.pagina));
+  ol.innerHTML = linhas.length ? "" : '<li class="kz-vazio">' + erEsc(t("er.vazio")) + "</li>";
+  for (const l of linhas.slice(kzJ.pagina * kzJ.porFolha, (kzJ.pagina + 1) * kzJ.porFolha)) {
+    const li = document.createElement("li");
+    const b = document.createElement("button");
+    const feito = kzFeito(l.id);
+    b.type = "button";
+    b.className = "kz-linha" + (feito ? " feita" : "");
+    if (kzJ.sel === l.id) b.setAttribute("aria-current", "true");
+    b.innerHTML = '<i class="kz-feita' + (feito ? " sim" : "") + '"></i><span class="kz-linha-nome" translate="no">' + erEsc(l.nome) +
+      '</span><span class="kz-linha-sub">' + erEsc(l.sub) + "</span>";
+    b.addEventListener("click", () => { kzJ.sel = l.id; kzJ.detPag = 0; kzDesenharLista(true); kzDesenharDetalhe(false); });
+    li.appendChild(b);
+    ol.appendChild(li);
+  }
+  const pag = document.getElementById("kzPaginas");
+  if (pag) {
+    pag.hidden = kzJ.folhas < 2;
+    pag.querySelector(".folha-num").textContent = (kzJ.pagina + 1) + " / " + kzJ.folhas;
+    pag.querySelector(".folha-antes").disabled = kzJ.pagina === 0;
+    pag.querySelector(".folha-depois").disabled = kzJ.pagina >= kzJ.folhas - 1;
+  }
+  const j = document.getElementById("kzJanela");
+  if (j) j.classList.toggle("vendo-detalhe", kzJ.sel !== null && !naMesa());
+}
+
+function kzFolhear(d) {
+  const p = Math.max(0, Math.min(kzJ.folhas - 1, kzJ.pagina + d));
+  if (p === kzJ.pagina) return;
+  kzJ.pagina = p;
+  kzDesenharLista(true);
+}
+
+function kzElo(rotulo, bloco, id) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "kz-elo" + (kzFeito(bloco + ":" + id) ? " feito" : "");
+  b.setAttribute("translate", "no");
+  b.textContent = rotulo;
+  b.addEventListener("click", () => kzAbrir(bloco, bloco + ":" + id));
+  return b;
+}
+function kzSecao(conteudo, titulo) {
+  const s = document.createElement("section");
+  s.className = "kz-det-sec";
+  const h = document.createElement("h4");
+  h.textContent = titulo;
+  s.appendChild(h);
+  if (typeof conteudo === "string") {
+    const p = document.createElement("p");
+    p.textContent = conteudo;
+    s.appendChild(p);
+  } else {
+    s.appendChild(conteudo);
+  }
+  return s;
+}
+function kzElos(elos) {
+  const d = document.createElement("div");
+  d.className = "kz-elos";
+  for (const e of elos) d.appendChild(e);
+  return d;
+}
+function kzLista(textos) {
+  const ul = document.createElement("ul");
+  for (const x of textos) { const li = document.createElement("li"); li.textContent = x; li.setAttribute("translate", "no"); ul.appendChild(li); }
+  return ul;
+}
+/** Soulstones, Jarlings e itens dourados de uma missão, cada um levando à sua lista. */
+function kzContas(m) {
+  const d = document.createElement("div");
+  d.className = "kz-contas";
+  for (const [campo, bloco] of [["soulstones", "soulstones"], ["jarlings", "jarlings"], ["golden", "dourados"]]) {
+    if (!m[campo]) continue;
+    const s = document.createElement("span");
+    if (campo === "golden") s.className = "ouro";
+    s.innerHTML = "<b>" + erEsc(decimal(m[campo], 0)) + "</b>" + erEsc(t("kz.bloco." + bloco));
+    d.appendChild(s);
+  }
+  return d.children.length ? d : null;
+}
+
+function kzDesenharDetalhe(manter) {
+  const caixa = document.getElementById("kzDetalhe");
+  if (!caixa) return;
+  caixa.innerHTML = "";
+  const l = kzJ.todas.find((x) => x.id === kzJ.sel);
+  if (!l) {
+    const p = document.createElement("p");
+    p.className = "kz-det-vazio";
+    p.textContent = kzJ.todas.length ? t("er.det.escolha") : "";
+    caixa.appendChild(p);
+    return;
+  }
+  const d = kzDados, r = l.reg, b = kzJ.bloco;
+  const voltar = document.createElement("button");
+  voltar.type = "button";
+  voltar.className = "kz-bt kz-det-voltar";
+  voltar.textContent = "‹ " + t("er.det.voltar");
+  voltar.addEventListener("click", () => { kzJ.sel = null; kzDesenharLista(true); kzDesenharDetalhe(false); });
+  caixa.appendChild(voltar);
+  const c = document.createElement("div");
+  c.className = "kz-det-conteudo";
+  caixa.appendChild(c);
+  const h = document.createElement("h3");
+  h.setAttribute("translate", "no");
+  h.textContent = r.n;
+  c.appendChild(h);
+  const meta = document.createElement("div");
+  meta.className = "kz-det-meta";
+  meta.setAttribute("translate", "no");
+  const metaTexto = (x, classe) => { if (!x) return; const s = document.createElement("span"); s.textContent = x; if (classe) s.className = classe; meta.appendChild(s); };
+  c.appendChild(meta);
+
+  const bt = document.createElement("button");
+  bt.type = "button";
+  bt.className = "kz-marcar";
+  const feito = kzFeito(l.id);
+  bt.setAttribute("aria-pressed", feito ? "true" : "false");
+  bt.textContent = t((feito ? "kz.feito." : "kz.marcar.") + kzVerbo(b));
+  if (!kzPodeMarcar()) { bt.disabled = true; bt.title = t("kz.origem.leitura"); }
+  bt.addEventListener("click", () => kzMarcar(l.id));
+  c.appendChild(bt);
+
+  const missao = (id) => { const m = kzMissao(id); return m ? kzElo(m.n, kzBlocoDaMissao(id), id) : null; };
+  const chefesDe = (ids) => (ids || []).map((id) => { const x = d.chefes.find((y) => y.id === id); return x ? kzElo(x.n, "chefes", id) : null; }).filter(Boolean);
+  const conquista = (id) => { const x = id && d.conquistas.find((y) => y.id === id); return x ? kzSecao(kzElos([kzElo(x.n, "conquistas", id)]), t("kz.det.conquista")) : null; };
+  const add = (x) => { if (x) c.appendChild(x); };
+  const sobre = erTexto(r.d);
+
+  if (b === "missoes" || b === "secundarias" || b === "soulstones" || b === "jarlings") {
+    metaTexto(r.regiao); metaTexto(r.area);
+    if (b === "soulstones" || b === "jarlings") {
+      add(kzSecao(kzElos([missao(r.id)]), t("kz.det.missao")));
+      add(kzSecao(t("kz.det.quantos", { n: decimal(r[b], 0), item: t("kz.bloco." + b) }), t("kz.bloco." + b)));
+      const col = kzColecao(b === "soulstones" ? "soulstones" : "jarlings");
+      add(kzSecao(erTexto(col.d), t("kz.det.sobre")));
+      if (b === "jarlings" && col.requer && !kzFeito("secundarias:" + col.requer)) {
+        const m = kzMissao(col.requer);
+        if (m) add(kzSecao(kzElos([kzElo(m.n, "secundarias", m.id)]), t("kz.det.requer")));
+      }
+    } else {
+      if (sobre) add(kzSecao(sobre, t("kz.det.sobre")));
+      if (r.desbloqueia) {
+        const s = kzSecao(erTexto(r.desbloqueia), t("kz.det.libera"));
+        if (r.desbloqueia.apos) { const e = missao(r.desbloqueia.apos); if (e) s.appendChild(kzElos([e])); }
+        add(s);
+      }
+      const ch = chefesDe(r.chefes);
+      if (ch.length) add(kzSecao(kzElos(ch), t("kz.det.chefes")));
+      if (r.recompensa) add(kzSecao(erTexto(r.recompensa), t("kz.det.recompensa")));
+      const contas = kzContas(r);
+      if (contas) add(kzSecao(contas, t("kz.det.coletas")));
+      const achados = [];
+      for (const i of kzColecao("golden-collection").itens) if (i.onde === r.id) achados.push(kzElo(i.n, "dourados", i.id));
+      for (const cid of KZ_ACHADOS) for (const i of kzColecao(cid).itens || []) if (i.onde === r.id) achados.push(kzElo(i.n, "achados", i.id));
+      if (achados.length) add(kzSecao(kzElos(achados), t("kz.det.itens")));
+      const abre = d.secundarias.filter((s) => s.desbloqueia && s.desbloqueia.apos === r.id).map((s) => kzElo(s.n, "secundarias", s.id));
+      if (abre.length) add(kzSecao(kzElos(abre), t("kz.det.abre")));
+      add(conquista(r.conquista));
+    }
+  } else if (b === "chefes") {
+    metaTexto(t("kz.chefe." + r.tipo), "chefe");
+    if (r.fases > 1) metaTexto(t("kz.det.fases", { n: r.fases }));
+    if (sobre) add(kzSecao(sobre, t("kz.det.sobre")));
+    const m = missao(r.onde);
+    if (m) add(kzSecao(kzElos([m]), t("kz.det.onde")));
+    const drops = erTexto(r.drops);
+    if (drops && drops !== "-") add(kzSecao(drops, t("kz.det.drops")));
+    const ligados = [];
+    for (const a of d.armaduras) if (a.chefe === r.id) ligados.push(kzElo(a.n, "armaduras", a.id));
+    for (const i of kzColecao("boss-materials").itens) if (i.chefe === r.id) ligados.push(kzElo(i.n, "materiais", i.id));
+    if (ligados.length) add(kzSecao(kzElos(ligados), t("kz.det.ligados")));
+    add(conquista(r.conquista));
+  } else if (b === "armas") {
+    metaTexto(l.sub);
+    if (r.escala) metaTexto(r.escala);
+    if (sobre) add(kzSecao(sobre, t("kz.det.sobre")));
+    if (r.como) add(kzSecao(erTexto(r.como), t("kz.det.como")));
+    if (r.tipo === "classe") {
+      const arv = d.habilidades.find((x) => x.arvore === r.n);
+      if (arv) add(kzSecao(kzElos([kzElo(arv.n, "habilidades", arv.id)]), t("kz.bloco.habilidades")));
+    }
+  } else if (b === "habilidades") {
+    metaTexto(l.sub);
+    if (sobre) add(kzSecao(sobre, t("kz.det.sobre")));
+    if (r.ramos) add(kzSecao(kzLista(r.ramos), t("kz.det.ramos")));
+    if (r.chave) add(kzSecao(kzLista(r.chave), t("kz.det.chave")));
+    if (r.item) {
+      const i = kzColecao("ghost-items").itens.find((x) => x.n === r.item || x.id === r.item);
+      add(kzSecao(i ? kzElos([kzElo(i.n, "achados", i.id)]) : r.item, t("kz.det.libera")));
+    }
+    if (r.onde) { const m = missao(r.onde); if (m) add(kzSecao(kzElos([m]), t("kz.det.onde"))); }
+  } else if (b === "armaduras") {
+    metaTexto(t("kz.fonte." + r.fonte));
+    if (sobre) add(kzSecao(sobre, t("kz.det.sobre")));
+    if (r.como) add(kzSecao(erTexto(r.como), t("kz.det.como")));
+    const elos = [];
+    if (r.chefe) { const x = d.chefes.find((y) => y.id === r.chefe); if (x) elos.push(kzElo(x.n, "chefes", x.id)); }
+    if (r.material) { const i = kzColecao("boss-materials").itens.find((x) => x.n === r.material); if (i) elos.push(kzElo(i.n, "materiais", i.id)); }
+    if (elos.length) add(kzSecao(kzElos(elos), t("kz.det.ligados")));
+  } else if (b === "materiais") {
+    const col = kzColecao("boss-materials");
+    add(kzSecao(erTexto(col.d), t("kz.det.sobre")));
+    const elos = [];
+    const x = d.chefes.find((y) => y.id === r.chefe);
+    if (x) elos.push(kzElo(x.n, "chefes", x.id));
+    for (const a of d.armaduras) if (a.chefe === r.chefe) elos.push(kzElo(a.n, "armaduras", a.id));
+    if (elos.length) add(kzSecao(kzElos(elos), t("kz.det.ligados")));
+  } else if (b === "dourados" || b === "achados") {
+    const col = kzColecao(b === "dourados" ? "golden-collection" : l.tipo);
+    metaTexto(col.n);
+    const m = missao(r.onde);
+    if (m) add(kzSecao(kzElos([m]), t("kz.det.onde")));
+    if (col.d) add(kzSecao(erTexto(col.d), t("kz.det.sobre")));
+    if (b === "dourados") add(kzSecao(t("kz.det.verdadeiro"), t("kz.det.porque")));
+    add(conquista(col.conquista));
+  } else if (b === "finais") {
+    metaTexto(l.sub);
+    if (sobre) add(kzSecao(sobre, t("kz.det.sobre")));
+    if (r.requisitos) add(kzSecao(kzLista(r.requisitos), t("kz.det.requisitos")));
+    if (r.id === "final-verdadeiro") {
+      const m = kzMetrica("dourados");
+      add(kzSecao(t("kz.det.dourados", { n: decimal(m.tem, 0), total: decimal(m.total, 0) }), t("kz.bloco.dourados")));
+    }
+    if (r.grupos) add(kzSecao(kzLista(r.grupos), t("kz.det.grupos")));
+    add(conquista(r.conquista));
+  } else if (b === "conquistas") {
+    metaTexto(l.sub);
+    add(kzSecao(erTexto(r.como || r.d), t("kz.det.como")));
+    const ligados = [];
+    for (const x of d.chefes) if (x.conquista === r.id) ligados.push(kzElo(x.n, "chefes", x.id));
+    for (const x of d.secundarias) if (x.conquista === r.id) ligados.push(kzElo(x.n, "secundarias", x.id));
+    for (const x of d.finais) if (x.conquista === r.id) ligados.push(kzElo(x.n, "finais", x.id));
+    if (ligados.length) add(kzSecao(kzElos(ligados), t("kz.det.ligados")));
+  }
+  kzPaginarDetalhe(manter);
+}
+
+/** O detalhe que não cabe vira páginas no computador; no celular ele rola. */
+function kzPaginarDetalhe(manter) {
+  const caixa = document.getElementById("kzDetalhe");
+  const c = caixa && caixa.querySelector(".kz-det-conteudo");
+  let f = caixa && caixa.querySelector(".kz-det-folhas");
+  if (!c) return;
+  if (!manter) kzJ.detPag = 0;
+  c.style.maxHeight = "";
+  c.scrollTop = 0;
+  const alto = Number(c.clientHeight) || 0;
+  const quebras = naMesa() && alto > 0 && Number(c.scrollHeight) > alto + 1 ? erQuebras(c, alto) : [0];
+  kzJ.detFolhas = quebras.length;
+  kzJ.detPag = Math.max(0, Math.min(kzJ.detPag, quebras.length - 1));
+  const ini = quebras[kzJ.detPag];
+  if (quebras.length > 1) {
+    const fim = kzJ.detPag + 1 < quebras.length ? quebras[kzJ.detPag + 1] : ini + alto;
+    c.style.maxHeight = Math.max(1, Math.min(alto, fim - ini)) + "px";
+  }
+  c.scrollTop = ini;
+  if (quebras.length < 2) { if (f) f.remove(); return; }
+  if (!f) {
+    f = document.createElement("div");
+    f.className = "kz-det-folhas";
+    f.innerHTML = '<button type="button" class="det-antes" aria-label="Previous">‹</button><span class="det-num"></span><button type="button" class="det-depois" aria-label="Next">›</button>';
+    f.querySelector(".det-antes").addEventListener("click", () => { kzJ.detPag--; kzPaginarDetalhe(true); });
+    f.querySelector(".det-depois").addEventListener("click", () => { kzJ.detPag++; kzPaginarDetalhe(true); });
+    caixa.appendChild(f);
+  }
+  f.querySelector(".det-num").textContent = (kzJ.detPag + 1) + " / " + quebras.length;
+  f.querySelector(".det-antes").disabled = kzJ.detPag === 0;
+  f.querySelector(".det-depois").disabled = kzJ.detPag >= quebras.length - 1;
+}
+
+function kzLigarJanela(j) {
+  if (j.dataset.kzLigada) return;
+  j.dataset.kzLigada = "1";
+  ligarJanela(j, null);
+  const pag = document.getElementById("kzPaginas");
+  pag.querySelector(".folha-antes").addEventListener("click", () => kzFolhear(-1));
+  pag.querySelector(".folha-depois").addEventListener("click", () => kzFolhear(1));
+  let ultima = 0;
+  j.addEventListener("wheel", (ev) => {
+    if (!naMesa()) return;
+    const noDetalhe = ev.target && ev.target.closest && ev.target.closest(".kz-detalhe");
+    if (noDetalhe ? kzJ.detFolhas < 2 : kzJ.folhas < 2) return;
+    ev.preventDefault();
+    const agora = Date.now();
+    if (agora - ultima < 350 || !ev.deltaY) return;
+    ultima = agora;
+    if (noDetalhe) { kzJ.detPag = Math.max(0, Math.min(kzJ.detFolhas - 1, kzJ.detPag + (ev.deltaY > 0 ? 1 : -1))); kzPaginarDetalhe(true); }
+    else kzFolhear(ev.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
+  j.addEventListener("keydown", (ev) => {
+    if (ev.target && /^(INPUT|SELECT)$/.test(ev.target.tagName)) return;
+    if (ev.key === "ArrowRight" || ev.key === "PageDown") { ev.preventDefault(); kzFolhear(1); }
+    else if (ev.key === "ArrowLeft" || ev.key === "PageUp") { ev.preventDefault(); kzFolhear(-1); }
+  });
+  const busca = document.getElementById("kzBusca");
+  let espera = null;
+  busca.addEventListener("input", () => {
+    clearTimeout(espera);
+    espera = setTimeout(() => { kzJ.busca = busca.value || ""; kzJ.pagina = 0; kzDesenharLista(false); }, 220);
+  });
+  const sel = document.getElementById("kzTipo");
+  sel.addEventListener("change", () => { kzJ.tipo = sel.value; kzJ.pagina = 0; kzDesenharLista(false); });
+  j.addEventListener("close", () => { kzJ.sel = null; j.classList.remove("vendo-detalhe"); });
+}
+
+/** Abre a janela de um bloco; com `id`, já mostra o registro (elos entre blocos). */
+async function kzAbrir(bloco, id, botao) {
+  const j = document.getElementById("kzJanela");
+  if (!j) return;
+  kzLigarJanela(j);
+  if (kzJ.bloco !== bloco) {
+    kzJ.filtro = "todos"; kzJ.tipo = ""; kzJ.busca = ""; kzJ.pagina = 0;
+    const busca = document.getElementById("kzBusca");
+    if (busca) busca.value = "";
+  }
+  kzJ.bloco = bloco;
+  kzJ.sel = id || null;
+  kzJ.detPag = 0;
+  const titulo = document.getElementById("kzJanelaTitulo");
+  if (titulo) titulo.textContent = t("kz.bloco." + bloco);
+  if (!j.open) abrirJanela(j, botao || null);
+  const ol = document.getElementById("kzLista");
+  if (!(await kzCarregar())) { if (ol) ol.innerHTML = '<li class="kz-vazio">' + erEsc(t("er.falhou")) + "</li>"; return; }
+  if (kzJ.bloco !== bloco) return;
+  kzJ.todas = kzLinhasDe(bloco);
+  kzMontarFerramentas();
+  kzDesenharLista(false);
+  if (kzJ.sel !== null) {
+    if (kzJ.linhas.findIndex((x) => x.id === kzJ.sel) < 0) { kzJ.filtro = "todos"; kzJ.tipo = ""; kzJ.busca = ""; kzMontarFerramentas(); kzDesenharLista(false); }
+    const k = kzJ.linhas.findIndex((x) => x.id === kzJ.sel);
+    if (k >= 0) { kzJ.pagina = Math.floor(k / kzJ.porFolha); kzDesenharLista(true); }
+  }
+  kzDesenharDetalhe(false);
+}
+
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  window.addEventListener("resize", () => {
+    const j = typeof document !== "undefined" && document.getElementById("kzJanela");
+    if (j && j.open && kzJ.bloco && kzJ.todas.length) { kzDesenharLista(true); kzPaginarDetalhe(true); }
+  });
+}
+
 /* ------------------------------------------------------------ save no navegador */
 
 /* Na extensão não há serviço: a pessoa escolhe o ER0000.sl2 (ou .co2) e a página
@@ -11119,9 +13070,10 @@ function render() {
   renderEstados();
   renderJogos();
   // Com a página do jogo visível, o conteúdo conta como visto.
-  if (vistaAtual() === "jogo" && !naPaginaEr()) marcarDesbloqueiosVistos();
+  if (vistaAtual() === "jogo" && !naPaginaEr() && !naPaginaKz()) marcarDesbloqueiosVistos();
   renderHub();
   renderEr();
+  renderKz();
   renderDeaths();
   renderTempo();
   renderBossKills();
@@ -11536,7 +13488,7 @@ function applyTheme(t) {
   botao.title = efetivo === "light" ? tr("tema.paraEscuro") : tr("tema.paraClaro");
   botao.setAttribute("aria-label", botao.title);
   const cor = document.querySelector('meta[name="theme-color"]');
-  if (cor) cor.setAttribute("content", naTelaDeJogos() ? (efetivo === "light" ? "#f2f3f9" : "#090b12") : naPaginaEr() ? (efetivo === "light" ? "#f2ecdf" : "#0b0a08") : (efetivo === "light" ? "#ece4d3" : "#16130f"));
+  if (cor) cor.setAttribute("content", naTelaDeJogos() ? (efetivo === "light" ? "#f2f3f9" : "#090b12") : naPaginaEr() ? (efetivo === "light" ? "#ebe3d1" : "#070605") : naPaginaKz() ? (efetivo === "light" ? "#e9e4da" : "#0c0b0d") : (efetivo === "light" ? "#ece4d3" : "#16130f"));
 }
 let savedTheme = null;
 savedTheme = guardado(chaveDoTema());

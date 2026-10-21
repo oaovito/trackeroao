@@ -162,7 +162,7 @@ Passo '4/5  Progresso'
 Etapa 60 '#r_save'
 # Arquivos gerados localmente.
 $estado = @('progress.json', 'deaths.json', 'deaths-mem.json', 'bosskills.json', 'efeitos.json',
-            'selecao.json', 'sync\.state.json', 'arquivo')
+            'selecao.json', 'marcas.json', 'sync\.state.json', 'arquivo')
 $existentes = @($estado | Where-Object { Test-Path (Join-Path $Destino $_) })
 
 if (-not (Test-Path $Destino)) {

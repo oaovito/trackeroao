@@ -35,7 +35,9 @@ function catalogo() {
   try { achados = (require('./biblioteca').ultima() || {}).jogos || []; } catch (e) { achados = []; }
   const lista = base.map((g) => {
     const b = achados.find((a) => a.appId && g.appId && String(a.appId) === String(g.appId));
-    return { ...g, instalado: b ? !!b.instalado : null, fontes: b ? b.fontes : [], popular: b ? b.popular : null,
+    // Executáveis do catálogo mais os achados na pasta do jogo instalado.
+    const processos = [...new Set((g.processos || []).concat(b && b.processos ? b.processos : []))];
+    return { ...g, processos, instalado: b ? !!b.instalado : null, fontes: b ? b.fontes : [], popular: b ? b.popular : null,
       arte: (b && b.arte) || require('./arte').daSteam(g.appId) };
   });
   for (const a of achados) {

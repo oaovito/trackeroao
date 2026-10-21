@@ -2102,6 +2102,90 @@ check('o leitor do save no navegador é o mesmo do serviço', () => {
   return 'ERSave.parse e resumo, com o aviso de licença MIT no topo';
 });
 
+console.log('\n  === 26. Khazan ===');
+const KZ_DADOS = path.join(RAIZ_PROJETO, 'docs', 'app', 'khazan', 'dados.json');
+
+check('os dados do Khazan se conferem: totais, missões, chefes e conquistas', () => {
+  const d = JSON.parse(fs.readFileSync(KZ_DADOS, 'utf8'));
+  assert(d.formato === 1, 'formato do arquivo');
+  const missoes = d.missoes.concat(d.secundarias);
+  const soma = (k) => missoes.reduce((n, m) => n + (m[k] || 0), 0);
+  assert(soma('soulstones') === d.totais.soulstones && d.totais.soulstones === 100, 'Soulstones somam ' + soma('soulstones'));
+  assert(soma('jarlings') === d.totais.jarlings && d.totais.jarlings === 44, 'Jarlings somam ' + soma('jarlings'));
+  assert(soma('golden') === d.totais.golden && d.totais.golden === 15, 'itens dourados somam ' + soma('golden'));
+  assert(d.missoes.length === 16 && d.secundarias.length === 24 && d.conquistas.length === 57, 'contagens de missões ou conquistas');
+  const ids = new Set(missoes.map((m) => m.id));
+  assert(ids.size === missoes.length, 'id de missão repetido');
+  const conq = new Set(d.conquistas.map((c) => c.id));
+  const chefes = new Set(d.chefes.map((c) => c.id));
+  for (const c of d.chefes) assert(ids.has(c.onde), 'chefe ' + c.id + ' numa missão que não existe');
+  for (const m of missoes) for (const c of m.chefes || []) assert(chefes.has(c), 'missão ' + m.id + ' cita o chefe ' + c);
+  for (const x of d.chefes.concat(d.secundarias, d.finais)) assert(!x.conquista || conq.has(x.conquista), 'conquista ' + x.conquista);
+  for (const s of d.secundarias) assert(!s.desbloqueia || !s.desbloqueia.apos || ids.has(s.desbloqueia.apos), 'missão bônus liberada por missão inexistente: ' + s.id);
+  for (const c of d.colecionaveis) for (const i of c.itens || []) assert(!i.onde || ids.has(i.onde), c.id + ': ' + i.id + ' fora das missões');
+  const dour = d.colecionaveis.find((c) => c.id === 'golden-collection');
+  assert(dour && dour.itens.length === 15, 'a Golden Collection não tem 15 itens');
+  return missoes.length + ' missões, ' + d.chefes.length + ' chefes, 100 Soulstones, 44 Jarlings, 15 dourados, ' + d.conquistas.length + ' conquistas';
+});
+
+check('as marcas do Khazan são gravadas sem nada além das chaves', () => {
+  const marcas = require('./marcas');
+  const tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'trackeroao-kz-'));
+  const arq = path.join(tmp, 'marcas.json');
+  try {
+    assert(marcas.ler('khazan', arq).length === 0, 'sem arquivo deveria vir vazio');
+    assert(marcas.ler('sekiro', arq) === null, 'jogo sem página de marcas respondeu');
+    const l = marcas.gravar('khazan', ['missoes:banished-hero', 'chefes:yetuga', 'chefes:yetuga'], arq);
+    assert(l.length === 2 && marcas.ler('khazan', arq).join() === 'chefes:yetuga,missoes:banished-hero', 'gravou ' + JSON.stringify(l));
+    for (const ruim of [['../x'], ['missoes:<b>'], [42], 'missoes:a', new Array(2001).fill('a:b')]) {
+      let recusou = false;
+      try { marcas.gravar('khazan', ruim, arq); } catch (e) { recusou = true; }
+      assert(recusou, 'aceitou ' + JSON.stringify(ruim).slice(0, 40));
+    }
+    let outro = false;
+    try { marcas.gravar('outro', [], arq); } catch (e) { outro = true; }
+    assert(outro, 'gravou marcas de um jogo sem página');
+    assert(marcas.ler('khazan', arq).length === 2, 'uma gravação recusada mexeu no arquivo');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+  const ig = fs.readFileSync(path.join(RAIZ_PROJETO, '.gitignore'), 'utf8');
+  assert(/^\/marcas\.json$/m.test(ig), 'marcas.json não está no .gitignore');
+  const des = fs.readFileSync(path.join(RAIZ_PROJETO, 'windows', 'instalador', 'desinstalar.ps1'), 'utf8');
+  assert(/'marcas\.json'/.test(des), 'o desinstalador não trata marcas.json como progresso');
+  return 'chaves curtas e conferidas, um arquivo por instalação, fora do git';
+});
+
+check('o Khazan entra no catálogo com página de marcas, sem ser vigiado sozinho', () => {
+  const lista = JSON.parse(fs.readFileSync(path.join(__dirname, 'jogos.json'), 'utf8')).lista;
+  const kz = lista.find((g) => g.chave === 'steam-2680010');
+  assert(kz && kz.leitura === 'pagina' && kz.appId === '2680010', 'Khazan fora do catálogo: ' + JSON.stringify(kz));
+  const html = fs.readFileSync(path.join(RAIZ_PROJETO, 'trackeroao.html'), 'utf8');
+  assert(/const CHAVE_KZ = "steam-2680010";/.test(html), 'a página não conhece o Khazan');
+  assert(/function temPagina\(g\) \{ return !!g && \(g\.leitura === "completa" \|\| g\.leitura === "pagina"\); \}/.test(html), 'jogo com marcas não abre página');
+  const jogos = fs.readFileSync(path.join(__dirname, 'jogos.js'), 'utf8');
+  assert(/if \(!esc\) return todos\.filter\(\(g\) => g\.leitura === 'completa'\);/.test(jogos), 'sem escolha, jogos sem leitura passaram a ser vigiados');
+  return 'leitura "pagina", aberta pela tela de jogos';
+});
+
+check('a página do Khazan tem os textos nos doze idiomas', () => {
+  const html = fs.readFileSync(path.join(RAIZ_PROJETO, 'trackeroao.html'), 'utf8');
+  const ini = html.indexOf('const I18N = {');
+  const fim = html.indexOf('\n};\n', ini);
+  const I18N = require('vm').runInNewContext('(' + html.slice(ini + 'const I18N = '.length, fim + 2) + ')');
+  const chaves = Object.keys(I18N.en).filter((k) => /^kz\./.test(k)).concat(['jogos.soMarcas']);
+  assert(chaves.length > 60, 'poucos textos do Khazan: ' + chaves.length);
+  const faltam = [];
+  for (const [idioma, tabela] of Object.entries(I18N)) for (const k of chaves) if (!tabela[k]) faltam.push(idioma + ':' + k);
+  assert(!faltam.length, 'faltam textos: ' + faltam.slice(0, 6).join(', '));
+  const usados = new Set([...html.matchAll(/t\("(kz\.[\w.-]+[\w-])"/g)].map((m) => m[1]));
+  const semTexto = [...usados].filter((k) => !I18N.en[k]);
+  assert(!semTexto.length, 'textos usados e não definidos: ' + semTexto.join(', '));
+  // Nomes do jogo ficam em inglês em todos os idiomas.
+  for (const tabela of Object.values(I18N)) assert(tabela['kz.bloco.soulstones'] === 'Soulstones' && tabela['kz.bloco.dourados'] === 'Golden Collection', 'nome do jogo traduzido');
+  return chaves.length + ' textos em ' + Object.keys(I18N).length + ' idiomas';
+});
+
 /*
  * 6. A página desenha o que o save diz.
  *
@@ -2257,6 +2341,46 @@ check('o leitor do save no navegador é o mesmo do serviço', () => {
     fail++;
     failures.push('o GET /abrir do atalho chega ao processo residente');
     console.log('   FALHA o GET /abrir do atalho chega ao processo residente\n            ' + err.message);
+  }
+
+  {
+    const nome = 'a rota /marcas lê de qualquer aparelho e só grava do próprio computador';
+    const marcas = require('./marcas');
+    const guardado = fs.existsSync(marcas.ARQUIVO) ? fs.readFileSync(marcas.ARQUIVO) : null;
+    try {
+      const serve = require('./serve');
+      const { server } = await serve.start({ root: RAIZ_PROJETO, port: 48000 + Math.floor(Math.random() * 1000), quiet: true });
+      const porta = server.address().port;
+      const pedir = (metodo, caminho, corpo) => new Promise((resolve, reject) => {
+        const req = require('http').request({ host: '127.0.0.1', port: porta, path: caminho, method: metodo, headers: { 'content-type': 'application/json' } }, (res) => {
+          let txt = '';
+          res.on('data', (c) => { txt += c; });
+          res.on('end', () => resolve({ status: res.statusCode, txt }));
+        });
+        req.on('error', reject);
+        req.end(corpo || undefined);
+      });
+      const g1 = await pedir('POST', '/marcas', JSON.stringify({ jogo: 'khazan', marcas: ['missoes:banished-hero'] }));
+      const g2 = await pedir('GET', '/marcas?jogo=khazan');
+      const ruim = await pedir('POST', '/marcas', JSON.stringify({ jogo: 'khazan', marcas: ['missoes:a/b'] }));
+      const outro = await pedir('GET', '/marcas?jogo=sekiro');
+      server.close();
+      if (g1.status !== 200 || JSON.parse(g2.txt).marcas.join() !== 'missoes:banished-hero') throw new Error('gravar e ler: ' + g1.status + ' ' + g2.txt);
+      if (ruim.status !== 400) throw new Error('marca malformada respondeu ' + ruim.status);
+      if (outro.status !== 404) throw new Error('jogo sem marcas respondeu ' + outro.status);
+      const fonte = fs.readFileSync(path.join(__dirname, 'serve.js'), 'utf8');
+      const rota = fonte.slice(fonte.indexOf("if (urlPath === '/marcas')"), fonte.indexOf("if (urlPath === '/selecao')"));
+      if (!/if \(!daMaquina \|\| req\.method !== 'POST'\) \{ res\.writeHead\(403\)/.test(rota)) throw new Error('a gravação não exige o próprio computador');
+      pass++;
+      console.log('   ok    ' + nome + '  -  GET 200, POST local 200, malformado 400, outro jogo 404');
+    } catch (err) {
+      fail++;
+      failures.push(nome);
+      console.log('   FALHA ' + nome + '\n            ' + err.message);
+    } finally {
+      if (guardado) fs.writeFileSync(marcas.ARQUIVO, guardado);
+      else fs.rmSync(marcas.ARQUIVO, { force: true });
+    }
   }
 
   console.log('\n  === 23. O consumo da página ===');

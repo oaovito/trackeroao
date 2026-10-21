@@ -18,8 +18,9 @@ const jogo = (id, nome, o) => Object.assign({
 const LISTA = [
   jogo(814380, 'Sekiro: Shadows Die Twice', { chave: 'sekiro', leitura: 'completa', vigiado: true, recente: 1, andamento: true }),
   jogo(1245620, 'ELDEN RING', { leitura: 'completa', vigiado: true, progresso: 'elden.json', recente: 2, andamento: true }),
-  jogo(367520, 'Hollow Knight', { recente: 3, andamento: false }),
-  jogo(374320, 'DARK SOULS III', { recente: 4, andamento: false }),
+  jogo(2680010, 'The First Berserker: Khazan', { leitura: 'pagina', vigiado: true, recente: 3, andamento: true }),
+  jogo(367520, 'Hollow Knight', { recente: 4, andamento: false }),
+  jogo(374320, 'DARK SOULS III', { recente: 5, andamento: false }),
   jogo(1145360, 'Hades'),
   jogo(1086940, "Baldur's Gate 3"),
   jogo(1091500, 'Cyberpunk 2077', { instalado: false }),
@@ -27,6 +28,16 @@ const LISTA = [
 ];
 
 let progresso = null;
+
+// Marcas de exemplo do Khazan: as primeiras missões e o que há nelas.
+function marcasKhazan() {
+  const d = JSON.parse(fs.readFileSync(path.join(RAIZ, 'docs', 'app', 'khazan', 'dados.json'), 'utf8'));
+  const m = [];
+  for (const x of d.missoes.slice(0, 6)) m.push('missoes:' + x.id, 'soulstones:' + x.id, 'jarlings:' + x.id, ...x.chefes.map((c) => 'chefes:' + c));
+  for (const x of d.secundarias.slice(0, 4)) m.push('secundarias:' + x.id);
+  for (const i of d.colecionaveis.find((c) => c.id === 'golden-collection').itens.slice(0, 3)) m.push('dourados:' + i.id);
+  return m;
+}
 
 // Leitura de exemplo do Elden Ring: uma parte de cada lista, tirada dos próprios dados.
 function leituraElden() {
@@ -54,6 +65,7 @@ async function rotas(pg) {
     if (u.pathname === '/') return r.fulfill({ body: fs.readFileSync(path.join(RAIZ, 'trackeroao.html')), contentType: 'text/html' });
     if (u.pathname === '/progress.json') return r.fulfill({ body: JSON.stringify(progresso), contentType: 'application/json' });
     if (u.pathname === '/elden.json') return r.fulfill({ body: JSON.stringify(leituraElden()), contentType: 'application/json' });
+    if (u.pathname === '/marcas') return r.fulfill({ body: JSON.stringify({ jogo: 'khazan', marcas: marcasKhazan() }), contentType: 'application/json' });
     if (u.pathname === '/jogos.json') return r.fulfill({ body: JSON.stringify(progresso.jogosVigiados), contentType: 'application/json' });
     if (u.pathname === '/qr.svg') return r.fulfill({ body: require(path.join(RAIZ, 'sync', 'qr')).svg('http://trackeroao.local:8777/'), contentType: 'image/svg+xml' });
     if (u.pathname === '/android.apk') return r.fulfill({ status: 200, body: '' });
@@ -73,6 +85,8 @@ async function main() {
     { arq: 'computador/sekiro.png', hash: 'sekiro', w: 1320, h: 860 },
     { arq: 'computador/eldenring.png', hash: 'steam-1245620', w: 1320, h: 860 },
     { arq: 'computador/eldenring-lista.png', hash: 'steam-1245620', w: 1320, h: 860, bloco: 'chefes' },
+    { arq: 'computador/khazan.png', hash: 'steam-2680010', w: 1320, h: 860 },
+    { arq: 'computador/khazan-lista.png', hash: 'steam-2680010', w: 1320, h: 860, kz: 'missoes' },
     { arq: 'computador/todos.png', hash: 'all', w: 1320, h: 860 },
     // As mesmas telas no celular, em pé: um aparelho grande e um pequeno.
     { arq: 'celular/inicio.png', hash: '', w: 390, h: 844, escala: 2 },
@@ -80,6 +94,7 @@ async function main() {
     { arq: 'celular/todos.png', hash: 'all', w: 390, h: 844, escala: 2 },
     { arq: 'celular/sekiro.png', hash: 'sekiro', w: 390, h: 844, escala: 2 },
     { arq: 'celular/eldenring.png', hash: 'steam-1245620', w: 390, h: 844, escala: 2 },
+    { arq: 'celular/khazan.png', hash: 'steam-2680010', w: 390, h: 844, escala: 2 },
     { arq: 'computador/qr.png', hash: '', w: 1320, h: 860, qr: true },
   ];
   for (const t of telas) {
@@ -87,7 +102,7 @@ async function main() {
     await c.addInitScript(() => {
       try {
         // Nenhuma marca de "novo" nas amostras: tudo já é conhecido.
-        localStorage.setItem('trackeroao-instalados-conhecidos', JSON.stringify(['sekiro', 'steam-1245620', 'steam-367520', 'steam-374320', 'steam-1145360', 'steam-1086940']));
+        localStorage.setItem('trackeroao-instalados-conhecidos', JSON.stringify(['sekiro', 'steam-1245620', 'steam-2680010', 'steam-367520', 'steam-374320', 'steam-1145360', 'steam-1086940']));
       } catch (e) { /* sem armazenamento */ }
     });
     const pg = await c.newPage();
@@ -105,6 +120,12 @@ async function main() {
       await pg.click('.er-bloco[data-er="' + t.bloco + '"]');
       await pg.waitForTimeout(1200);
       await pg.click('#erLista li:first-child .er-linha').catch(() => {});
+      await pg.waitForTimeout(400);
+    }
+    if (t.kz) {
+      await pg.click('.kz-bloco[data-kz="' + t.kz + '"]');
+      await pg.waitForTimeout(1200);
+      await pg.click('#kzLista li:first-child .kz-linha').catch(() => {});
       await pg.waitForTimeout(400);
     }
     fs.mkdirSync(path.dirname(path.join(SAIDA, t.arq)), { recursive: true });
@@ -201,6 +222,31 @@ async function main() {
   }
   if (falhasEr.length) { console.error('página do Elden Ring com problema:\n  ' + falhasEr.join('\n  ')); process.exitCode = 1; }
   else console.log('  Elden Ring: sem rolagem, mortes do save e lista paginada');
+
+  // Página do Khazan: o mesmo, com as marcas vindas do computador.
+  const falhasKz = [];
+  for (const [w, h] of [[1920, 1080], [1320, 860], [1305, 760], [1280, 600], [1044, 684], [900, 560], [390, 844]]) {
+    const c = await b.newContext({ viewport: { width: w, height: h }, colorScheme: 'dark' });
+    const pg = await c.newPage();
+    await rotas(pg);
+    await pg.goto((w < 641 ? CELULAR : PC) + '#steam-2680010');
+    await pg.waitForTimeout(2500);
+    const r = await pg.evaluate(() => ({
+      rola: document.documentElement.scrollHeight > innerHeight + 1,
+      missoes: ((document.getElementById('kzMissoesNum') || {}).textContent || '').replace(/\s/g, ''),
+      corta: [...document.querySelectorAll('.kz-bloco')].some((e) => e.getBoundingClientRect().bottom > innerHeight + 1),
+    }));
+    await pg.click('.kz-bloco[data-kz="chefes"]').catch(() => {});
+    await pg.waitForTimeout(1200);
+    const lista = await pg.evaluate(() => {
+      const l = document.getElementById('kzLista');
+      return { linhas: l ? l.children.length : 0, rola: document.documentElement.scrollHeight > innerHeight + 1, sobra: l ? l.scrollHeight > l.clientHeight + 1 : true };
+    });
+    if (r.rola || r.corta || r.missoes !== '10/40' || !lista.linhas || lista.rola || lista.sobra) falhasKz.push(`${w}x${h}: ${JSON.stringify({ ...r, lista })}`);
+    await c.close();
+  }
+  if (falhasKz.length) { console.error('página do Khazan com problema:\n  ' + falhasKz.join('\n  ')); process.exitCode = 1; }
+  else console.log('  Khazan: sem rolagem, marcas do computador e lista paginada');
 
   // O passo a passo do iOS, que o código QR do iPhone abre.
   const c = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: 'pt-BR' });

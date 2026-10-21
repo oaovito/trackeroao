@@ -41,6 +41,10 @@ progresso de `docs/progress.json` e uma lista fixa de jogos populares.
 
 ![A lista de chefes do Elden Ring, com o detalhe do chefe escolhido](docs/amostras/computador/eldenring-lista.png)
 
+![A página do Khazan, com as missões concluídas, as coletas e os blocos de consulta](docs/amostras/computador/khazan.png)
+
+![A lista de missões principais do Khazan, com o detalhe da missão escolhida](docs/amostras/computador/khazan-lista.png)
+
 ![A lista completa de jogos, dividida entre os que estão no computador e os que não estão](docs/amostras/computador/todos.png)
 
 ![A janela do código QR para levar o Trackeroao ao celular](docs/amostras/computador/qr.png)
@@ -49,7 +53,9 @@ No celular, as mesmas telas em pé:
 
 <img src="docs/amostras/celular/inicio.png" alt="A tela inicial no celular" width="240"> <img src="docs/amostras/celular/inicio-pequeno.png" alt="A tela inicial num celular de tela pequena" width="240"> <img src="docs/amostras/celular/todos.png" alt="A lista completa de jogos no celular" width="240">
 
-<img src="docs/amostras/celular/sekiro.png" alt="A página de progresso do Sekiro no celular" width="240"> <img src="docs/amostras/celular/eldenring.png" alt="A página do Elden Ring no celular" width="240"> <img src="docs/amostras/celular/ios.png" alt="O passo a passo para instalar o aplicativo de iOS" width="240">
+<img src="docs/amostras/celular/sekiro.png" alt="A página de progresso do Sekiro no celular" width="240"> <img src="docs/amostras/celular/eldenring.png" alt="A página do Elden Ring no celular" width="240"> <img src="docs/amostras/celular/khazan.png" alt="A página do Khazan no celular" width="240">
+
+<img src="docs/amostras/celular/ios.png" alt="O passo a passo para instalar o aplicativo de iOS" width="240">
 
 ## Requisitos
 
@@ -213,6 +219,12 @@ mapas** (mapa, chefes, locais e NPCs) e **Guias e builds** (finais, missões
 secundárias e rotas sugeridas). Todo o conteúdo considera o jogo base e a
 expansão Shadow of the Erdtree, identificada em cada registro.
 
+O visual da página acompanha os menus do próprio jogo: painéis escuros e
+translúcidos de cantos retos, filetes dourados que se dissolvem nas pontas,
+ornamentos em losango, o item em foco destacado por uma faixa de luz dourada e
+tipografia serifada (Cormorant Garamond e EB Garamond). O total de mortes usa o
+vermelho do aviso de morte do jogo.
+
 Cada bloco abre uma janela com a lista à esquerda e o detalhe do registro
 escolhido à direita. A lista é paginada pelo espaço disponível, sem rolagem, e
 pode ser filtrada por nome, por tipo ou região, pelo que já foi obtido e pelo
@@ -252,6 +264,43 @@ em oito arquivos carregados somente quando a página é aberta. Nomes de itens,
 chefes e lugares aparecem como o jogo os escreve; as descrições do jogo ficam
 em inglês, e os textos próprios do Trackeroao têm versão em inglês e em
 português.
+
+## The First Berserker: Khazan
+
+A página do Khazan segue a estrutura do próprio jogo, organizado em missões
+escolhidas a partir de The Crevice, e não em um mundo aberto. O painel lateral
+mostra as missões concluídas (as dezesseis principais e as vinte e quatro
+bônus) e as três coletas que o jogo contabiliza: as 100 Soulstones, os 44
+Jarlings e os 15 itens da Golden Collection. Os treze blocos de consulta ficam
+em quatro grupos: **Campanha** (missões principais, missões bônus, finais e
+modos), **Combate** (chefes, armas, habilidades e Phantoms), **Equipamento**
+(sets de armadura, materiais de chefe e Golden Collection) e **Coletáveis**
+(Soulstones, Jarlings, itens-chave e as 57 conquistas).
+
+Cada registro remete aos que se relacionam com ele: uma missão leva aos seus
+chefes, às coletas que contém e às missões bônus que libera; um chefe leva à
+missão em que aparece, ao set de armadura e ao material que deixa e à
+conquista correspondente. O final verdadeiro indica quantos dos 15 itens da
+Golden Collection já foram marcados, pois todos são necessários para alcançá-lo.
+
+O visual é próprio do jogo: ferro escuro, osso e vermelho-sangue, cantos
+cortados na diagonal, barras de progresso em forma de lâmina e o nome KHAZAN em
+capitulares cinzeladas (Cinzel), com rótulos em Barlow Condensed.
+
+O formato do save do Khazan ainda não tem uma leitura conferida pelo
+Trackeroao. Por isso, o progresso é **marcado pelo jogador** na própria
+página, em cada registro. As marcas ficam no computador que executa o serviço,
+em `marcas.json`, fora do git, e qualquer aparelho da rede local as lê; marcar
+e desmarcar, como a escolha de jogos, só é possível no próprio computador.
+Aberta sem o serviço, a página guarda as marcas no navegador. Os textos de
+referência ficam em `docs/app/khazan/dados.json`, carregado somente quando a
+página é aberta; nomes de missões, chefes e itens aparecem como o jogo os
+escreve.
+
+| Item | Origem | Confiança |
+|---|---|---|
+| Missões, chefes, coletas, equipamentos e conquistas | marcas do jogador | a do registro feito |
+| Totais, ligações entre registros e requisitos | guias públicos do jogo | média |
 
 ## Extensão do navegador
 
@@ -370,7 +419,7 @@ trackeroao/
   README.md
   docs/
     amostras/           imagens de preview deste README (computador e celular)
-    app/                ícones do aplicativo e dados do Elden Ring (eldenring/)
+    app/                ícones do aplicativo e dados do Elden Ring e do Khazan
     celular/
       android/          aplicativo de Android
       ios/              aplicativo de iOS (Swift)
@@ -386,6 +435,7 @@ trackeroao/
     offsets.json        IDs e offsets
     mem.ps1             leitor de memória (somente leitura)
     serve.js            servidor local
+    marcas.js           progresso marcado na página (Khazan)
     icone.js            ícone de cada jogo para o menu da bandeja
     atualizar.js        atualização automática
     selftest.js         suíte de testes

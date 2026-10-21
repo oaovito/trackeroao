@@ -238,7 +238,7 @@ function createServer(options) {
           // Executável do jogo, de onde a bandeja extrai o ícone.
           let exe = '';
           try { exe = require('./biblioteca').executavelDoJogo(doCatalogo(g)) || ''; } catch (e) { exe = ''; }
-          return [g.chave, g.nome, g.leitura === 'completa' ? '1' : '0', exe].map((v) => String(v).replace(/[\t\r\n]/g, ' ')).join('\t');
+          return [g.chave, g.nome, g.leitura === 'completa' || g.leitura === 'pagina' ? '1' : '0', exe].map((v) => String(v).replace(/[\t\r\n]/g, ' ')).join('\t');
         });
       res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
       res.end(linhas.join('\n'));
@@ -337,6 +337,33 @@ function createServer(options) {
           const jogador = require('./jogador');
           jogador.escolher(JSON.parse(corpo).nick);
           res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(jogador.quem()));
+        } catch (e) {
+          res.writeHead(400, { 'content-type': 'application/json' }).end('{"erro":"pedido malformado"}');
+        }
+      });
+      return;
+    }
+
+    // Progresso marcado pelo jogador (Khazan). Qualquer aparelho da rede lê;
+    // marcar, como escolher jogos, só no próprio computador.
+    if (urlPath === '/marcas') {
+      const marcas = require('./marcas');
+      const jogo = new URL(req.url || '/', 'http://x').searchParams.get('jogo');
+      if (req.method === 'GET') {
+        const l = marcas.ler(jogo);
+        if (!l) { res.writeHead(404, { 'content-type': 'application/json' }).end('{"erro":"jogo sem marcas"}'); return; }
+        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ jogo, marcas: l }));
+        return;
+      }
+      const daMaquina = daPropriaMaquina(req);
+      if (!daMaquina || req.method !== 'POST') { res.writeHead(403).end('forbidden'); return; }
+      let corpo = '';
+      req.on('data', (c) => { corpo += c; if (corpo.length > 131072) req.destroy(); });
+      req.on('end', () => {
+        try {
+          const pedido = JSON.parse(corpo);
+          const l = marcas.gravar(pedido.jogo, pedido.marcas);
+          res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jogo: pedido.jogo, marcas: l }));
         } catch (e) {
           res.writeHead(400, { 'content-type': 'application/json' }).end('{"erro":"pedido malformado"}');
         }

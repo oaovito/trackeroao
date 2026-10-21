@@ -10,6 +10,8 @@
 /deaths-mem.json
 /bosskills.json
 /efeitos.json
+# Progresso marcado na página dos jogos sem leitura do save.
+/marcas.json
 sync/.state.json
 sync/.ausente.flag
 
