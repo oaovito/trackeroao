@@ -19,11 +19,11 @@
       "screenshots": [],
       "versions": [
         {
-          "version": "1.11.1",
-          "buildVersion": "1.11.1",
-          "date": "2026-11-05T17:37:48.892Z",
-          "localizedDescription": "Instalador do Trackeroao para Windows e aplicativo de Android. No computador,\r\nbaixe o `trackeroao-instalador.exe` e dê dois cliques; quem já está na v1.5.0 ou\r\nposterior recebe esta versão sozinho. No celular Android, baixe o\r\n`trackeroao.apk` e abra o arquivo para instalar.\r\n\r\n## O que mudou nesta versão\r\n\r\n**Base de jogos atualizada.** A lista de jogos que a varredura usa para\r\nreconhecer o que está instalado no computador foi refeita, agora com 198.420\r\njogos. Nenhuma outra mudança.\r\n\r\n## Requisitos\r\n\r\nWindows 10 ou 11, em qualquer idioma. O Node.js é resolvido pelo próprio\r\ninstalador. No celular, Android 7 ou posterior; no iPhone e no iPad, iOS 15 ou\r\nposterior, com o SideStore.",
-          "downloadURL": "https://github.com/oaovito/trackeroao/releases/download/v1.11.1/trackeroao.ipa",
+          "version": "1.11.2",
+          "buildVersion": "1.11.2",
+          "date": "2026-11-20T17:55:36.151Z",
+          "localizedDescription": "Instalador do Trackeroao para Windows e aplicativo de Android. No computador,\r\nbaixe o `trackeroao-instalador.exe` e dê dois cliques; quem já está na v1.5.0 ou\r\nposterior recebe esta versão sozinho. No celular Android, baixe o\r\n`trackeroao.apk` e abra o arquivo para instalar.\r\n\r\n## O que mudou nesta versão\r\n\r\n**Base de jogos atualizada.** A lista de jogos que a varredura usa para\r\nreconhecer o que está instalado no computador foi refeita, agora com 201.404\r\njogos. Nenhuma outra mudança.\r\n\r\n## Requisitos\r\n\r\nWindows 10 ou 11, em qualquer idioma. O Node.js é resolvido pelo próprio\r\ninstalador. No celular, Android 7 ou posterior; no iPhone e no iPad, iOS 15 ou\r\nposterior, com o SideStore.",
+          "downloadURL": "https://github.com/oaovito/trackeroao/releases/download/v1.11.2/trackeroao.ipa",
           "size": 85747,
           "minOSVersion": "15.0"
         }
